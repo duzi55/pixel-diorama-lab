@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+
+# 依赖与构建产物
+node_modules/
+dist/
+build/
+
+# 本地运行产物
+*.log
+.godot-mcp/
+
+# 临时文件
+*.tmp
+*.bak

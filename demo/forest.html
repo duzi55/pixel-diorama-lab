@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>翠绿小树林 · Pixel Diorama</title>
+<style>
+  :root { --ink: #1c1b19; --muted: #8b877f; --paper: #fff; --line: #e6e2d9; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--paper); color: var(--ink); }
+  body { font: 13px/1.4 ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace; overflow: hidden; }
+  #stage { position: fixed; inset: 0 0 64px 0; display: grid; place-items: center; }
+  canvas { display: block; image-rendering: pixelated; touch-action: none; }
+  #hud { position: fixed; left: max(16px, env(safe-area-inset-left)); top: max(14px, env(safe-area-inset-top)); pointer-events: none; }
+  #hud h1 { margin: 0 0 4px; font-size: 13px; font-weight: 600; letter-spacing: .02em; }
+  #hud p { margin: 0; color: var(--muted); }
+  #panel { position: fixed; left: 0; right: 0; bottom: 0; height: 64px; display: flex; align-items: center; justify-content: center; gap: 26px; padding: 0 16px; border-top: 1px solid var(--line); background: var(--paper); }
+  .row { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+  .row span { color: var(--muted); }
+  .row b { min-width: 3.2ch; font-weight: 500; font-variant-numeric: tabular-nums; }
+  input[type="range"] { width: 120px; accent-color: var(--ink); }
+  select { font: inherit; padding: 4px 6px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); }
+  button { font: inherit; padding: 6px 14px; border: 1px solid var(--ink); background: var(--paper); color: var(--ink); cursor: pointer; }
+  button:hover { background: var(--ink); color: var(--paper); }
+  @media (max-width: 720px) {
+    #panel { height: auto; flex-wrap: wrap; gap: 10px 18px; padding: 10px 14px; }
+    #stage { inset: 0 0 116px 0; }
+    input[type="range"] { width: 90px; }
+  }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="c" aria-label="程序化生成的翠绿小树林"></canvas></div>
+
+<div id="hud">
+  <h1>翠绿小树林</h1>
+  <p>等距像素 · 程序化生成 · <span id="trees">…</span> 棵树</p>
+</div>
+
+<div id="panel">
+  <label class="row"><span>树数量</span><input id="count" type="range" min="20" max="90" value="64"><b id="countV">64</b></label>
+  <label class="row"><span>树冠大小</span><input id="crown" type="range" min="0.7" max="1.4" step="0.05" value="1"><b id="crownV">1.00</b></label>
+  <label class="row"><span>配色</span>
+    <select id="palette">
+      <option value="fresh">翠绿</option>
+      <option value="deep">深绿</option>
+      <option value="autumn">秋黄</option>
+    </select>
+  </label>
+  <button id="regen">换一片</button>
+</div>
+
+<script>window.PP_SCALE = 9; window.PP_ORIGIN_Y = 8;</script>
+<script src="engine.js"></script>
+<script src="forest.js"></script>
+</body>
+</html>

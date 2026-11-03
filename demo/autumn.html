@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>秋日野餐 · Pixel Diorama</title>
+<style>
+  :root { --ink: #2a2118; --muted: #9a8b78; --paper: #faf4e8; --line: #e8dfcc; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--paper); color: var(--ink); }
+  body { font: 13px/1.4 ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace; overflow: hidden; }
+  #stage { position: fixed; inset: 0; display: grid; place-items: center; }
+  canvas { display: block; image-rendering: pixelated; touch-action: none; }
+  #hud { position: fixed; left: max(16px, env(safe-area-inset-left)); top: max(14px, env(safe-area-inset-top)); pointer-events: none; }
+  #hud h1 { margin: 0 0 4px; font-size: 13px; font-weight: 600; letter-spacing: .02em; }
+  #hud p { margin: 0; color: var(--muted); }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="c" aria-label="程序化生成的秋日野餐等距像素场景"></canvas></div>
+
+<div id="hud">
+  <h1>秋日野餐</h1>
+  <p>等距像素 · 程序化生成 · 风动落叶</p>
+</div>
+
+<script>window.PP_SCALE = 24; window.PP_ORIGIN_Y = 15;</script>
+<script src="engine.js"></script>
+<script src="autumn.js"></script>
+</body>
+</html>

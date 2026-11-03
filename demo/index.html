@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Pixel Diorama · 最小 Demo</title>
+<style>
+  :root { --ink: #1c1b19; --muted: #8b877f; --paper: #fff; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--paper); color: var(--ink); }
+  body { font: 13px/1.4 ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace; overflow: hidden; }
+  #stage { position: fixed; inset: 0; display: grid; place-items: center; }
+  canvas { display: block; image-rendering: pixelated; touch-action: none; cursor: grab; outline: none; }
+  canvas:active { cursor: grabbing; }
+  #hud { position: fixed; left: max(16px, env(safe-area-inset-left)); top: max(14px, env(safe-area-inset-top)); pointer-events: none; }
+  #hud h1 { margin: 0 0 4px; font-size: 13px; font-weight: 600; letter-spacing: .02em; }
+  #hud p { margin: 0; color: var(--muted); }
+  #reset { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); font: inherit; color: var(--muted); background: var(--paper); border: 1px solid #d9d5cc; padding: 7px 12px; cursor: pointer; }
+  #reset:hover, #reset:focus-visible { color: var(--ink); border-color: var(--ink); outline: none; }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="c" tabindex="0" aria-label="等距像素小岛，可拖动蓝色小球"></canvas></div>
+<div id="hud">
+  <h1>Pixel Diorama</h1>
+  <p>拖动蓝色小球 · 观察阴影与遮挡</p>
+</div>
+<button id="reset">重置</button>
+<script src="engine.js"></script>
+<script src="demo.js"></script>
+</body>
+</html>

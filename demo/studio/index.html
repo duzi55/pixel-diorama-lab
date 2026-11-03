@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Studio · 构件生成</title>
+<link rel="stylesheet" href="studio.css">
+</head>
+<body>
+<header class="bar">
+  <nav class="tabs">
+    <a class="tab active" href="index.html">生成</a>
+    <a class="tab" href="editor.html">编辑器</a>
+  </nav>
+  <div class="bar-note" id="status">就绪</div>
+</header>
+
+<main class="gen">
+  <section class="left">
+    <h1>生成构件</h1>
+    <p class="hint">描述你想要的构件，AI 按项目规范（<code>docs/kit/</code>）写代码。
+       预览满意后点「确认保存」，会同时写入代码、注册表和配方卡。</p>
+
+    <label class="field">
+      <span>需求描述</span>
+      <textarea id="prompt" rows="5" placeholder="例：一棵带红色果子的矮苹果树，树冠扁圆，有细直树干"></textarea>
+    </label>
+
+    <label class="field">
+      <span>分类</span>
+      <select id="category">
+        <option value="">不限</option>
+        <option value="tree">树</option>
+        <option value="building">建筑</option>
+        <option value="plant">草木</option>
+        <option value="prop">道具</option>
+        <option value="figure">人物</option>
+      </select>
+    </label>
+
+    <label class="field">
+      <span>补充说明<em>（可选）</em></span>
+      <textarea id="note" rows="2" placeholder="例：高度 2.5 左右，果实要红"></textarea>
+    </label>
+
+    <div class="actions">
+      <button id="btn-gen" class="primary">生成</button>
+      <button id="btn-save" disabled>确认保存</button>
+      <label class="chk"><input type="checkbox" id="overwrite">覆盖同名构件</label>
+    </div>
+
+    <div class="examples">
+      <span>试试：</span>
+      <button class="ex" data-p="一盏挂在木杆上的铁皮路灯，晚上亮着暖光">路灯</button>
+      <button class="ex" data-p="一座两层的石头磨坊，有一个转动的石磨盘">磨坊</button>
+      <button class="ex" data-p="一只木制的手推车，车斗装满苹果">手推车</button>
+      <button class="ex" data-p="一丛低矮的薰衣草花田，紫色花穗">薰衣草</button>
+    </div>
+  </section>
+
+  <section class="right">
+    <div class="preview-head">
+      <h2>预览</h2>
+      <div class="prev-tools">
+        <label class="chk"><input type="checkbox" id="spin" checked>旋转</label>
+        <label class="chk"><input type="checkbox" id="showbox" checked>碰撞体</label>
+        <button id="btn-reload" class="ghost">重载</button>
+      </div>
+    </div>
+    <div class="preview" id="preview">
+      <div class="empty" id="preview-empty">还没有构件</div>
+      <iframe id="frame" title="构件预览" sandbox="allow-scripts"></iframe>
+    </div>
+
+    <details class="code" id="code-box" open>
+      <summary>生成代码</summary>
+      <pre id="code"></pre>
+    </details>
+    <details class="code">
+      <summary>AI 说明</summary>
+      <pre id="notes"></pre>
+    </details>
+  </section>
+</main>
+
+<script src="studio.js"></script>
+<script src="gen.js"></script>
+</body>
+</html>

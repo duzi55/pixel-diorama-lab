@@ -1,0 +1,20 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
+<title>terrain integration</title></head><body>
+<canvas id="c"></canvas>
+<script>window.PP_W=300;window.PP_H=520;window.PP_SCALE=9;window.PP_ORIGIN_X=0;window.PP_ORIGIN_Y=10;</script>
+<script src="../engine.js"></script>
+<script src="palette.js"></script>
+<script src="terrain.js"></script>
+<script>
+/* 按 CONTRACT §12 的调用顺序，只跑 terrain 相关的部分，
+   验证 bakeTerrain/scatterLitter 与引擎设施（草、阴影、AO）兼容 */
+zb.fill(-1e9); pix.fill(SKY); ground.fill(0); kinds.fill(KIND_NONE); shadowMask.fill(0);
+bakeTerrain();
+scatterLitter();
+groundZ.set(zb);
+growGrass(.22, GRASS);
+staticShadow.set(shadowMask);
+applyShadows(groundZ);
+drawTufts(0);
+ctx.putImageData(image,0,0);
+</script></body></html>

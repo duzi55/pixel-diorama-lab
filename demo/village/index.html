@@ -1,0 +1,21 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>秋日山村</title></head><body>
+<canvas id="c"></canvas>
+<script>window.PP_W=300;window.PP_H=520;window.PP_SCALE=9;window.PP_ORIGIN_X=0;window.PP_ORIGIN_Y=10;</script>
+<script src="../engine.js"></script>
+<script src="palette.js"></script>
+<script src="road.js"></script>
+<script>
+zb.fill(-1e9); pix.fill(SKY); ground.fill(0);
+for (let iy=0;iy<H;iy++) for (let ix=0;ix<W;ix++) {
+  const g = unproject(ix+.5, iy+.5), i = iy*W+ix;
+  pix[i] = rgb(190,150,70); ground[i]=1; zb[i]=(g.x+g.y)/R2*COS;
+}
+groundZ.set(zb);
+Road.drawRoadSurface();
+Road.drawRoadEdge();
+Road.drawRoadMarkings();
+makeCar();
+for (let f=0;f<8;f++) updateCar(f/12, 1/12);
+drawCar(0);
+ctx.putImageData(image,0,0);
+</script></body></html>
