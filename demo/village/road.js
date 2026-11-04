@@ -175,7 +175,7 @@
     const P = f.P;
     /* 车身整体缩放：跟着路宽走，路窄车小、路宽车大，比例始终一致。
        基准 halfW = 2.4（契约 §2 写的 3.1 时车会略大，仍在沥青内）。 */
-    const k = clamp(cfg().halfW / 2.4, .7, 1.25);
+    const k = clamp(cfg().halfW / 1.05, .9, 2.0);   // 车长 ≈ 路宽的 2.4 倍（参考图比例）
     const ball = (a, b, h, r, col, mode) => {
       const p = P(a * k, b * k, h * k);
       sphere(p[0], p[1], p[2], r * k, col, mode);

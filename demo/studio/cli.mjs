@@ -7,6 +7,9 @@
  * ------------------------------------------------------------------ */
 
 import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
+const require_ = createRequire(import.meta.url);
+function await_fs() { return require_('node:fs'); }
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getConfig } from './config.mjs';
@@ -15,7 +18,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_DIR = path.resolve(__dirname, '..', '..');
 
 /* 跑 claude CLI，拿结构化输出（流式：onEvent 回调把每条 CLI 事件转发给进度条） */
-export function runClaude(prompt, schema, onEvent) {
+export function runClaude(prompt, schema, onEvent, images) {
   const cfg = getConfig();
   return new Promise((resolve, reject) => {
     const args = [
@@ -31,7 +34,34 @@ export function runClaude(prompt, schema, onEvent) {
     if (cfg.model) args.push('--model', cfg.model);
     if (cfg.effort) args.push('--effort', cfg.effort);
 
-    const child = spawn('claude', args, { cwd: REPO_DIR, env: { ...process.env } });
+    /* 参考图：写到临时目录，提示词里引导 AI 读图。
+       CLI 的图片输入走「提示词中引用本地图」，--restricted 下用 Read 工具，
+       所以这里不传 --tools ''，改传允许 Read 一张图的窄白名单。 */
+    let imageNote = '';
+    if (Array.isArray(images) && images.length) {
+      const fs = await_fs();
+      const dir = path.join(REPO_DIR, 'demo', 'studio', '.ref-images');
+      fs.mkdirSync(dir, { recursive: true });
+      const paths = [];
+      images.forEach((dataUrl, k) => {
+        const m = /^data:image\/(png|jpeg|jpg|webp);base64,(.+)$/.exec(dataUrl);
+        if (!m) return;
+        const ext = m[1] === 'jpeg' ? 'jpg' : m[1];
+        const p = path.join(dir, `ref-${Date.now()}-${k}.${ext}`);
+        fs.writeFileSync(p, Buffer.from(m[2], 'base64'));
+        paths.push(p);
+      });
+      if (paths.length) {
+        imageNote = '\n\n## 参考图\n用户附了参考图（用 Read 工具查看）：\n'
+          + paths.map(p => `- ${p}`).join('\n')
+          + '\n请先读图，从图中提取形态/配色/构图特征，再按规范实现。';
+        /* 允许 Read 工具读参考图（其余工具仍禁用） */
+        args.splice(args.indexOf('--tools') + 2, 0, '--allowedTools', 'Read');
+      }
+    }
+    const fullPrompt = prompt + imageNote;
+
+    const child = spawn('claude', args.slice(0, args.indexOf('-p') + 1).concat([fullPrompt], args.slice(args.indexOf('-p') + 1)), { cwd: REPO_DIR, env: { ...process.env } });
 
     const timer = setTimeout(() => {
       child.kill('SIGKILL');

@@ -258,7 +258,10 @@ function applyShadows(refZ) {
        参考图里路面干净、只有路缘外的地面吃影 ——
        塔林/房屋的影子若染上路，公路会被淹没读不出来 */
     if (kinds[i] === KIND_NONE) continue;
-    if (s === 1) tint(i, .54, .52, .72);
+    /* 四档：1 常规 / 2 深（接触影）/ 3 轻（晴天植物影）/ 4 极轻（远景柔影） */
+    if (s === 4) tint(i, .90, .88, .93);
+    else if (s === 3) tint(i, .82, .80, .88);
+    else if (s === 1) tint(i, .62, .60, .78);
     else tint(i, .36, .34, .56);
   }
 }
@@ -472,9 +475,11 @@ function drawArrow(sx, sy, time) {
 }
 
 function fit() {
-  const dpr = window.devicePixelRatio || 1;
+  /* ★ 整数倍缩放：像素艺术只在整数倍下保持锐利（分数倍会出现
+     1px/2px 混杂的"毛边"）。窗口过大时封顶 3 倍，过小时退化为
+     等比缩小（保持完整可见，不裁剪）。 */
   const fitScale = Math.min(window.innerWidth / W, window.innerHeight / H);
-  const scale = Math.max(1, Math.min(2.5, fitScale));
+  const scale = fitScale >= 1 ? Math.min(3, Math.floor(fitScale)) : fitScale;
   canvas.style.width = Math.round(W * scale) + 'px';
   canvas.style.height = Math.round(H * scale) + 'px';
 }

@@ -256,7 +256,7 @@ const x = (sum + dxy) / 2, y = (sum - dxy) / 2;
 
 > 历史教训：v1 团块簇（读作"橄榄球堆"）→ v2 稀疏层盘 + 云朵描边（读作"鱼鳞片"）
 > → **v3 锥树构件**：`demo/kit/conifers.js` 的 `cone-mast` / `cone-spire`
-> （配方卡见 [trees.md §5.7-5.8](trees.md#57-cone-mast-巨层塔树秋日山村背景林--已实现)）。
+> （配方卡见 [trees.md §5.7-5.8](trees.md#57-cone-mast-巨层塔树秋日山村--已实现)）。
 
 远景树海不再自己画树，按排组装构件实例：
 

@@ -275,3 +275,118 @@ KIT.register({
     ctx.shadow(spread * 0.95, 1, 0.5);
   }
 });
+
+/* ---- 樱花树 · sakura ---- */
+KIT.register({
+  id: 'sakura',
+  name: '樱花树',
+  category: 'tree',
+  desc: '矮壮紫褐主干向四周横展伞形枝，粉白花团压满枝头，花瓣持续旋转飘落',
+  params: {
+    height:    { def: 3.6, min: 2.4, max: 5.6, step: 0.1, desc: '树高' },
+    spread:    { def: 1.0, min: 0.6, max: 1.6, step: 0.05, desc: '冠幅展开半径' },
+    bloom:     { def: 1.0, min: 0.4, max: 1.8, step: 0.1, desc: '花团饱满度' },
+    petals:    { def: 18,  min: 0,   max: 40,  step: 1, desc: '飘落花瓣数量（0 = 静态）' },
+    fallSpeed: { def: 0.55, min: 0.2, max: 1.2, step: 0.05, desc: '花瓣下落速度' },
+    blush:     { def: 0.5, min: 0,   max: 1,   step: 0.05, desc: '花色深浅：0 近白，1 深粉' }
+  },
+  collision: { type: 'cylinder', radius: 0.3, height: 3.4 },
+  draw(ctx, inst) {
+    const p = ctx.params;
+    const H = p.height, S = p.spread;
+    const cx = ctx.x, cy = ctx.y, cz = ctx.z;
+    const bh = H * 0.36;
+    const topZ = cz + bh;
+    const bl = ctx.clamp(p.blush, 0, 1);
+
+    // 枝干：紫褐三档（每通道差 15~20，抖动不会出彩点）
+    const BARK = [78, 60, 64], BARK_HI = [98, 78, 82], BARK_LO = [60, 45, 50];
+    // 花色：随 blush 在白粉与深粉之间线性插值，保持色相不跑
+    const BLOOM_HI  = [Math.round(246 - 6 * bl),  Math.round(226 - 30 * bl), Math.round(232 - 20 * bl)];
+    const BLOOM_MID = [Math.round(234 - 8 * bl),  Math.round(204 - 32 * bl), Math.round(216 - 22 * bl)];
+    const BLOOM_LO  = [Math.round(212 - 14 * bl), Math.round(176 - 34 * bl), Math.round(192 - 20 * bl)];
+
+    // —— 主干：矮壮、顶端微微侧倾 ——
+    const tx = cx + (ctx.hash(1, ctx.seed) - 0.5) * 0.2;
+    const ty = cy + (ctx.hash(2, ctx.seed) - 0.5) * 0.14;
+    const tr = 0.15 + H * 0.026;
+    ctx.sphere(cx, cy, cz + 0.06, tr * 1.3, BARK_LO, 'rough');
+    ctx.capsule([cx, cy, cz], [tx, ty, topZ], tr, tr * 0.62,
+      z => (z > cz + bh * 0.55 ? BARK_HI : BARK), 'rough');
+
+    // —— 四根近水平横展主枝：樱花标志性的伞形骨架 ——
+    for (let i = 0; i < 4; i++) {
+      const ang = (i / 4) * Math.PI * 2 + ctx.hash(i + 3, ctx.seed) * 0.6;
+      const len = S * (1.15 + ctx.hash(i + 13, ctx.seed) * 0.5);
+      const ex = tx + Math.cos(ang) * len;
+      const ey = ty + Math.sin(ang) * len;
+      const ez = topZ + H * (0.10 + ctx.hash(i + 23, ctx.seed) * 0.14);
+
+      ctx.capsule([tx, ty, topZ + 0.02], [ex, ey, ez], tr * 0.5, 0.035,
+        z => (z > topZ + H * 0.1 ? BARK_HI : BARK), 'rough');
+
+      const nc = 3 + Math.round(ctx.hash(i + 33, ctx.seed) * 2);
+      for (let k = 0; k < nc; k++) {
+        const t = 0.4 + (k / Math.max(1, nc - 1)) * 0.6;
+        const px = ctx.lerp(tx, ex, t);
+        const py = ctx.lerp(ty, ey, t);
+        const pz = ctx.lerp(topZ, ez, t);
+        const rr = (0.28 + ctx.hash(i * 7 + k + 41, ctx.seed) * 0.14)
+                 * (0.85 + S * 0.28) * (0.8 + p.bloom * 0.28);
+        // 扁团：主球抬高压冠，侧球错位补出蓬松边缘
+        ctx.sphere(px, py, pz + rr * 0.55, rr, k > nc - 2 ? BLOOM_HI : BLOOM_MID, 'rough');
+        ctx.sphere(px + rr * 0.5, py + rr * 0.32, pz + rr * 0.2, rr * 0.72, BLOOM_MID, 'rough');
+        if (k > 0) ctx.sphere(px - rr * 0.42, py - rr * 0.28, pz + rr * 0.1, rr * 0.6, BLOOM_LO, 'rough');
+      }
+    }
+    // 冠顶补簇，压住伞心不露空
+    const capR = S * 0.5 * (0.85 + p.bloom * 0.2);
+    ctx.sphere(tx, ty, topZ + H * 0.28, capR, BLOOM_HI, 'rough');
+    ctx.sphere(tx + S * 0.28, ty - S * 0.2, topZ + H * 0.22, capR * 0.8, BLOOM_MID, 'rough');
+
+    // —— 飘落花瓣：无状态纯函数动画，位置只由 (时间, seed, 序号) 决定 ——
+    const now = ((typeof performance !== 'undefined' && performance.now)
+      ? performance.now() : Date.now()) * 0.001;
+    const PETAL = ctx.rgb(Math.round(248 - 6 * bl), Math.round(226 - 28 * bl), Math.round(236 - 18 * bl));
+    const PALE = ctx.rgb(255, 243, 246);
+    const np = Math.round(p.petals);
+    for (let i = 0; i < np; i++) {
+      const h1 = ctx.hash(i * 6 + 101, ctx.seed);
+      const h2 = ctx.hash(i * 6 + 102, ctx.seed);
+      const h3 = ctx.hash(i * 6 + 103, ctx.seed);
+      const h4 = ctx.hash(i * 6 + 104, ctx.seed);
+      const h5 = ctx.hash(i * 6 + 105, ctx.seed);
+      const h6 = ctx.hash(i * 6 + 106, ctx.seed);
+
+      // 起点落在冠底外缘，不从树心钻出来
+      const ang = h2 * 6.2832;
+      const rad = S * (0.42 + h1 * 0.9);
+      const sx = cx + Math.cos(ang) * rad;
+      const sy = cy + Math.sin(ang) * rad;
+      const sz = cz + bh * 0.96 + H * (0.02 + h3 * 0.22);
+
+      // 循环相位：各花瓣速度/起点不同，永不整齐划一
+      const cyc = (now * p.fallSpeed * (0.55 + h4 * 0.9) * 0.38 + h5 + i * 0.173) % 1;
+      const z = ctx.lerp(sz, cz + 0.05, cyc);
+      const x = sx + Math.sin(cyc * 10.5 + h1 * 6.2832) * (0.16 + h3 * 0.2) * S + cyc * 0.3 * S;
+      const y = sy + Math.cos(cyc * 7.7 + h2 * 6.2832) * 0.12 * S + cyc * 0.08 * S;
+
+      const col = cyc > 0.88 ? PALE : PETAL;
+      ctx.plot(x, y, z, col);
+      // 第二像素模拟花瓣翻转：横躺或竖立
+      if (Math.sin(cyc * 13 + h6 * 6.2832) > 0) ctx.plot(x + 0.07, y, z, PALE);
+      else ctx.plot(x, y + 0.07, z + 0.02, PALE);
+    }
+
+    // —— 树下落瓣堆积 ——
+    const ng = Math.round(3 + p.bloom * 5);
+    const GROUND = ctx.rampOf([238, 198, 212])[2];
+    for (let i = 0; i < ng; i++) {
+      const a = ctx.hash(i + 301, ctx.seed) * 6.2832;
+      const r = S * (0.35 + ctx.hash(i + 311, ctx.seed) * 1.25);
+      ctx.plot(cx + Math.cos(a) * r, cy + Math.sin(a) * r, cz + 0.02, GROUND);
+    }
+
+    ctx.shadow(S * 1.45, 1, 0.5);
+  }
+});

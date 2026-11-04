@@ -25,6 +25,8 @@
 | **批量补齐变体** | `node tools/fill-variants.mjs [id…]`（照 docs/kit/ 规格 AI 实现 + 三道闸落盘） |
 | 无头渲染 | `node tools/render.mjs <html> <out.png> [帧数]` |
 | **山村场景测试** | `node tools/village-test.mjs`（8 项断言：动/车/风动/拾取/标记/路/屋/配色） |
+| **屋顶晾衣测试** | `node tools/laundry-test.mjs`（烘焙/21 件衣物/拾取/拖拽入篮/阵风/天气/结算，导出 `docs/laundry-screenshot.png`） |
+| **赛车场测试** | `node tools/racetrack-test.mjs`（烘焙/3 车/40 观众/车在赛道内/欢呼联动，导出 `docs/racetrack-screenshot.png`） |
 | **锥树构件预览** | `node tools/cone-preview.mjs [out.png]`（沙箱实画 cone-mast/cone-spire 组合，导出 PNG 目检形态） |
 | **并排对比** | `node tools/compare.mjs <ref.png> <mine.png> <out.png>` |
 | **参考图实测** | `node tools/measure-haze.mjs <png>`（色相/饱和度梯度）· `measure-road.mjs`（公路斜率）· `solve-road.mjs`（反解坐标） |
@@ -53,12 +55,14 @@
 | 树林页面 | `demo/forest.html` | 树林预览与控制面板 | `docs/forest-rules.md` |
 | 秋日野餐 | `demo/autumn.js` | 梧桐、菱形地台、野餐布、人物、风动 | `docs/modules/autumn.md` |
 | 秋日页面 | `demo/autumn.html` | 秋日野餐预览 | — |
-| **山村植被** | `demo/village/foliage.js` | 极简树表（9 棵锥树构件，高矮不一）沿路两侧错落 + 影子 + 落叶源 | `docs/modules/foliage.md` |
+| **山村植被** | `demo/village/foliage.js` | 路轴坐标树表（17 棵锥树构件的 t/lat 摆位，高矮分层）+ 轻影 + 落叶源 | `docs/modules/foliage.md` |
 | **山村木屋** | `demo/village/houses.js` | 木板拼缝墙 + 苔藓坡顶 + 亮灯窗 + 烟囱 + 体积阴影；4 栋小房沿路两侧摆位（读 terrain.js 的 ROAD） | `docs/kit/buildings.md §5b` |
 | 山村村民 | `demo/village/villagers.js` | 路人沿人行道走停、门口村民张望、头顶锚点与拾取接口 | `docs/modules/villagers.md` |
 | 山村公路与车 | `demo/village/road.js` | 公路几何（切向/法向/投影/路坐标系）+ 黄色小甲壳虫（沿路行驶、警灯闪烁、动态阴影） | `docs/kit/props.md §8b` |
 | 山村路面绘制 | `demo/village/road-paint.js` | road.js 的兜底路面实现：沥青 + 路缘石 + 黄色虚线（terrain.js 已画路面时不要调） | `docs/kit/props.md §8b` |
-| **秋日山村场景** | `demo/village/` | **极简场景（全屏画布）**：纯色背景 + 居中一簇（4 木屋 + 9 锥树）+ 一条延伸公路 + 黄甲壳虫 + 村民（点击打招呼）；布点全世界坐标，画布尺寸无关 | `docs/modules/village.md` |
+| **秋日山村场景** | `demo/village/` | **纸上微缩模型**：纯色纸背景 + 有机落叶岛（5 木屋 + 17 棵金黄塔树）+ 公路（随地面在岛端消散，不切成直线）+ 黄甲壳虫 + 村民 + 落叶；内容四边距画布边 ≥12px | `docs/modules/village.md` |
+| **屋顶晾衣复刻** | `demo/laundry/` | 参考项目 Rooftop Laundry 的完整复刻：抹灰楼体 + 女儿墙 + 楼梯间/水塔/烟囱 + 21 件会摆动的衣物 + 藤篮 + 阵风/暴雨/闪电；拖拽收衣与计分 | `docs/modules/laundry.md` |
+| **像素大奖赛** | `demo/racetrack/` | 等距微缩赛车场：椭圆赛道 + 3 辆持续绕圈的赛车 + 看台/围栏 40 名观众；观众按最近赛车的距离起身欢呼（手臂 + 起跳 + 后仰），深度排序绘制 | `docs/modules/racetrack.md` |
 | **远景树海** | `demo/village/sea.js` | 岛式留白构图：锥树构件布场（大而少）+ 碎点晕开层 + 空气透视 | `docs/kit/depth-and-haze.md §4` |
 | **构件库运行时** | `demo/kit/core.js` | `KIT.register` 构件注册表：id / name / category / params / collision / draw | `docs/modules/studio.md §5` |
 | 构件库·人群行为 | `demo/kit/crowd.js` | `KIT_CROWD`：spectator/wanderer/crowd 三变体（目标选择+软排斥+姿态合成） | `docs/modules/studio.md §8` |
@@ -66,13 +70,15 @@
 | 构件库·渲染 | `demo/kit/render.js` | 场景模型 → 画布：地面协议、画家算法排序、实例旋转 | `docs/modules/studio.md §5` |
 | 构件库·构件 | `demo/kit/trees.js` · `demo/kit/plants.js` | 树 / 草木灌木构件（与 docs/kit/ 篇目对齐） | `docs/kit/registry.md` |
 | 构件库·构件 | `demo/kit/buildings.js` · `demo/kit/stoneworks.js` · `demo/kit/props.js` · `demo/kit/cart.js` | 建筑 / 石砌 / 道具 / 载具构件（AI 生成物按分类落对应模块） | `docs/kit/registry.md` |
-| 构件库·锥状树 | `demo/kit/conifers.js` | `cone-mast` 巨层塔树 / `cone-spire` 尖锥树：实心融合塔体 + 层缝弧线，秋日背景林（golden 参数组调色） | `docs/kit/trees.md §5.7-5.8` |
+| 构件库·锥状树 | `demo/kit/conifers.js` | `cone-mast` / `cone-spire`：**叶簇团块**锥冠（plot 逐像素填充，规避球体深描边）+ 粗直干根爪；`density` 控密度 | `docs/kit/trees.md §5.7-5.8` |
 | 构件库·地面 | `demo/kit/ground.js` | 5 种地面材质（草地/泥土/沙地/石板/水面） | `docs/kit/scene.md` |
 | **Studio 生成页** | `demo/studio/index.html` | 描述需求 → AI 按规范写代码 → 进度条 → 预览调参 → 确认保存；顶部可切换模型 | `docs/modules/studio.md` |
 | Studio AI 配置 | `demo/studio/config.mjs` · `studio.config.json` | 模型 / 思考强度 / 预算 / 超时；环境变量可覆盖 | `docs/modules/studio.md §2.2` |
 | Studio 地形生成 | `demo/studio/terrain-shapes.js` | 程序化地形原语：island / rect / path / hill，供 AI 预设与编辑器共用 | `docs/modules/studio.md §4.2b` |
 | 引擎·光照 | `demo/engine-light.js` | `LIGHT` 状态 + `PP_shadePoints` 点光源 + `PP_applyGrade` 色调/环境/暗角 | `docs/modules/studio.md §4.4` |
 | Studio·光照面板 | `demo/studio/editor-light.js` | 光照 UI 绑定（色调预设/方向/亮度）+ 场景点光源收集 | `docs/modules/studio.md §4.4` |
+| Studio·视图变换 | `demo/studio/editor-view.js` | 画布视图缩放/平移/复位 + 碰撞线框 + 应用工具 | `docs/modules/studio.md §4.1` |
+| Studio·参考图 | `demo/studio/gen-images.js` | 图片上传（≤3 张自动压缩），AI 经 Read 白名单读图 | `docs/modules/studio.md §2.3b` |
 | Studio 地形·共用 | `demo/studio/terrain-common.js` | 投影/归属/材质过渡混合/子项装饰/收边补洞 | `docs/modules/studio.md §4.2` |
 | Studio 地形·台阶 | `demo/studio/terrain-render.js` | 逐格 quad + 侧壁渲染（快，拖动时降级用） | `docs/modules/studio.md §4.2a` |
 | **Studio 地形·坡面** | `demo/studio/terrain-march.js` | 高度场 sphere tracing 光线步进：缓坡 + 坡度光照，默认渲染器 | `docs/modules/studio.md §4.2a` |

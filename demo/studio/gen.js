@@ -15,10 +15,7 @@ const GEN = {
   generating: false,
   kitItems: [],
   curCat: '',
-};
-
-const CAT_LABELS = {
-  tree: '树', plant: '草木', building: '建筑', prop: '道具', figure: '人物',
+  refImages: [],     /* dataURL 数组，随生成请求发送 */
 };
 
 const el = id => document.getElementById(id);
@@ -29,6 +26,10 @@ function sendToPreview(component) {
   if (!component) return;
   GEN.component = component;
   GEN.liveParams = {};
+  /* 命名输入框跟随当前构件（用户未手动改过时） */
+  const nEl = el('edit-name'), iEl = el('edit-id');
+  if (nEl && document.activeElement !== nEl) nEl.value = component.name || '';
+  if (iEl && document.activeElement !== iEl) iEl.value = component.id || '';
   el('code').value = component.code || '';
   el('notes').textContent = component.notes || '（来自现有构件库，可直接调参或修改代码后覆盖保存）';
   el('preview-title').textContent = `转盘预览 · ${component.name || component.id} (${component.id})`;
@@ -187,6 +188,34 @@ function renderCollisionEditor(col) {
 }
 
 
+/* ---------------- 自定义命名 ---------------- */
+
+function initNaming() {
+  const nEl = el('edit-name'), iEl = el('edit-id');
+  if (!nEl || !iEl) return;
+
+  const apply = () => {
+    if (!GEN.component) return;
+    const newName = nEl.value.trim();
+    const newId = iEl.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-');
+    if (newName) GEN.component.name = newName;
+    if (newId && /^[a-z][a-z0-9-]*$/.test(newId)) GEN.component.id = newId;
+    el('preview-title').textContent = `转盘预览 · ${GEN.component.name} (${GEN.component.id})`;
+    /* 代码里的 id/name 同步（保存时三件套用它） */
+    if (GEN.component.code) {
+      GEN.component.code = GEN.component.code
+        .replace(/(id:\s*')[^']*(')/, `$1${GEN.component.id}$2`)
+        .replace(/(name:\s*')[^']*(')/, `$1${GEN.component.name.replace(/'/g, "\\'")}$2`);
+      el('code').value = GEN.component.code;
+    }
+  };
+
+  nEl.addEventListener('change', apply);
+  iEl.addEventListener('change', apply);
+}
+
+initNaming();
+
 /* ---------------- AI 生成（SSE 流式进度） ---------------- */
 
 async function doGenerate() {
@@ -214,6 +243,7 @@ async function doGenerate() {
         prompt,
         category: el('category').value || null,
         note: el('note').value.trim() || null,
+        images: GEN.refImages.length ? GEN.refImages : undefined,
       }),
     });
 
@@ -343,6 +373,10 @@ window.addEventListener('message', e => {
 
 async function doSave() {
   if (!GEN.component) return;
+  if (!/^[a-z][a-z0-9-]*$/.test(GEN.component.id)) {
+    studioStatus('id 非法：只能小写字母数字连字符，且以字母开头', 'err');
+    return;
+  }
   GEN.component.code = el('code').value;
   el('btn-save').disabled = true;
   studioStatus('正在校验并写入三件套（代码 + 注册表 + 配方卡）…', 'busy');
@@ -358,63 +392,6 @@ async function doSave() {
     studioStatus('保存失败：' + e.message, 'err');
   } finally {
     el('btn-save').disabled = false;
-  }
-}
-
-/* ---------------- 现有构件库列表 ---------------- */
-
-async function loadKitLibrary(selectId) {
-  try {
-    const res = await fetch('/api/kit');
-    const data = await res.json();
-    if (!data.ok) return;
-    GEN.kitItems = data.items || [];
-    el('kit-count').textContent = `(${GEN.kitItems.length})`;
-    renderKitCats();
-    renderKitList(selectId);
-    if (!GEN.component && GEN.kitItems.length) {
-      const def = GEN.kitItems.find(x => x.id === 'stone-mill') || GEN.kitItems[0];
-      sendToPreview({ ...def });
-    }
-  } catch (e) {
-    console.error('[gen] 加载构件库失败', e);
-  }
-}
-
-function renderKitCats() {
-  const box = el('kit-cats');
-  if (!box) return;
-  box.innerHTML = '';
-  const cats = ['', 'tree', 'plant', 'building', 'prop'];
-  for (const c of cats) {
-    const b = document.createElement('button');
-    b.className = 'pill' + (GEN.curCat === c ? ' on' : '');
-    b.textContent = c ? (CAT_LABELS[c] || c) : '全部';
-    b.addEventListener('click', () => {
-      GEN.curCat = c;
-      renderKitCats();
-      renderKitList(GEN.component ? GEN.component.id : null);
-    });
-    box.appendChild(b);
-  }
-}
-
-function renderKitList(activeId) {
-  const box = el('kit-list');
-  if (!box) return;
-  box.innerHTML = '';
-  const items = GEN.kitItems.filter(x => !GEN.curCat || x.category === GEN.curCat);
-  for (const it of items) {
-    const row = document.createElement('div');
-    row.className = 'item' + (activeId === it.id ? ' on' : '');
-    row.innerHTML = `<span>${esc(it.name)}</span><span class="cat">${esc(it.id)}</span>`;
-    row.title = it.desc || it.id;
-    row.addEventListener('click', () => {
-      for (const ch of box.children) ch.classList.remove('on');
-      row.classList.add('on');
-      sendToPreview({ ...it });
-    });
-    box.appendChild(row);
   }
 }
 

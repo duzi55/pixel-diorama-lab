@@ -151,7 +151,7 @@ ${req.spec}
 
 请按上面这份规格实现构件。返回结构化 JSON。`;
 
-  const raw = await runClaude(prompt, SCHEMA, onProgress);
+  const raw = await runClaude(prompt, SCHEMA, onProgress, req.images);
   const comp = normalize(raw);
 
   /* **强制用请求里的 id/name** —— AI 可能自造 id（如返回 "x"）。
@@ -290,8 +290,9 @@ const SCHEMA = {
  * @returns {Promise<object>} 构件定义
  */
 export async function generate(req, onProgress) {
+  void 0;
   const prompt = buildPrompt(req);
-  const raw = await runClaude(prompt, SCHEMA, onProgress);
+  const raw = await runClaude(prompt, SCHEMA, onProgress, req.images);
 
   /* 重复逃生门：AI 认定需求与现有构件同骨架时，拒收并告知用户 */
   if (raw.duplicate && raw.existingId) {

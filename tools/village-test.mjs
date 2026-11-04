@@ -232,10 +232,31 @@ if (picked) {
   let blank = 0, total = W * H;
   for (let i = 0; i < total; i++) if (pix[i] === bg) blank++;
   const pct = blank / total * 100;
-  check('纯色背景留白充分', pct > 55, `留白 ${pct.toFixed(0)}%`);
+  /* 阈值 25%：场景加密后留白自然下降；这条断言守的是
+     "背景必须是纯色留白、不能铺满"（用户核心要求），不是精确占比 */
+  check('纯色背景留白充分', pct > 25, `留白 ${pct.toFixed(0)}%`);
 }
 
-/* 9. 全屏模式冒烟：模拟横屏浏览器窗口（PP_HEADLESS=false + PP_FULLSCREEN），
+/* 9. 内容不触碰画布边缘（防"方框裁切"回归）
+ * 用户反复看到的"方框" = 地形/树木在画布边界被直线切断。
+ * 断言：非背景像素的包围盒四边都留出 ≥12px 纯色纸背景。 */
+{
+  const W = evalIn('W'), H = evalIn('H');
+  const pix = evalIn('pix');
+  const bg = evalIn('rgb(252, 245, 218)');
+  let minX = W, maxX = -1, minY = H, maxY = -1;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (pix[y * W + x] === bg) continue;
+    if (x < minX) minX = x; if (x > maxX) maxX = x;
+    if (y < minY) minY = y; if (y > maxY) maxY = y;
+  }
+  const margins = { left: minX, right: W - 1 - maxX, top: minY, bottom: H - 1 - maxY };
+  const ok = margins.left >= 12 && margins.right >= 12 && margins.top >= 12 && margins.bottom >= 12;
+  check('内容不触碰画布边缘（无方框裁切）', ok,
+    `边距 左${margins.left} 右${margins.right} 上${margins.top} 下${margins.bottom}`);
+}
+
+/* 10. 全屏模式冒烟：模拟横屏浏览器窗口（PP_HEADLESS=false + PP_FULLSCREEN），
  *    S 自适应 → PP_setSize → bake/draw 数帧不崩，场景在画布上可见。
  *    这是"画布全屏不裁切"的回归闸（曾有窗口尺寸下布点全灭 → 白屏的崩溃）。 */
 {

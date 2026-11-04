@@ -44,6 +44,13 @@
       </label>
     </div>
 
+    <div class="field">
+      <span>参考图<em>（可选，最多 3 张：截图/手绘/照片，AI 从图提取形态与配色）</em></span>
+      <div class="ref-row" id="ref-row">
+        <label class="ref-add">＋ 添加图片<input type="file" id="ref-input" accept="image/png,image/jpeg,image/webp" multiple hidden></label>
+      </div>
+    </div>
+
     <div class="actions">
       <button id="btn-gen" class="primary">✨ AI 生成素材</button>
       <button id="btn-save" disabled>✓ 确认保存入库</button>
@@ -77,7 +84,11 @@
 
   <section class="right">
     <div class="preview-head">
-      <h2 id="preview-title">转盘预览</h2>
+      <div class="naming">
+        <h2 id="preview-title">转盘预览</h2>
+        <input type="text" id="edit-name" class="name-input" placeholder="名称" title="构件显示名（可自定义）">
+        <input type="text" id="edit-id" class="name-input mono" placeholder="id" title="构件 id（kebab-case，可自定义）">
+      </div>
       <div class="prev-tools">
         <label class="chk"><input type="checkbox" id="spin" checked>旋转展示</label>
         <label class="chk"><input type="checkbox" id="showbox" checked>显示碰撞体积</label>
@@ -126,6 +137,7 @@
 <script src="model-switch.js"></script>
 <script src="thinking-panel.js"></script>
 <script src="progress.js"></script>
+<script src="gen-images.js"></script>
 <script src="gen.js"></script>
 </body>
 </html>

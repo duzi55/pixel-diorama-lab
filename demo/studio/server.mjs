@@ -64,7 +64,7 @@ function readBody(req) {
     let raw = '';
     req.on('data', c => {
       raw += c;
-      if (raw.length > 4_000_000) { reject(new Error('body too large')); req.destroy(); }
+      if (raw.length > 12_000_000) { reject(new Error('body too large')); req.destroy(); }
     });
     req.on('end', () => {
       try { resolve(raw ? JSON.parse(raw) : {}); } catch (e) { reject(e); }

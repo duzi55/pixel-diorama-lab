@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>像素大奖赛 · Pixel Grand Prix</title>
+<style>
+  :root { --ink: #1c1b19; --muted: #8b877f; --paper: #fff; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--paper); color: var(--ink); overflow: hidden; }
+  body { font: 13px/1.35 ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace; user-select: none; }
+  #stage { position: fixed; inset: 0; display: grid; place-items: center; }
+  canvas { display: block; image-rendering: pixelated; touch-action: none; outline: none; }
+  #lap { position: fixed; top: max(14px, env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); pointer-events: none; }
+  #lap b { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  #lap span { color: var(--muted); margin-left: 6px; }
+  #board { position: fixed; top: max(14px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right)); text-align: right; pointer-events: none; }
+  #board .row { display: flex; align-items: center; justify-content: flex-end; gap: 6px; color: var(--muted); line-height: 1.7; }
+  #board .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+  #bottom {
+    position: fixed; left: max(16px, env(safe-area-inset-left)); right: max(16px, env(safe-area-inset-right));
+    bottom: max(14px, env(safe-area-inset-bottom)); display: flex; justify-content: space-between; gap: 16px;
+    color: var(--muted); pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="c" aria-label="等距像素赛车场：三辆赛车绕椭圆赛道行驶，看台上的观众随车欢呼"></canvas></div>
+<div id="lap"><b id="laps">1</b><span>圈</span></div>
+<div id="board">
+  <div class="row"><span class="dot" style="--c:#d6483e"></span>RED</div>
+  <div class="row"><span class="dot" style="--c:#3e6cbe"></span>BLUE</div>
+  <div class="row"><span class="dot" style="--c:#e2b434"></span>YELLOW</div>
+</div>
+<div id="bottom"><div>车靠近时，看台会站起来欢呼</div><div>像素大奖赛 · 自动演示</div></div>
+
+<script>
+  /* 440×320 / S=10：真实 oval 赛道（双直道 + 半圆弯），赛车长度约为人的两倍 */
+  window.PP_W = 440;
+  window.PP_H = 320;
+  window.PP_SCALE = 10;
+  window.PP_ORIGIN_Y = -10;
+  window.LIGHT = {
+    dir: { x: -0.55, y: -0.6, z: 0.58 },
+    shadow: { x: 0.9, y: -0.45 },
+    tint: [1, 1, 1], ambient: 1, vignette: 0, points: [],
+  };
+</script>
+<script src="../engine.js"></script>
+<script src="../kit/figures.js"></script>
+<script src="../kit/crowd.js"></script>
+<script src="track.js"></script>
+<script src="race.js"></script>
+<script src="spectators.js"></script>
+<script src="main.js"></script>
+</body>
+</html>

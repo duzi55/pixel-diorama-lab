@@ -224,27 +224,18 @@ function hPlace(t, lat, w, dp) {
 }
 
 const HOUSE_SPEC = [
-  /* 5 栋木屋，错落分布在公路两侧山丘间（严格对照参考图布局） */
-  
-  // 1. 中景路北木屋（左侧主屋，侧对公路，后方耸立黄金参天巨树）
-  { t: 0.32, lat:  7.2, w: 5.8, dp: 4.8, z1: 4.2, rise: 2.2, roof: SHINGLE, moss: 0.55, chimney: true,
-    seed: 19, windows: [{ u: 0.32 }, { u: 0.72 }], doorU: 0.22, sideWindow: true },
-
-  // 2. 近景路南大木屋（参考图核心焦点：正面迎路，覆满厚重鲜绿青苔，温馨暖窗）
-  { t: 0.58, lat: -6.6, w: 6.8, dp: 5.4, z1: 4.6, rise: 2.4, roof: SHINGLE, moss: 0.90, chimney: false,
-    seed: 37, windows: [{ u: 0.28 }, { u: 0.72 }], doorU: 0.50 },
-
-  // 3. 近景路南右侧小屋（红褐屋顶，带烟囱与亮窗）
-  { t: 0.82, lat: -6.2, w: 5.4, dp: 4.6, z1: 3.8, rise: 2.0, roof: TILE,    moss: 0.35, chimney: true,
-    seed: 83, windows: [{ u: 0.35 }, { u: 0.70 }], doorU: 0.48 },
-
-  // 4. 后景路北山坡木屋（半掩映在参天巨树树冠之下）
-  { t: 0.52, lat: 14.8, w: 5.2, dp: 4.4, z1: 3.8, rise: 2.0, roof: SHINGLE, moss: 0.40, chimney: false,
-    seed: 45, windows: [{ u: 0.35 }, { u: 0.70 }], doorU: 0.50 },
-
-  // 5. 远景右上木屋（依山林而建的小木屋）
-  { t: 0.76, lat: 15.5, w: 5.4, dp: 4.5, z1: 3.8, rise: 2.0, roof: TILE,    moss: 0.25, chimney: true,
-    seed: 62, windows: [{ u: 0.32 }, { u: 0.68 }], doorU: 0.20 },
+  /* 5 栋木屋沿公路北侧紧凑排布 */
+  { t: .20, lat: 6.2,  w: 4.8, dp: 4.0, z1: 3.8, rise: 2.0, roof: TILE,    moss: .30, chimney: true,
+    seed: 19, windows: [{ u: .32 }, { u: .72 }], doorU: .22, sideWindow: true },
+  { t: .36, lat: 8.5,  w: 5.0, dp: 4.2, z1: 3.9, rise: 2.0, roof: SHINGLE, moss: .65, chimney: false,
+    seed: 45, windows: [{ u: .35 }, { u: .70 }], doorU: .50 },
+  { t: .54, lat: 5.8,  w: 5.8, dp: 4.8, z1: 4.3, rise: 2.3, roof: SHINGLE, moss: .95, chimney: true,
+    seed: 37, windows: [{ u: .28 }, { u: .72 }], doorU: .52 },
+  { t: .70, lat: 7.2,  w: 5.0, dp: 4.2, z1: 3.9, rise: 2.1, roof: TILE,    moss: .45, chimney: true,
+    seed: 83, windows: [{ u: .35 }, { u: .70 }], doorU: .48 },
+  /* 路南：前景小屋 */
+  { t: .76, lat: -5.6, w: 4.6, dp: 3.8, z1: 3.6, rise: 1.9, roof: TILE,    moss: .20, chimney: false,
+    seed: 62, windows: [{ u: .32 }, { u: .68 }], doorU: .30 },
 ];
 
 const HOUSES = HOUSE_SPEC.map(sp => Object.assign(hPlace(sp.t, sp.lat, sp.w, sp.dp), {
@@ -261,15 +252,15 @@ function drawHouses() {
 /* 体积阴影：在物体体积内三维采样打点，每点投一个地面椭圆 */
 function shadowHouses() {
   for (const h of HOUSES) {
-    // 房屋主体投影
-    for (let x = h.x0 - 0.2; x <= h.x1 + 0.2; x += 0.8)
-      for (let y = h.y0 - 0.2; y <= h.y1 + 0.2; y += 0.8)
-        for (let z = 0.5; z <= h.z1 + h.rise; z += 1.2) castShadow(x, y, z, 0.9);
-        
-    // 房脚贴地接触阴影，消除漂浮感
-    for (let x = h.x0 - 0.8; x <= h.x1 + 0.8; x += 0.6)
-      for (let y = h.y0 - 0.8; y <= h.y1 + 0.8; y += 0.6)
-        if (x < h.x0 - 0.2 || x > h.x1 + 0.2 || y < h.y0 - 0.2 || y > h.y1 + 0.2)
-          castShadow(x, y, 0.2, 0.85);
+    /* 体积影：采样点少而小，只在房子左下投一小片 ——
+       采样密 + 半径大会铺满路面，把公路糊成暗带 */
+    for (let x = h.x0 + .6; x <= h.x1 - .3; x += 1.4)
+      for (let y = h.y0 + .6; y <= h.y1 - .3; y += 1.4)
+        castShadow(x, y, h.z1 * .35, .5, 4, .7);
+    /* 房脚接触影：贴地一圈 */
+    for (let x = h.x0 - .4; x <= h.x1 + .4; x += .7)
+      for (let y = h.y0 - .4; y <= h.y1 + .4; y += .7)
+        if (x < h.x0 - .1 || x > h.x1 + .1 || y < h.y0 - .1 || y > h.y1 + .1)
+          castShadow(x, y, .15, .5, 3, .6);
   }
 }

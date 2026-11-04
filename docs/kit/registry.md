@@ -43,12 +43,13 @@
 | [`canopy`](trees.md#4-canopy-郁闭林冠) | 郁闭林冠 | 内层大球填体块 + 表层小球做轮廓，静态 | `demo` `forest.js:116` | `size/crown/palette` | ✅ |
 | [`simple`](trees.md#5-simple-简易球树) | 简易球树 | 单层球堆，最省 | `demo` `demo.js:70` | `size` | ✅ |
 | [`pine`](trees.md#55-pine-针叶树秋日山村--已实现) | 针叶树 | 锥面塔冠，沿圆周排行 + 半径二次收缩 | `demo` `village/foliage.js` | `scale/rings/pine` | ✅ |
-| [`cone-mast`](trees.md#57-cone-mast-巨层塔树秋日山村背景林--已实现) | 巨层塔树 | 实心宽塔金黄平涂 + 塔面层缝弧线 + 底暗顶亮 + 粗深褐干，背景林主角 | `demo` `kit/conifers.js` | `height/crownR/layers/golden/trunkV` | ✅ |
-| [`cone-spire`](trees.md#58-cone-spire-尖锥树秋日山村背景林--已实现) | 尖锥树 | 实心窄高尖锥 + 微波轮廓 + 底暗顶亮，背景林填充 | `demo` `kit/conifers.js` | `height/crownR/rows/golden` | ✅ |
+| [`cone-mast`](trees.md#57-cone-mast-巨层塔树秋日山村--已实现) | 巨层塔树 | **叶簇团块**堆叠的锥冠（plot 逐像素填充，规避球体描边）+ 粗深褐直干根爪；簇色分档、无横向层线 | `demo` `kit/conifers.js` | `height/crownR/trunkH/density` | ✅ |
+| [`cone-spire`](trees.md#58-cone-spire-尖锥树秋日山村--已实现) | 尖锥树 | 同套叶簇锥冠，更窄更尖；背景林填充 | `demo` `kit/conifers.js` | `height/crownR/trunkH/density` | ✅ |
 | [`birch`](trees.md#birch--白桦) | 白桦 | 细直白干缀横向黑斑，横枝平挑疏朗叶簇 | `demo` `kit/trees.js` | `height`/`trunkR`/`branches`/`crown`/`spots` | ✅ |
 | [`willow`](trees.md#willow--垂柳) | 垂柳 | 矮壮树干托起扁圆冠，冠缘垂下一圈二次下坠的细柳条，末梢渐细 | `demo` `kit/trees.js` | `height`/`spread`/`strands`/`droop` | ✅ |
 | [`blossom`](trees.md#birch--白桦) | 花树 | **= `broadleaf` 参数组**（不建独立 ID）：阔叶树冠 + 粉白花点 | `demo` `kit/trees.js` | `bloomRate/bloomColor` | ✅ |
 | [`shrub`](trees.md#56-shrub-灌木秋日山村--已实现) | 灌木 | 无干矮球丛，5 个小球堆 | `demo` `village/foliage.js` | `r/h/seed` | ✅ |
+| [`sakura`](trees.md#sakura--樱花树) | 樱花树 | 矮壮紫褐主干向四周横展伞形枝，粉白花团压满枝头，花瓣持续旋转飘落 | `demo` `kit/trees.js` | `height`/`spread`/`bloom`/`petals`/`fallSpeed`/`blush` | ✅ |
 
 ---
 

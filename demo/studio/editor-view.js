@@ -117,3 +117,72 @@ function ED_bindKeys() {  addEventListener('keydown', e => {
     }
   });
 }
+
+/* ---------------- 视图变换（从 editor.js 拆出） ----------------
+ * Ctrl/⌘+滚轮缩放（以鼠标为中心）、中键或空格+拖拽平移、双击复位。
+ * 视图缩放是显示层的（canvas.style 尺寸 × transform），不改变渲染分辨率。
+ */
+
+function ED_fit() {
+  ED_applyView();
+}
+
+/* 应用视图变换：缩放 + 平移（视图缩放是显示层的，不影响渲染分辨率） */
+function ED_applyView() {
+  const stage = document.getElementById('stage');
+  const cw = (stage && stage.clientWidth) ? stage.clientWidth - 40 : innerWidth - 40;
+  const ch = (stage && stage.clientHeight) ? stage.clientHeight - 90 : innerHeight - 90;
+  const v = ED.view;
+  /* 基础适配倍数（整数，保像素锐利），再乘用户视图缩放 */
+  const dpr = window.devicePixelRatio || 1;
+  const base = Math.max(1, Math.floor(Math.min(cw / W, ch / H) * dpr)) / dpr;
+  const k = base * v.scale;
+  canvas.style.width = Math.round(W * k) + 'px';
+  canvas.style.height = Math.round(H * k) + 'px';
+  canvas.style.transform = v.ox || v.oy ? `translate(${v.ox}px, ${v.oy}px)` : '';
+}
+
+/* 视图缩放（Ctrl/⌘ + 滚轮），以鼠标位置为中心 */
+function ED_viewZoom(e) {
+  const v = ED.view;
+  const old = v.scale;
+  const next = clamp(Math.round((old * (e.deltaY > 0 ? 0.9 : 1.111)) * 100) / 100, 0.3, 8);
+  if (next === old) return;
+  /* 保持鼠标下的内容不动：先算鼠标相对画布中心的世界偏移，再按比例调整平移 */
+  const stage = document.getElementById('stage');
+  const r = stage.getBoundingClientRect();
+  const mx = e.clientX - r.left - stage.clientWidth / 2;
+  const my = e.clientY - r.top - stage.clientHeight / 2;
+  const k = next / old - 1;
+  v.ox -= mx * k;
+  v.oy -= my * k;
+  v.scale = next;
+  ED_applyView();
+  studioStatus('视图缩放 ×' + next.toFixed(2) + '（Ctrl+滚轮 · 双击复位）');
+}
+
+
+/* ED_fit 别名：init 与 resize 事件统一入口 */
+void ED_applyView;
+
+function ED_applyTool(w) {
+  const g = TERRAIN.toGrid(w.x, w.y);
+  switch (ED.tool) {
+    case 'paint':
+      TERRAIN.paint(g.gx, g.gy, ED.mat, ED.brush, ED.height, 'paint');
+      break;
+    case 'erase':
+      TERRAIN.paint(g.gx, g.gy, ED.mat, ED.brush, 0, 'erase');
+      break;
+    case 'raise':
+      TERRAIN.sculpt(g.gx, g.gy, ED.brush, .25, 'raise');
+      break;
+    case 'lower':
+      TERRAIN.sculpt(g.gx, g.gy, ED.brush, .25, 'lower');
+      break;
+  }
+  /* 地形高度改变后，同步更新站在上面的物体高度 */
+  for (const o of ED.objects) o.z = TERRAIN.heightAt(o.x, o.y);
+  ED.dirty = true;
+}
+

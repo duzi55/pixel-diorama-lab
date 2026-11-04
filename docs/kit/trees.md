@@ -468,7 +468,7 @@ for (let k = 0; k < 5; k++) {
 
 ---
 
-## 5.7 `cone-mast` 巨层塔树（秋日山村背景林 · 已实现）
+## 5.7 `cone-mast` 巨层塔树（秋日山村 · 已实现）
 
 | 项 | 内容 |
 |----|------|
@@ -477,86 +477,84 @@ for (let k = 0; k < 5; k++) {
 
 ### 形态
 
-**实心宽塔**（高:底宽 ≈ 1.5:1）：金黄平涂的三角锥体，
-塔面有细的水平层缝弧线（枝盘痕），整体底暗顶亮，
-塔底一条窄接触阴影，粗壮深褐树干。
-参考图上半部的主角树（tools/cone-preview.mjs 目检迭代）。
+**金黄锥塔大树**：粗深褐直干入地（带根爪），冠 = 上百个圆润叶簇
+堆成的锥体，轮廓是连续的圆弧鼓包，簇色按高度/受光/随机取
+4 档金黄。整树完整（干、冠、尖都在画布内绘制）。
 
 ```
-      /\
-     /█\
-    /██\   ← 实心，内部无结构
-   /███\   ← 细横缝线（层感）
-  /████\
- ──────── ← 底暗接触带
-    ██    ← 粗干
+      ▁▁        ← 顶尖亮簇
+    ▂████▂
+   ████████     ← 叶簇堆叠（无横向层线）
+  ██████████
+ ████████████
+     ███        ← 粗干 + 根爪
 ```
 
 ### 参数
 
 | 参数 | 默认 | 区间 | 作用 |
 |------|------|------|------|
-| `height` | 16 | 6～26 | 树高（世界单位）。参考图巨塔 ≈ 20+（房子 z1≈5 的 4 倍高） |
-| `crownR` | 5.5 | 2～9 | 底层冠半径（屏幕宽 ≈ 2.16×crownR×S） |
-| `layers` | 6 | 4～9 | 塔面层缝条数 |
-| `golden` | 1 | 0～1 | 叶色参数组：1 浓金黄 `[250,198,38]` / 0 深橙 `[230,142,36]` |
-| `trunkV` | .16 | .05～.4 | 干可见高度（占树高比） |
+| `height` | 24 | 10~34 | 整树高度 |
+| `crownR` | 5.8 | 2.5~9.5 | 底层冠幅（建议 ≈ height×0.2，窄高才像塔） |
+| `trunkH` | 6.5 | 1.5~12 | 树干裸露高度 |
+| `density` | 260 | 120~400 | 叶簇数量 |
 
-### 关键算法（与 pine 的差异点）
+### 关键算法（第六版：叶簇团块）
 
-**① 密层大球融合实心塔体 —— 不是 pine 的"稀排外圈 + 内圈补洞"**
+**① 为什么不用 sphere**
 
-pine 一层 18 个小球、层间距大（轮廓外露）。巨层塔反着来：
-**层 z 间距 < 球屏幕半径的 1/4**，每层只有中心球 + 圆周 6 球，
-球互相融合 → 塔是实心的，层盘只在塔面留下缝线痕迹。
-层球共 `coneBody()` / 层缝共 `coneSeams()` 两个助手，`cone-spire` 复用。
+球体融合会被 `shadeEdges()` 在球与球的深度台阶处勾出黑边，
+密集小球 → "爆米花"外圈。所以每个叶簇用 `leafBlob()` **逐像素填充**。
 
-**② 纯线性半径包络**
+**② 像素反解到高度 z 的水平面**
 
-`radial = cr * (1 - t*.96)`。融合球的外扩量与 R 成正比，
-屏幕轮廓保持直线（三角读感）。**实测**：幂次曲线（凸/凹）会被
-融合放大成铃铛形；正弦微波会被放大成"洋葱串"轮廓。
+```js
+function coneUnproject(ix, iy, z) {
+  const sum = 2 * R2 * ((iy + .5 - OY) / S + z * COS);  // x + y
+  const dif = R2 * (ix + .5 - OX) / S;                  // x - y
+  return [(sum + dif) / 2, (sum - dif) / 2];
+}
+```
 
-**③ 层缝 = 贴塔面的暗点半环，不是暗色带**
+**③ 三部分构成**
 
-`coneSeams()`：每条缝是 8~30 个小球（`r = max(.12, R*.045)`）
-沿塔面前表面排成下弯弧线。三个实测参数缺一不可：
+| 部分 | 做法 |
+|------|------|
+| 内芯 | 沿轴心一串大簇（半径 0.58×包络），先垫实心体块，防叶缝透背景 |
+| 外壳 | N 个叶簇定位在锥面 70%~105% 半径处，半径 0.19~0.32×包络，轮廓由这圈决定 |
+| 顶尖 | 一个亮色小簇 |
 
-| 参数 | 值 | 原因 |
-|------|-----|------|
-| 弧段 | `a ∈ (.10, 1.72) rad` | 等距投影下「朝观众**且**屏幕对称」的前表面段。画整圆环的端点会跑到轮廓外，读作凸出的暗包 |
-| 点数 | `max(8, 30*R/cr)` | 窄锥多点读作"梯子横杠"，要随锥径缩放 |
-| 点径 | 屏幕 ~2.5px、点距 <1px | 太大太稀读作"芝麻点"，密集相连才是"线" |
+**④ 半径包络方向（坑）**
 
-**④ 纵向色连续插值（`coneToneAt`）**
+`u = 0` 在**顶部**，包络必须是 `R = cr·u^0.9`（顶端窄、底端宽）。
+写成 `cr·(1-u)^0.9` 会得到"上宽下窄的扫帚"。
 
-`dark →(t∈[0,.08])→ base →(t∈[.80,1])→ lit`，smoothstep 过渡。
-三段硬跳变会在塔面读出横向色带界线；过渡区宽了色带同样出现。
-**必须 `'flat'` 平涂**——`'rough'` 的 5 级色阶会把金黄读成脏橙。
+**⑤ 色档**
 
-**⑤ 底层中心球抬高**
+```js
+tone = 1.5 + (1-u)*0.9 + 受光侧*(0.8) + 随机*1.1   → 0..3 档
+```
 
-`zLift = R*.14`：满尺寸底层中心球的球底下缘裸露成大圆弧（洋葱底）。
-参考图里塔底本来就被前排树冠遮住——构件只保证"被遮时观感对"。
+上亮下暗、受光侧（屏幕左上）提亮；每簇整体一色（**不要逐像素噪声**，
+会读成迷彩砂砾）。
 
 ### 移植清单
 
-1. 复制 `coneTones()` / `coneToneAt()` / `coneBody()` / `coneSeams()` 四个助手
-2. `KIT.register` 抄本卡参数表；碰撞体 `cylinder{radius:.6}`（树干处）
-3. 场景里摆位时塔基插进前排树冠带（遮住塔底圆弧）
+1. 复制 `coneUnproject` / `leafBlob` / `coneCanopy` 三个助手
+2. `leafBlob` 用 `ctx.plot()` 写像素（直写 pix 会绕过实例的 rot/scale）
+3. 密度不够时轮廓会碎成"飞叶"；太密会糊成实心球——先调 `density` 再调簇径
 
 ### 坑（实画迭代实测）
 
-- **稀疏大层盘**（每层一圈大球、层距大）→ "一坨坨橄榄球堆"。塔必须密层融合。
-- **层缝画整圆** → 端点在塔缘读作凸包。弧段限 `.10~1.72 rad`。
-- **塔缘加轮廓微波**（与层缝对齐的 4% 波动）→ "洋葱串"。参考图塔缘是平直的，层感全靠缝线。
-- **塔底画水平环带/前后底裙球** → "云朵底座/土豆座"。球类原语做不出平直底缘，正确答案是抬高中心球 + 场景遮挡。
-- **顶层圆周球** → 塔尖分叉出小尾巴。`R < cr*.16` 不画圆周球。
-- **树干深褐 `[96,60,36]` 够用**，塔底露一小截反而对（参考图特征）。
+- 用 sphere 做叶簇 → 深度描边勾黑边（爆米花）。必须 plot 填充。
+- 包络方向反了 → 扫帚形（见 ④）。
+- 簇太小/太稀 → 飞叶；簇太大 → 一团实心土豆。
+- 逐像素噪声上色 → 迷彩/砂砾。**每簇单色**才对。
+- 层间暗线（曾经的分层盘方案）→ "叠盘子/宝塔"。参考图没有横向层线。
 
 ---
 
-## 5.8 `cone-spire` 尖锥树（秋日山村背景林 · 已实现）
+## 5.8 `cone-spire` 尖锥树（秋日山村 · 已实现）
 
 | 项 | 内容 |
 |----|------|
@@ -565,28 +563,20 @@ pine 一层 18 个小球、层间距大（轮廓外露）。巨层塔反着来�
 
 ### 形态
 
-窄高实心尖锥（≈ 2.5:1），连续锥面 + 轻微波动轮廓，
-底暗顶亮，少量层缝。背景缝隙里的填充树（远景密度担当）。
+窄高金黄尖锥（背景填充树）：细直干 + 叶簇堆叠。
 
 ### 参数
 
 | 参数 | 默认 | 区间 | 作用 |
 |------|------|------|------|
-| `height` | 9 | 3～20 | 树高 |
-| `crownR` | 2.2 | .8～6 | 锥底半径 |
-| `rows` | 9 | 5～14 | 层缝数 |
-| `golden` | .75 | 0～1 | 叶色参数组（同 cone-mast） |
+| `height` | 17 | 8~26 | 整树高度 |
+| `crownR` | 3.5 | 1.4~6.0 | 锥底冠幅 |
+| `trunkH` | 4.0 | 1.2~8.0 | 树干裸露高度 |
+| `density` | 180 | 80~300 | 叶簇数量 |
 
 ### 关键算法
 
-与 `cone-mast` 共享 `coneBody()` / `coneSeams()`，差异只有：
-包络带轻微波 `×(1 + .05·sin(t*11+seed))`（尖锥的枝感），
-干细（`cr*.1`）、可见段短（`h*.14`）。
-
-### 坑
-
-- 同 `cone-mast` 全部坑（共享助手，一改两边）。
-- 窄锥的层缝点数必须随 R 缩放（`30*R/cr`），否则整棵树读作"梯子"。
+与 `cone-mast` 共享 `coneCanopy`；差异仅在默认尺寸更窄。
 
 ---
 
@@ -658,8 +648,8 @@ pine 一层 18 个小球、层间距大（轮廓外露）。巨层塔反着来�
 | `canopy` | 三段分叉 | 双层球 | ❌ 静态 | 密林 |
 | `simple` | 短干 | 单层球 | ❌ | 背景 |
 | [`pine`](#55-pine-针叶树秋日山村--已实现) | 直干 | 锥面塔冠 | ✅ capture | 针叶林、远景剪影 |
-| [`cone-mast`](#57-cone-mast-巨层塔树秋日山村背景林--已实现) | 粗直干 | 实心宽塔+层缝线 | ❌ 静态 | 秋日背景林主角 |
-| [`cone-spire`](#58-cone-spire-尖锥树秋日山村背景林--已实现) | 细直干 | 实心窄尖锥 | ❌ 静态 | 秋日背景林填充 |
+| [`cone-mast`](#57-cone-mast-巨层塔树秋日山村--已实现) | 粗直干 | 实心宽塔+层缝线 | ❌ 静态 | 秋日背景林主角 |
+| [`cone-spire`](#58-cone-spire-尖锥树秋日山村--已实现) | 细直干 | 实心窄尖锥 | ❌ 静态 | 秋日背景林填充 |
 | `birch` | 直干+横枝 | 稀疏球 | 可选 | 北方 |
 | `willow` | 垂枝串 | 垂链 | ✅ | 水边 |
 | `blossom` | = `broadleaf` | = `broadleaf` | ✅ | 花期 |
@@ -978,3 +968,169 @@ KIT.register({
 | `bloomColor` | 0 | 0 ~ 2 | 0 粉白 `[248,214,224]` / 1 纯白 `[252,250,248]` / 2 浅黄 `[250,236,168]` |
 
 实现：表层球循环里 `hash(kk, 12) < bloomRate` 概率换花色 —— 一行改动。
+
+## sakura — 樱花树
+
+| 项 | 内容 |
+|---|---|
+| **ID** | `sakura` |
+| **来源** | `demo/kit/trees.js` · `KIT.register` · studio 生成 |
+| **形态** | 矮壮紫褐主干向四周横展伞形枝，粉白花团压满枝头，花瓣持续旋转飘落 |
+| **分类** | 树 |
+
+### 参数
+
+| 参数 | 默认 | 区间 | 步进 | 说明 |
+|------|------|------|------|------|
+| `height` | 5.2 | 2.4 ~ 5.6 | 0.1 | 树高 |
+| `spread` | 1.35 | 0.6 ~ 1.6 | 0.05 | 冠幅展开半径 |
+| `bloom` | 0.7 | 0.4 ~ 1.8 | 0.1 | 花团饱满度 |
+| `petals` | 15 | 0 ~ 40 | 1 | 飘落花瓣数量（0 = 静态） |
+| `fallSpeed` | 0.5 | 0.2 ~ 1.2 | 0.05 | 花瓣下落速度 |
+| `blush` | 0.55 | 0 ~ 1 | 0.05 | 花色深浅：0 近白，1 深粉 |
+
+### 碰撞体
+
+`{"type":"cylinder","radius":0.3,"height":3.4}`
+
+### 移植清单
+
+- 代码：`demo/kit/trees.js`
+- 注册表：`docs/kit/registry.md` · 树节
+- 依赖引擎：`demo/engine.js` 的 `sphere/capsule/box/plot/rampOf/hash/noise`
+
+### 实现说明
+
+【与已有构件的边界】broadleaf 虽然有 bloomRate 花树参数组，但它是「向上三段分叉 + 球形团簇冠」的骨架，且没有粒子层。sakura 的骨架是「矮壮主干 + 四根近水平横展主枝 + 扁伞冠」——樱花（染井吉野）的辨识度正在这个横向展开的伞形轮廓上，和球堆冠不是同一个骨架。如果你只想要一棵不会飘花的粉树，用 broadleaf + bloomRate 即可，不必用这个 ID。
+
+【花瓣动画的实现方式】draw 是无状态的，花瓣不存任何数组/计时器。每片花瓣的位置由 (performance.now(), ctx.seed, 序号 i) 纯函数算出：起点由 hash 定在冠底外缘，下落进度 cyc = (t·速度 + 相位) % 1，横向叠正弦摆动 + 随 cyc 线性侧向漂移（模拟稳定风向）。因此同一时刻 + 同一 seed 必然得到同一画面，可复现；也意味着渲染器只要逐帧调 draw 就自动动起来，不需要任何注册/销毁逻辑。若渲染器只在参数变化时绘制（如烘焙底图），画面会停在一帧静态花瓣上——那也仍然是一张合理的「落樱瞬间」，或者把 petals 设为 0 得更干净。
+
+【坑 1：两张皮】BLOOM_HI/MID/LO 是 [r,g,b] 数组，只能喂 sphere；PETAL/PALE 是 ctx.rgb() 出来的打包像素，只能喂 plot；GROUND 是 rampOf()[2] 打包值，同样只能喂 plot。混用会当场抛异常。
+
+【坑 2：花瓣起点】花瓣若从树心 (cx, cy) 生出，会先穿过花冠再冒出来，视觉上像树在漏粉。所以起点半径 = S·(0.42~1.32) 落在冠缘，且起始 z 取冠底偏上，出生即已在冠外缘。
+
+【坑 3：blush 插值】三档花色都写成关于 bl 的一次函数（同一色相整体压暗），而不是分别挑三种粉——后者会让深浅档之间色相漂移，Bayer 抖动会读出彩点。
+
+【坑 4：翻转像素】每片花瓣画两个 plot：一个主色，第二个按 sin 相位决定是横向 +0.07 还是竖向 +0.07，读起来像花瓣在翻面，单像素也有体积感。
+
+【性能】默认 18 片花瓣 × 2 px + 落瓣 ~8 px，树冠约 40 个 sphere。花瓣上限 40 时约 80 次 plot，开销可忽略。
+
+【建议的参数预设】白樱：blush 0.15 / bloom 1.2；深粉枝垂樱：blush 0.85 / spread 1.4 / height 3.0；大风落樱：fallSpeed 1.1 / petals 34。
+
+### 实现
+
+```js
+KIT.register({
+  id: 'sakura',
+  name: '樱花树',
+  category: 'tree',
+  desc: '矮壮紫褐主干向四周横展伞形枝，粉白花团压满枝头，花瓣持续旋转飘落',
+  params: {
+    height:    { def: 3.6, min: 2.4, max: 5.6, step: 0.1, desc: '树高' },
+    spread:    { def: 1.0, min: 0.6, max: 1.6, step: 0.05, desc: '冠幅展开半径' },
+    bloom:     { def: 1.0, min: 0.4, max: 1.8, step: 0.1, desc: '花团饱满度' },
+    petals:    { def: 18,  min: 0,   max: 40,  step: 1, desc: '飘落花瓣数量（0 = 静态）' },
+    fallSpeed: { def: 0.55, min: 0.2, max: 1.2, step: 0.05, desc: '花瓣下落速度' },
+    blush:     { def: 0.5, min: 0,   max: 1,   step: 0.05, desc: '花色深浅：0 近白，1 深粉' }
+  },
+  collision: { type: 'cylinder', radius: 0.3, height: 3.4 },
+  draw(ctx, inst) {
+    const p = ctx.params;
+    const H = p.height, S = p.spread;
+    const cx = ctx.x, cy = ctx.y, cz = ctx.z;
+    const bh = H * 0.36;
+    const topZ = cz + bh;
+    const bl = ctx.clamp(p.blush, 0, 1);
+
+    // 枝干：紫褐三档（每通道差 15~20，抖动不会出彩点）
+    const BARK = [78, 60, 64], BARK_HI = [98, 78, 82], BARK_LO = [60, 45, 50];
+    // 花色：随 blush 在白粉与深粉之间线性插值，保持色相不跑
+    const BLOOM_HI  = [Math.round(246 - 6 * bl),  Math.round(226 - 30 * bl), Math.round(232 - 20 * bl)];
+    const BLOOM_MID = [Math.round(234 - 8 * bl),  Math.round(204 - 32 * bl), Math.round(216 - 22 * bl)];
+    const BLOOM_LO  = [Math.round(212 - 14 * bl), Math.round(176 - 34 * bl), Math.round(192 - 20 * bl)];
+
+    // —— 主干：矮壮、顶端微微侧倾 ——
+    const tx = cx + (ctx.hash(1, ctx.seed) - 0.5) * 0.2;
+    const ty = cy + (ctx.hash(2, ctx.seed) - 0.5) * 0.14;
+    const tr = 0.15 + H * 0.026;
+    ctx.sphere(cx, cy, cz + 0.06, tr * 1.3, BARK_LO, 'rough');
+    ctx.capsule([cx, cy, cz], [tx, ty, topZ], tr, tr * 0.62,
+      z => (z > cz + bh * 0.55 ? BARK_HI : BARK), 'rough');
+
+    // —— 四根近水平横展主枝：樱花标志性的伞形骨架 ——
+    for (let i = 0; i < 4; i++) {
+      const ang = (i / 4) * Math.PI * 2 + ctx.hash(i + 3, ctx.seed) * 0.6;
+      const len = S * (1.15 + ctx.hash(i + 13, ctx.seed) * 0.5);
+      const ex = tx + Math.cos(ang) * len;
+      const ey = ty + Math.sin(ang) * len;
+      const ez = topZ + H * (0.10 + ctx.hash(i + 23, ctx.seed) * 0.14);
+
+      ctx.capsule([tx, ty, topZ + 0.02], [ex, ey, ez], tr * 0.5, 0.035,
+        z => (z > topZ + H * 0.1 ? BARK_HI : BARK), 'rough');
+
+      const nc = 3 + Math.round(ctx.hash(i + 33, ctx.seed) * 2);
+      for (let k = 0; k < nc; k++) {
+        const t = 0.4 + (k / Math.max(1, nc - 1)) * 0.6;
+        const px = ctx.lerp(tx, ex, t);
+        const py = ctx.lerp(ty, ey, t);
+        const pz = ctx.lerp(topZ, ez, t);
+        const rr = (0.28 + ctx.hash(i * 7 + k + 41, ctx.seed) * 0.14)
+                 * (0.85 + S * 0.28) * (0.8 + p.bloom * 0.28);
+        // 扁团：主球抬高压冠，侧球错位补出蓬松边缘
+        ctx.sphere(px, py, pz + rr * 0.55, rr, k > nc - 2 ? BLOOM_HI : BLOOM_MID, 'rough');
+        ctx.sphere(px + rr * 0.5, py + rr * 0.32, pz + rr * 0.2, rr * 0.72, BLOOM_MID, 'rough');
+        if (k > 0) ctx.sphere(px - rr * 0.42, py - rr * 0.28, pz + rr * 0.1, rr * 0.6, BLOOM_LO, 'rough');
+      }
+    }
+    // 冠顶补簇，压住伞心不露空
+    const capR = S * 0.5 * (0.85 + p.bloom * 0.2);
+    ctx.sphere(tx, ty, topZ + H * 0.28, capR, BLOOM_HI, 'rough');
+    ctx.sphere(tx + S * 0.28, ty - S * 0.2, topZ + H * 0.22, capR * 0.8, BLOOM_MID, 'rough');
+
+    // —— 飘落花瓣：无状态纯函数动画，位置只由 (时间, seed, 序号) 决定 ——
+    const now = ((typeof performance !== 'undefined' && performance.now)
+      ? performance.now() : Date.now()) * 0.001;
+    const PETAL = ctx.rgb(Math.round(248 - 6 * bl), Math.round(226 - 28 * bl), Math.round(236 - 18 * bl));
+    const PALE = ctx.rgb(255, 243, 246);
+    const np = Math.round(p.petals);
+    for (let i = 0; i < np; i++) {
+      const h1 = ctx.hash(i * 6 + 101, ctx.seed);
+      const h2 = ctx.hash(i * 6 + 102, ctx.seed);
+      const h3 = ctx.hash(i * 6 + 103, ctx.seed);
+      const h4 = ctx.hash(i * 6 + 104, ctx.seed);
+      const h5 = ctx.hash(i * 6 + 105, ctx.seed);
+      const h6 = ctx.hash(i * 6 + 106, ctx.seed);
+
+      // 起点落在冠底外缘，不从树心钻出来
+      const ang = h2 * 6.2832;
+      const rad = S * (0.42 + h1 * 0.9);
+      const sx = cx + Math.cos(ang) * rad;
+      const sy = cy + Math.sin(ang) * rad;
+      const sz = cz + bh * 0.96 + H * (0.02 + h3 * 0.22);
+
+      // 循环相位：各花瓣速度/起点不同，永不整齐划一
+      const cyc = (now * p.fallSpeed * (0.55 + h4 * 0.9) * 0.38 + h5 + i * 0.173) % 1;
+      const z = ctx.lerp(sz, cz + 0.05, cyc);
+      const x = sx + Math.sin(cyc * 10.5 + h1 * 6.2832) * (0.16 + h3 * 0.2) * S + cyc * 0.3 * S;
+      const y = sy + Math.cos(cyc * 7.7 + h2 * 6.2832) * 0.12 * S + cyc * 0.08 * S;
+
+      const col = cyc > 0.88 ? PALE : PETAL;
+      ctx.plot(x, y, z, col);
+      // 第二像素模拟花瓣翻转：横躺或竖立
+      if (Math.sin(cyc * 13 + h6 * 6.2832) > 0) ctx.plot(x + 0.07, y, z, PALE);
+      else ctx.plot(x, y + 0.07, z + 0.02, PALE);
+    }
+
+    // —— 树下落瓣堆积 ——
+    const ng = Math.round(3 + p.bloom * 5);
+    const GROUND = ctx.rampOf([238, 198, 212])[2];
+    for (let i = 0; i < ng; i++) {
+      const a = ctx.hash(i + 301, ctx.seed) * 6.2832;
+      const r = S * (0.35 + ctx.hash(i + 311, ctx.seed) * 1.25);
+      ctx.plot(cx + Math.cos(a) * r, cy + Math.sin(a) * r, cz + 0.02, GROUND);
+    }
+
+    ctx.shadow(S * 1.45, 1, 0.5);
+  }
+});
+```

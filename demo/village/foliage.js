@@ -1,80 +1,77 @@
 'use strict';
 /* ------------------------------------------------------------------
- * 秋日山村 · 金黄层叠塔林（参考图神韵还原）
+ * 秋日山村 · 金黄层叠塔林
+ *
+ * 树全部摆在**路轴坐标**（t 沿路 / lat 法向）上，跟随 ROAD 自动定位。
+ * 主角：中景一棵参天巨塔（参考图画眼），周围塔林错落成林。
  * ------------------------------------------------------------------ */
 
-/* 核心树木配置表（严格对照参考图错落构图，全部完整绘制） */
+/* [t 沿路, lat 法向, kind, 高, 冠幅, 干高, 层数] —— 高矮不一 */
 const FOL_TREE_SPECS = [
-  // 1. 👑【全图画眼】黄金参天巨树（中景木屋背后高耸入云，遮天蔽日）
-  { x: -4.0, y:  8.5, kind: 'cone-mast',  h: 25.0, cr: 5.8, tkH: 5.5, layers: 8, seed: 777 },
-
-  // 2. 山坡后排参天金杉群（构筑深远秀丽的天际线）
-  { x: -13.5, y: 14.5, kind: 'cone-mast',  h: 20.0, cr: 4.8, tkH: 4.5, layers: 7, seed: 101 },
-  { x:  -5.0, y: 19.5, kind: 'cone-mast',  h: 22.5, cr: 5.2, tkH: 4.8, layers: 8, seed: 202 },
-  { x:   5.5, y: 18.5, kind: 'cone-spire', h: 18.5, cr: 4.2, tkH: 3.8,           seed: 303 },
-  { x:  14.0, y: 13.5, kind: 'cone-spire', h: 16.5, cr: 4.0, tkH: 3.5,           seed: 404 },
-
-  // 3. 中景木屋周围掩映穿插的树木
-  { x: -14.5, y:  6.0, kind: 'cone-spire', h: 13.5, cr: 3.5, tkH: 3.0,           seed: 505 },
-  { x:   4.5, y:  9.5, kind: 'cone-mast',  h: 15.0, cr: 4.0, tkH: 3.4, layers: 6, seed: 606 },
-  { x:  12.5, y:  3.5, kind: 'cone-spire', h: 13.0, cr: 3.4, tkH: 2.8,           seed: 707 },
-
-  // 4. 近景公路侧与路边错落树木
-  { x: -17.5, y: -2.0, kind: 'cone-spire', h: 11.5, cr: 3.0, tkH: 2.6,           seed: 808 },
-  { x:   6.5, y:-12.5, kind: 'cone-spire', h: 10.0, cr: 2.8, tkH: 2.2,           seed: 909 },
-  { x:  14.5, y:-10.0, kind: 'cone-mast',  h:  9.0, cr: 2.6, tkH: 2.0, layers: 5, seed: 919 },
+  /* 👑 画眼：参天巨塔（窄高，鹤立鸡群） */
+  { t: .46, lat: 13.5, kind: 'cone-mast',  h: 33.0, cr: 6.6, tkH: 10.0, seed: 777 },
+  /* 后排塔群（天际线） */
+  { t: .14, lat: 17.0, kind: 'cone-mast',  h: 24.0, cr: 4.9, tkH: 7.0, seed: 101 },
+  { t: .28, lat: 20.0, kind: 'cone-spire', h: 21.0, cr: 3.9, tkH: 5.6, seed: 202 },
+  { t: .40, lat: 18.5, kind: 'cone-mast',  h: 23.0, cr: 4.7, tkH: 6.4, seed: 242 },
+  { t: .58, lat: 15.5, kind: 'cone-mast',  h: 25.0, cr: 5.0, tkH: 7.0, seed: 303 },
+  { t: .70, lat: 12.0, kind: 'cone-spire', h: 20.0, cr: 3.7, tkH: 5.0, seed: 404 },
+  { t: .76, lat: 10.5, kind: 'cone-mast',  h: 22.0, cr: 4.5, tkH: 6.0, seed: 505 },
+  { t: .08, lat: 12.0, kind: 'cone-mast',  h: 20.0, cr: 4.1, tkH: 5.4, seed: 1313 },
+  /* 中景：夹在房屋之间的塔 */
+  { t: .22, lat: 7.5,  kind: 'cone-spire', h: 14.5, cr: 2.7, tkH: 3.6, seed: 606 },
+  { t: .34, lat: 11.5, kind: 'cone-spire', h: 16.0, cr: 3.0, tkH: 4.0, seed: 707 },
+  { t: .52, lat: 8.0,  kind: 'cone-spire', h: 14.0, cr: 2.6, tkH: 3.2, seed: 808 },
+  { t: .70, lat: 11.0, kind: 'cone-mast',  h: 17.0, cr: 3.5, tkH: 4.6, seed: 909 },
+  { t: .82, lat: 5.5,  kind: 'cone-spire', h: 14.5, cr: 2.7, tkH: 3.2, seed: 1010 },
+  /* 前景（路南） */
+  { t: .16, lat: -6.8, kind: 'cone-mast',  h: 15.0, cr: 3.2, tkH: 4.0, seed: 121 },
+  { t: .34, lat: -6.2, kind: 'cone-spire', h: 12.0, cr: 2.4, tkH: 2.8, seed: 232 },
+  { t: .56, lat: -7.5, kind: 'cone-spire', h: 13.0, cr: 2.5, tkH: 3.0, seed: 343 },
+  { t: .84, lat: -5.5, kind: 'cone-mast',  h: 13.0, cr: 2.9, tkH: 3.2, seed: 454 },
 ];
 
-/* 全局树表 */
 const trees = [];
 const FOL_LEAF_SOURCES = [];
 let FOL_READY = false;
 
-/* 绘制单棵大树 */
-function drawSingleTree(spec) {
-  const isMast = spec.kind === 'cone-mast';
-  const p = isMast
-    ? { height: spec.h, crownR: spec.cr, trunkH: spec.tkH, layers: spec.layers }
-    : { height: spec.h, crownR: spec.cr, trunkH: spec.tkH };
-
-  const inst = {
-    id: 'tree_' + spec.seed,
-    kind: spec.kind,
-    x: spec.x,
-    y: spec.y,
-    z: 0,
-    rot: 0,
-    params: p,
-    seed: spec.seed,
-  };
-
-  KIT.get(spec.kind).draw(KIT_RENDER.makeCtx(inst), inst);
-
-  FOL_LEAF_SOURCES.push({ x: spec.x, y: spec.y, z: spec.h * 0.72 });
-  trees.push({ x: spec.x, y: spec.y, kind: spec.kind, h: spec.h, crownR: spec.cr, seed: spec.seed });
+/* 路轴坐标 → 世界坐标 */
+function folAt(t, lat) {
+  const dx = ROAD.bx - ROAD.ax, dy = ROAD.by - ROAD.ay, len = Math.hypot(dx, dy);
+  return [ROAD.ax + dx * t + (dy / len) * lat, ROAD.ay + dy * t - (dx / len) * lat];
 }
 
-/* 烘焙生成植被树木 */
 function growFoliage() {
   if (FOL_READY) return;
   FOL_READY = true;
   trees.length = 0;
   FOL_LEAF_SOURCES.length = 0;
 
-  // 画家算法：由远及近绘制
-  const sorted = [...FOL_TREE_SPECS].sort((a, b) => b.y - a.y);
-  for (const spec of sorted) {
-    drawSingleTree(spec);
+  const placed = FOL_TREE_SPECS.map(sp => {
+    const [x, y] = folAt(sp.t, sp.lat);
+    return { ...sp, x, y };
+  });
+  /* 画家算法：y 大（远）先画 */
+  placed.sort((a, b) => b.y - a.y);
+  for (const sp of placed) {
+    const p = sp.kind === 'cone-mast'
+      ? { height: sp.h, crownR: sp.cr, trunkH: sp.tkH, layers: sp.layers }
+      : { height: sp.h, crownR: sp.cr, trunkH: sp.tkH, layers: sp.layers };
+    const inst = { id: 'tree_' + sp.seed, kind: sp.kind, x: sp.x, y: sp.y, z: 0, rot: 0,
+      params: p, seed: sp.seed };
+    KIT.get(sp.kind).draw(KIT_RENDER.makeCtx(inst), inst);
+    FOL_LEAF_SOURCES.push({ x: sp.x, y: sp.y, z: sp.h * .7 });
+    trees.push({ x: sp.x, y: sp.y, kind: sp.kind, h: sp.h, crownR: sp.cr, seed: sp.seed });
   }
 }
 
-/* 树木投射在落叶地面的柔和阴影 */
+/* 树影：轻——参考图是晴天，影子只是树根处一小片 */
 function castTreeShadows() {
-  for (const t of FOL_TREE_SPECS) {
-    castShadow(t.x, t.y, t.tkH + 1.0, t.cr * 1.3, 1, 0.45);
-    castShadow(t.x, t.y, 0, 0.45, 2, 0);
+  for (const t of trees) {
+    /* 晴天柔影：贴地、小半径、极轻 —— 大偏移的深椭圆会读作"泥坑" */
+    castShadow(t.x, t.y, 1.0, t.crownR * .55, 4, .85);
+    castShadow(t.x, t.y, 0, .28, 3, .85);
   }
 }
 
-/* 每帧动画接口 */
 function drawFoliage() {}

@@ -28,6 +28,7 @@ const ED = {
   showBox: true,
   crowdMode: '',
   baseMap: null,          /* 底图模式：{ url, W, H, pix, z, ground, groundZ } */
+  view: { scale: 1, ox: 0, oy: 0 },   /* 画布视图：Ctrl+滚轮缩放、中键/空格拖拽平移 */
   painting: false,
   ghost: null,
   dirty: true,
@@ -35,17 +36,6 @@ const ED = {
 };
 
 /* ---------------- 初始化与自适应缩放 ---------------- */
-
-function ED_fit() {
-  const stage = document.getElementById('stage');
-  /* 全屏画布：两侧留出浮动面板的宽度（各 ~270px），底部留状态条 */
-  const cw = (stage && stage.clientWidth) ? stage.clientWidth - 40 : innerWidth - 40;
-  const ch = (stage && stage.clientHeight) ? stage.clientHeight - 90 : innerHeight - 90;
-  const dpr = window.devicePixelRatio || 1;
-  const scale = Math.max(1, Math.floor(Math.min(cw / W, ch / H) * dpr)) / dpr;
-  canvas.style.width = Math.round(W * scale) + 'px';
-  canvas.style.height = Math.round(H * scale) + 'px';
-}
 
 function ED_init() {
   canvas.width = W;
@@ -228,12 +218,22 @@ function ED_buildTools() {
 function ED_bindCanvas() {
   const toWorld = e => {
     const r = canvas.getBoundingClientRect();
+    /* 视图平移在 transform 里，getBoundingClientRect 已包含它 —— 直接换算 */
     const sx = (e.clientX - r.left) / r.width * W;
     const sy = (e.clientY - r.top) / r.height * H;
     return unproject(sx, sy);
   };
 
+  /* 视图平移：中键拖拽 或 空格+左键拖拽 */
+  let panning = false, panStart = null;
   canvas.addEventListener('pointerdown', e => {
+    if (e.button === 1 || ED.spaceHeld) {
+      panning = true;
+      panStart = { x: e.clientX, y: e.clientY, ox: ED.view.ox, oy: ED.view.oy };
+      canvas.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      return;
+    }
     canvas.setPointerCapture(e.pointerId);
     const w = toWorld(e);
     if (ED_toolLocked(ED.tool)) {
@@ -280,7 +280,16 @@ function ED_bindCanvas() {
     }
   });
 
-  const stopDrag = () => { ED.painting = false; ED.draggingObj = false; };
+  canvas.addEventListener('pointermove', e => {
+    if (panning) {
+      ED.view.ox = panStart.ox + (e.clientX - panStart.x);
+      ED.view.oy = panStart.oy + (e.clientY - panStart.y);
+      ED_applyView();
+      return;
+    }
+  });
+
+  const stopDrag = () => { ED.painting = false; ED.draggingObj = false; panning = false; };
   canvas.addEventListener('pointerup', stopDrag);
   canvas.addEventListener('pointerleave', () => {
     stopDrag();
@@ -289,8 +298,18 @@ function ED_bindCanvas() {
 
   ED_bindKeys();
 
+  canvas.addEventListener('dblclick', () => {
+    ED.view = { scale: 1, ox: 0, oy: 0 };
+    ED_applyView();
+    studioStatus('视图已复位');
+  });
+
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
+    if (e.ctrlKey || e.metaKey) {
+      ED_viewZoom(e);
+      return;
+    }
     if (e.shiftKey) {
       /* Shift+滚轮 = 缩放 */
       const ds = (e.deltaY > 0 ? -1 : 1) * 0.1;
@@ -320,27 +339,6 @@ function ED_bindCanvas() {
   }, { passive: false });
 
 
-}
-
-function ED_applyTool(w) {
-  const g = TERRAIN.toGrid(w.x, w.y);
-  switch (ED.tool) {
-    case 'paint':
-      TERRAIN.paint(g.gx, g.gy, ED.mat, ED.brush, ED.height, 'paint');
-      break;
-    case 'erase':
-      TERRAIN.paint(g.gx, g.gy, ED.mat, ED.brush, 0, 'erase');
-      break;
-    case 'raise':
-      TERRAIN.sculpt(g.gx, g.gy, ED.brush, .25, 'raise');
-      break;
-    case 'lower':
-      TERRAIN.sculpt(g.gx, g.gy, ED.brush, .25, 'lower');
-      break;
-  }
-  /* 地形高度改变后，同步更新站在上面的物体高度 */
-  for (const o of ED.objects) o.z = TERRAIN.heightAt(o.x, o.y);
-  ED.dirty = true;
 }
 
 /* ---------------- 物体装配 ---------------- */
