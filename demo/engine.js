@@ -29,6 +29,11 @@ const ctx = canvas.getContext('2d');
 const KIND_NONE = 0, KIND_GRASS = 3;
 
 let image, pix, zb, bakedPix, bakedZ, ground, groundZ, shadowMask, staticShadow, kinds;
+/* 本帧已被暗化处理过的像素：AO 与投影是两套独立系统，
+   都用 tint 乘法压暗，同一像素被两套各染一次会叠加成近黑
+   （.56 × .54 ≈ .30）—— 标记后第二套直接跳过。随 PP_setSize 重建。 */
+let darkened;
+
 function PP_setSize(w, h) {
   W = Math.max(80, w | 0); H = Math.max(60, h | 0);
   OX = W / 2 + (window.PP_ORIGIN_X || 0);
@@ -40,6 +45,7 @@ function PP_setSize(w, h) {
   zb = new Float32Array(W * H);
   bakedPix = new Uint32Array(W * H);
   bakedZ = new Float32Array(W * H);
+  darkened = new Uint8Array(W * H);
   ground = new Uint8Array(W * H);
   groundZ = new Float32Array(W * H);
   shadowMask = new Uint8Array(W * H);
@@ -108,6 +114,7 @@ function rampOf(c) {
 function tint(i, r, g, b) {
   const c = pix[i];
   pix[i] = rgb((c & 255) * r, (c >> 8 & 255) * g, (c >> 16 & 255) * b);
+  if (r < 1) darkened[i] = 1;
 }
 
 /* 30° 正交等距投影 */
@@ -241,6 +248,7 @@ function applyShadows(refZ) {
     if (!s) continue;
     shadowMask[i] = 0;
     if (!ground[i] || zb[i] !== refZ[i]) continue;
+    if (darkened[i]) continue;          /* 已被 AO 压暗，不再叠投影 */
     /* ★ 路面（KIND_NONE）免影：车行道是画面的"亮带"，
        参考图里路面干净、只有路缘外的地面吃影 ——
        塔林/房屋的影子若染上路，公路会被淹没读不出来 */
@@ -295,6 +303,7 @@ function bakeOcclusion() {
   for (let iy = 4; iy < H - 4; iy++) for (let ix = 4; ix < W - 4; ix++) {
     const i = iy * W + ix;
     if (!ground[i] || zb[i] !== groundZ[i]) continue;
+    if (darkened[i]) continue;          /* 已被投影压暗，不再叠 AO */
     let hits = 0;
     for (const [ox, oy] of offsets) {
       const j = (iy + oy) * W + ix + ox;
@@ -458,9 +467,11 @@ function drawArrow(sx, sy, time) {
 }
 
 function fit() {
+  /* ★ 全屏 = 画布内部像素数 = 窗口/PP_SCALE，显示 **1:1**（绝不拉伸）——
+     拉伸会让像素变成巨型马赛克且横纵比不同的窗口会把画面拉变形 */
   if (window.PP_FULLSCREEN) {
-    canvas.style.width = '100vw';
-    canvas.style.height = '100vh';
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
     return;
   }
   const dpr = window.devicePixelRatio || 1;

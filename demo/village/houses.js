@@ -224,47 +224,21 @@ function hPlace(t, lat, w, dp) {
 }
 
 const HOUSE_SPEC = [
-  /* ★ 尺寸来自参考图实测（tools/measure-trees.mjs + 目视核对）：
-   *   参考图（658×1170）房子宽约 130px = 画面 20%。
-   *   等距投影下"画面宽 20%"等价于"房子宽 = 公路世界长 × 0.20"
-   *   （因为公路横跨画布，横向容纳 = W·√2/S）。
-   *   我的公路世界长 42.6 → 房子宽应为 8.5。
-   *   原来的 4.2 只有一半 → 房子缩成小模型，参考图里房子是主角。
-   *
-   * ★ 摆位（lat = 离路中心线的法向距离）：
-   *   参考图里房子散布在画面 40%~75% 高度，路在 70%~93%。
-   *   → 房子要在路的**上方**（lat 正 = 路北 = 屏幕右上）。
-   *   两组 lat 交替（近路 / 远路），形成"前排房子挡住后排房子下缘"的层次。
-   */
-  /* 远端 · 路北近 · 小木屋（红瓦） */
-  { t: .06, lat: 5.5, w: 6.0, dp: 5.0, z1: 4.8, rise: 2.4, roof: TILE, moss: .14, chimney: false,
-    seed: 11, windows: [{ u: .38 }, { u: .74 }], doorU: .16 },
-  /* 远端 · 路北远 · 苔藓屋顶 */
-  { t: .20, lat: 13.0, w: 6.6, dp: 5.4, z1: 5.0, rise: 2.5, roof: SHINGLE, moss: .52, chimney: false,
-    seed: 23, windows: [{ u: .32 }, { u: .7 }], doorU: .5 },
-  /* 中远 · 路南 · 小木屋 */
-  { t: .34, lat: -6.0, w: 5.8, dp: 4.9, z1: 4.7, rise: 2.3, roof: SHINGLE, moss: .3, chimney: true,
-    seed: 31, windows: [{ u: .34 }, { u: .72 }], doorU: .16 },
-  /* 中远 · 路北近 · 小木屋（带烟囱） */
-  { t: .45, lat: 6.5, w: 6.2, dp: 5.2, z1: 4.8, rise: 2.4, roof: SHINGLE, moss: .3, chimney: true,
-    seed: 67, windows: [{ u: .34 }, { u: .72 }], doorU: .16 },
-  /* 中部 · 路南远 · 大木屋（带烟囱） */
-  { t: .58, lat: -12.0, w: 8.4, dp: 6.8, z1: 5.9, rise: 3.0, roof: TILE, moss: .2, chimney: true,
-    seed: 51, windows: [{ u: .3 }, { u: .72 }], doorU: .5 },
-  /* 中部 · 路北近 · 大木屋（屋顶满是苔藓，正对观众） */
-  { t: .70, lat: 7.5, w: 8.8, dp: 7.0, z1: 6.1, rise: 3.2, roof: SHINGLE, moss: .85, chimney: true,
-    seed: 37, windows: [{ u: .28 }, { u: .68 }], doorU: .47 },
-  /* 近端 · 路北 · 斜对观众
-   * ★ 必须在路**北**侧：路南近端的房子会把路右下出口整个挡住
-   *   （参考图里路右下出口前方是空的，只有树）。 */
-  { t: .86, lat: 10.0, w: 7.2, dp: 6.0, z1: 5.7, rise: 2.8, roof: TILE, moss: .45, chimney: true,
-    seed: 83, windows: [{ u: .34 }, { u: .7 }], doorU: .5 },
+  /* 4 个小房子，沿路两侧错落（t 沿路，lat 横向；正 = 屏幕右上侧） */
+  { t: .16, lat:  6.6, w: 3.4, dp: 2.8, z1: 2.5, rise: 1.30, roof: TILE,    moss: .18, chimney: true,
+    seed: 11, windows: [{ u: .35 }, { u: .72 }], doorU: .18 },
+  { t: .40, lat: -6.8, w: 3.6, dp: 2.9, z1: 2.6, rise: 1.40, roof: SHINGLE, moss: .45, chimney: false,
+    seed: 31, windows: [{ u: .32 }, { u: .70 }], doorU: .5 },
+  { t: .62, lat:  7.0, w: 3.8, dp: 3.0, z1: 2.7, rise: 1.45, roof: SHINGLE, moss: .80, chimney: true,
+    seed: 37, windows: [{ u: .30 }, { u: .68 }], doorU: .47 },
+  { t: .86, lat: -6.4, w: 3.2, dp: 2.6, z1: 2.4, rise: 1.25, roof: TILE,   moss: .30, chimney: false,
+    seed: 83, windows: [{ u: .36 }, { u: .70 }], doorU: .5 },
 ];
 
-const HOUSES = HOUSE_SPEC.map(s => Object.assign(hPlace(s.t, s.lat, s.w, s.dp), {
-  z1: s.z1, rise: s.rise, roofColor: s.roof, moss: s.moss, chimney: s.chimney,
-  seed: s.seed, windows: s.windows, doorU: s.doorU, doorSide: s.doorSide, sideWindow: s.sideWindow,
-}));
+const HOUSES = HOUSE_SPEC.map(sp => Object.assign(hPlace(sp.t, sp.lat, sp.w, sp.dp), {
+  z1: sp.z1, rise: sp.rise, roofColor: sp.roof, moss: sp.moss, chimney: sp.chimney,
+  seed: sp.seed, windows: sp.windows, doorU: sp.doorU, doorSide: sp.doorSide, sideWindow: sp.sideWindow,
+}));;
 
 /* 按 y 从大到小排序后画（y 大 = 靠近观众 = 后画） */
 function drawHouses() {

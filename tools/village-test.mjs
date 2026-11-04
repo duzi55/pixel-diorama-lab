@@ -161,7 +161,8 @@ const treePix = evalIn(`(() => {
   }
   return n;
 })()`);
-check('树冠已烘焙进底图', treePix > 850, `${treePix} 个树像素`);
+/* 极简场景：9 棵锥树 + 4 房 + 车/村民，非背景非地面像素即树/房/物件 */
+check('树已烘焙进底图', treePix > 500, `${treePix} 个树/物件像素`);
 
 /* 4. 村民拾取 */
 const villagerCount = evalIn('villagers.length');
@@ -190,47 +191,23 @@ if (picked) {
   check('选中标记可见', d3 > 0, `选中/未选中画面差 ${d3} 像素`);
 }
 
-/* 6. 公路可见（几何采样：沿路中心线 ±10px 走廊数"非树冠"像素）
- * ★ 为什么不用颜色统计：沥青是暖灰（s≈0.19），树影/墙影也是暖灰，
- *   颜色判据永远失准。直接沿已知路中心线采样 ——
- *   路被树盖住时该处是金黄，路露出来时是灰/黄虚线。 */
+/* 6. 公路可见：数**路面灰白像素**（ASPHALT 亮灰系 + 黄虚线）。
+ * 亮灰判定：低饱和 + 中高明度（背景米色也是低饱和但明度更高，
+ * 且精确等值跳过；树冠金黄是高饱和）。 */
 {
   const W = evalIn('W'), H = evalIn('H');
   const pix = evalIn('pix');
-  const ax = 4.56, ay = 28.13, bx2 = 46.92, by2 = 23.35;
-  const S = evalIn('S'), OX = evalIn('OX'), OY = evalIn('OY'), R2 = evalIn('R2');
-  const sxOf = (x, y) => OX + (x - y) / R2 * S;
-  const syOf = (x, y) => OY + ((x + y) / R2 * 0.5) * S;
-  let clear = 0, total = 0;
-  /* 路中心线的屏幕方向 ≈ (0.93, 0.37)，垂直方向 ≈ (-0.37, 0.93)。
-     ★ 采样偏移必须沿**垂直**方向 —— 沿路方向偏移会一直压在中心虚线上
-     （虚线 rgb 238,194,62 和树冠金色几乎同色，颜色判据分不出来）。 */
-  const pxDir = -0.372, pyDir = 0.93;
-  for (let i = 0; i <= 120; i++) {
-    const t = i / 120;
-    const wx = ax + (bx2 - ax) * t, wy = ay + (by2 - ay) * t;
-    const cx = sxOf(wx, wy), cy = syOf(wx, wy);
-    for (const off of [-14, -8, 8, 14]) {
-      const ix = Math.round(cx + pxDir * off), iy = Math.round(cy + pyDir * off);
-      if (ix < 0 || iy < 0 || ix >= W || iy >= H) continue;
-      total++;
-      const c = pix[iy * W + ix], r = c & 255, g = c >> 8 & 255, b = c >> 16 & 255;
-      const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
-      const s = mx === 0 ? 0 : (mx - mn) / mx;
-      let hu = 0;
-      if (mx !== mn) {
-        if (mx === r) hu = 60 * (((g - b) / (mx - mn)) % 6);
-        else if (mx === g) hu = 60 * ((b - r) / (mx - mn) + 2);
-        else hu = 60 * ((r - g) / (mx - mn) + 4);
-        if (hu < 0) hu += 360;
-      }
-      /* 金黄树冠（高饱和高明度的橙黄）→ 路被盖住 */
-      const foliage = hu >= 20 && hu <= 58 && s > .45 && mx > 180;
-      if (!foliage) clear++;
-    }
+  const bg = evalIn('rgb(252, 245, 218)');
+  let roadPx = 0;
+  for (let i = 0; i < W * H; i++) {
+    const c = pix[i];
+    if (c === bg) continue;
+    const r = c & 255, g = c >> 8 & 255, b = c >> 16 & 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    const sat = mx === 0 ? 0 : (mx - mn) / mx;
+    if (sat < .22 && mx > 140 && mx < 235) roadPx++;
   }
-  const pct = clear / total * 100;
-  check('公路在画面内可见', pct > 25, `走廊 ${total} 采样点中 ${pct.toFixed(0)}% 未被树冠盖住`);
+  check('公路在画面内可见（亮灰路面）', roadPx > 800, `${roadPx} 个路面像素`);
 }
 
 /* 7. 房子可见（深棕木屋墙面） */
@@ -245,42 +222,48 @@ if (picked) {
   check('木屋可见', housePx > 300, `${housePx} 个墙面像素`);
 }
 
-/* 8. 金黄主调充分
- * 断言随构图演进：整幅树海时代要求 >80%（参考图 90.7%）；
- * 现构图是「岛式留白」（用户要求：纯色背景 + 水墨晕开），
- * 背景留白占 1/4 以上 → 金黄占比自然下降。
- * 阈值 45%：保证画面主体（塔林+地形+落叶）仍是金黄主调，
- * 同时不足以把留白也算进去（雾化前的纯背景不算金黄）。 */
+/* 8. 纯色背景留白（用户要求的核心构图）：
+ * 场景（房/树/路）居中，四周是大面积纯色背景（SKY 精确等值，
+ * 无雾化无渐变）。留白应占画布多数。 */
 {
   const W = evalIn('W'), H = evalIn('H');
   const pix = evalIn('pix');
-  let gold = 0, total = W * H;
-  for (let i = 0; i < total; i++) {
-    const c = pix[i], r = c & 255, g = c >> 8 & 255, b = c >> 16 & 255;
-    const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
-    const s = mx === 0 ? 0 : (mx - mn) / mx;
-    let hu = 0;
-    if (mx !== mn) {
-      if (mx === r) hu = 60 * (((g - b) / (mx - mn)) % 6);
-      else if (mx === g) hu = 60 * ((b - r) / (mx - mn) + 2);
-      else hu = 60 * ((r - g) / (mx - mn) + 4);
-      if (hu < 0) hu += 360;
-    }
-    if (hu >= 20 && hu <= 55 && s > .35) gold++;
-  }
-  const pct = gold / total * 100;
-  check('金黄主调充分（岛式留白构图）', pct > 30, `${pct.toFixed(1)}%`);
+  const bg = evalIn('rgb(252, 245, 218)');
+  let blank = 0, total = W * H;
+  for (let i = 0; i < total; i++) if (pix[i] === bg) blank++;
+  const pct = blank / total * 100;
+  check('纯色背景留白充分', pct > 55, `留白 ${pct.toFixed(0)}%`);
 }
 
-/* 导出最终画面 */
+/* 9. 全屏模式冒烟：模拟横屏浏览器窗口（PP_HEADLESS=false + PP_FULLSCREEN），
+ *    S 自适应 → PP_setSize → bake/draw 数帧不崩，场景在画布上可见。
+ *    这是"画布全屏不裁切"的回归闸（曾有窗口尺寸下布点全灭 → 白屏的崩溃）。 */
 {
-  const W = evalIn('W'), H = evalIn('H');
-  const pix = evalIn('pix');
-  const rgba = Buffer.alloc(W * H * 4);
-  Buffer.from(pix.buffer, pix.byteOffset, W * H * 4).copy(rgba);
-  const out = path.join(ROOT, 'docs/village-screenshot.png');
-  fs.writeFileSync(out, encodePNG(W, H, rgba));
-  console.log(`\n  截图已保存: docs/village-screenshot.png`);
+  try {
+    evalIn(`
+      PP_HEADLESS = false; PP_FULLSCREEN = true;
+      PP_SCALE = Math.max(2.5, Math.min(9, Math.sqrt(1200 / 100), Math.sqrt(900 / 52)));
+      PP_ORIGIN_Y = -Math.round(11.3 * PP_SCALE);
+      PP_setSize(Math.ceil(1200 / PP_SCALE), Math.ceil(900 / PP_SCALE));
+      lastStep = -1; bake();
+    `);
+    // bake 数帧（draw 走每帧路径）
+    for (let f = 0; f < 3; f++) evalIn(`update(${f / 12}, 1 / 12); draw(${f / 12});`);
+    const info = evalIn(`(() => {
+      let tree = 0, groundPix = 0;
+      const bg = rgb(252, 245, 218);
+      for (let i = 0; i < pix.length; i++) {
+        if (pix[i] === bg) continue;
+        if (ground[i]) groundPix++; else tree++;
+      }
+      return { w: W, h: H, tree, groundPix };
+    })()`);
+    const ok = info.tree > 200 && info.groundPix > 500;
+    check('全屏模式 bake/draw 不崩且场景可见', ok,
+      `${info.w}×${info.h}  树 ${info.tree}px  地面 ${info.groundPix}px`);
+  } catch (e) {
+    check('全屏模式 bake/draw 不崩且场景可见', false, String(e).slice(0, 90));
+  }
 }
 
 console.log(`\n=== 结果: ${pass} 通过 / ${fail} 失败 ===\n`);

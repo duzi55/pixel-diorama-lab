@@ -427,6 +427,7 @@ function ED_render(t = 0) {
   shadowMask.fill(0);
   pendingShadows.length = 0;
 
+  darkened.fill(0);          /* 每帧清零：AO/投影互斥标记 */
   if (ED.baseMap) {
     /* 底图模式：直接拷贝场景烘焙结果，物体画在其上 */
     pix.set(ED.baseMap.pix);

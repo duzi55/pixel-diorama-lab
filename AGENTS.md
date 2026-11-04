@@ -53,12 +53,12 @@
 | 树林页面 | `demo/forest.html` | 树林预览与控制面板 | `docs/forest-rules.md` |
 | 秋日野餐 | `demo/autumn.js` | 梧桐、菱形地台、野餐布、人物、风动 | `docs/modules/autumn.md` |
 | 秋日页面 | `demo/autumn.html` | 秋日野餐预览 | — |
-| **山村植被** | `demo/village/foliage.js` | 成团布点（沿路参数坐标钉团心）、阔叶树 6 簇球堆冠 / 针叶树锥面塔冠、capture 风动树冠、每帧重画树干、灌木 | `docs/modules/foliage.md` |
-| **山村木屋** | `demo/village/houses.js` | 木板拼缝墙 + 苔藓坡顶 + 亮灯窗 + 烟囱 + 体积阴影；7 栋沿路两侧摆位（读 terrain.js 的 ROAD） | `docs/kit/buildings.md §5b` |
+| **山村植被** | `demo/village/foliage.js` | 极简树表（9 棵锥树构件，高矮不一）沿路两侧错落 + 影子 + 落叶源 | `docs/modules/foliage.md` |
+| **山村木屋** | `demo/village/houses.js` | 木板拼缝墙 + 苔藓坡顶 + 亮灯窗 + 烟囱 + 体积阴影；4 栋小房沿路两侧摆位（读 terrain.js 的 ROAD） | `docs/kit/buildings.md §5b` |
 | 山村村民 | `demo/village/villagers.js` | 路人沿人行道走停、门口村民张望、头顶锚点与拾取接口 | `docs/modules/villagers.md` |
 | 山村公路与车 | `demo/village/road.js` | 公路几何（切向/法向/投影/路坐标系）+ 黄色小甲壳虫（沿路行驶、警灯闪烁、动态阴影） | `docs/kit/props.md §8b` |
 | 山村路面绘制 | `demo/village/road-paint.js` | road.js 的兜底路面实现：沥青 + 路缘石 + 黄色虚线（terrain.js 已画路面时不要调） | `docs/kit/props.md §8b` |
-| **秋日山村场景** | `demo/village/` | **竖幅秋日山村**：层叠树海 + 斜穿公路 + 亮灯木屋 + 甲壳虫车 + 村民（点击打招呼） | `docs/modules/village.md` |
+| **秋日山村场景** | `demo/village/` | **极简场景（全屏画布）**：纯色背景 + 居中一簇（4 木屋 + 9 锥树）+ 一条延伸公路 + 黄甲壳虫 + 村民（点击打招呼）；布点全世界坐标，画布尺寸无关 | `docs/modules/village.md` |
 | **远景树海** | `demo/village/sea.js` | 岛式留白构图：锥树构件布场（大而少）+ 碎点晕开层 + 空气透视 | `docs/kit/depth-and-haze.md §4` |
 | **构件库运行时** | `demo/kit/core.js` | `KIT.register` 构件注册表：id / name / category / params / collision / draw | `docs/modules/studio.md §5` |
 | 构件库·人群行为 | `demo/kit/crowd.js` | `KIT_CROWD`：spectator/wanderer/crowd 三变体（目标选择+软排斥+姿态合成） | `docs/modules/studio.md §8` |

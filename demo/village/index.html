@@ -25,11 +25,21 @@
 </div>
 
 <script>
-  /* 兜底尺寸（无头渲染/测试工具用，工具侧设 PP_HEADLESS 跳过全屏） */
-  window.PP_W = 300; window.PP_H = 520;
-  window.PP_SCALE = 9; window.PP_ORIGIN_X = 0; window.PP_ORIGIN_Y = 10;
-  /* ★ 画布铺满浏览器窗口：像素数 = 窗口 / PP_SCALE，无裁切无留边 */
-  if (!window.PP_HEADLESS) window.PP_FULLSCREEN = true;
+  /* ★ 全屏画布：像素密度不变（PP_SCALE 固定 9），画布像素数 = 窗口 / 9。
+     无头渲染/测试工具设 PP_HEADLESS=true，用 300×520 兜底尺寸。 */
+  /* ★ 像素密度：每世界单位 6 内部像素，显示 1:1（fit 不拉伸）——
+     浏览器观感 = 无头截图观感，人/车/树比例真实 */
+  window.PP_SCALE = 6;
+  window.PP_ORIGIN_X = 0;
+  window.PP_W = 300; window.PP_H = 500;   /* 兜底（无头工具尺寸） */
+  if (!window.PP_HEADLESS) {
+    window.PP_FULLSCREEN = true;
+    window.PP_W = Math.ceil(innerWidth / PP_SCALE);
+    window.PP_H = Math.ceil(innerHeight / PP_SCALE);
+    window.PP_ORIGIN_Y = 0;
+  } else {
+    window.PP_ORIGIN_Y = 0;
+  }
 </script>
 <script src="../engine.js"></script>
 <script src="../kit/core.js"></script>
@@ -39,7 +49,6 @@
 <script src="figures.js"></script>
 <script src="palette.js"></script>
 <script src="terrain.js"></script>
-<script src="sea.js"></script>
 <script src="houses.js"></script>
 <script src="foliage.js"></script>
 <script src="villagers.js"></script>

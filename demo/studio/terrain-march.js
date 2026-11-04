@@ -43,6 +43,17 @@ function terrainBuildHeightGrid() {
   TERRAIN_MARCH.EX = EX;
   TERRAIN_MARCH.N = N;
   TERRAIN_MARCH.maxZ = maxZ;
+
+  /* 高度场梯度上界（相邻格心最大高差 / 格距 1.0）—— sphere tracing 的
+     安全系数由它决定，宁大勿小（偏保守只损失速度，不损失正确性） */
+  let maxSlope = 0;
+  for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
+    const h0 = H[gy * N + gx];
+    if (Number.isNaN(h0)) continue;
+    if (gx + 1 < N && !Number.isNaN(H[gy * N + gx + 1])) maxSlope = Math.max(maxSlope, Math.abs(H[gy * N + gx + 1] - h0));
+    if (gy + 1 < N && !Number.isNaN(H[(gy + 1) * N + gx])) maxSlope = Math.max(maxSlope, Math.abs(H[(gy + 1) * N + gx] - h0));
+  }
+  TERRAIN_MARCH.maxSlope = maxSlope;
 }
 
 /**
@@ -121,9 +132,13 @@ function terrainMarch(sx, sy, zTop, step) {
   const syBase = (sy - OY) / S;
 
   /* Sphere tracing：按「到地形的垂直距离」跳跃。
-     射线方向固定（世界空间 (1,1,k)），垂直距离 d = z - h 对应
-     沿射线至少 d 的行程，所以一次可以安全跳过 d*0.6 —— 平地上
-     3~4 步就能落到底，陡坡处步子自动变小保证精度。 */
+     关键：等距射线每降 1 个 z，水平面要走 R2*COS/SIN ≈ 1.73 的距离，
+     所以高度会变化的"提前量"是 1.73×梯度。安全步长 =
+     (z-h) / (1 + maxSlope*1.74)，maxSlope 由 buildHeightGrid 按格心
+     最大高差估计。旧实现用固定 0.6 系数：梯度 >0.48 的陡崖
+     （比如 3 格高的 hill 边缘）必然一步跨过交点 → 黑洞。 */
+  const stepSafe = Math.min(0.42, 1 / (1 + TERRAIN_MARCH.maxSlope * 1.74));
+
   /* 粗筛：沿射线取 5 个高度，全都不在地形内 → 这条射线大概率是天空，
      直接放弃（bbox 里约 40% 是这种像素，能省掉整段扫描） */
   let anyTerrain = false;
@@ -145,7 +160,7 @@ function terrainMarch(sx, sy, zTop, step) {
     if (!Number.isNaN(h) && z <= h) {
       /* 二分细化：lo 在地形内（f<=0），hi 在地形外（f>0） */
       let lo = z, hi = prevZ;
-      for (let k = 0; k < 5; k++) {
+      for (let k = 0; k < 6; k++) {
         const mid = (lo + hi) * 0.5;
         const vv = (syBase + mid * COS) / SIN;
         const xx = (u + vv) / R2, yy = (vv - u) / R2;
@@ -158,8 +173,7 @@ function terrainMarch(sx, sy, zTop, step) {
     }
 
     prevZ = z;
-    /* 无地形时按固定步长；有地形时按到表面的距离跳（留 40% 安全余量） */
-    z -= Number.isNaN(h) ? step : Math.max(step, (z - h) * 0.6);
+    z -= Number.isNaN(h) ? step : Math.max(step, (z - h) * stepSafe);
   }
   return null;
 }

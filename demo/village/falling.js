@@ -24,7 +24,7 @@ function setupFallingLeaves(sources, count = 16) {
 }
 
 function spawnLeaf(m, i, spread) {
-  if (!leafSources.length) { m.x = 0; m.y = 0; m.z = 10; return m; }
+  if (!leafSources.length) { m.x = 0; m.y = 0; m.z = 10; m.c = LEAF_FALL_COLORS[0]; return m; }
   const src = leafSources[(hash(i, 71) * leafSources.length) | 0];
   const a = hash(i, 72) * 6.283, r = hash(i, 73) * 1.3;
   m.x = src.x + Math.cos(a) * r;

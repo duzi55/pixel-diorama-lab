@@ -46,6 +46,7 @@ const KIT_RENDER = {
 
   /** 烘焙整张画面：地面 → 静态物体 */
   bake() {
+    darkened.fill(0);
     zb.fill(-1e9);
     pix.fill(KIT_RENDER.bgColor);
     ground.fill(0);
