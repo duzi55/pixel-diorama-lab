@@ -62,6 +62,13 @@ function PP_setSize(w, h) {
 }
 PP_setSize(W, H);
 
+/* 顶层 let 不挂 window：跨 iframe 抓底图走这个 getter（PP_setSize 后自动跟随） */
+window.PP_SCENE = {
+  get W() { return W; }, get H() { return H; }, get pix() { return pix; },
+  get bakedPix() { return bakedPix; }, get bakedZ() { return bakedZ; },
+  get ground() { return ground; }, get groundZ() { return groundZ; },
+};
+
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + .5) / 16);
 const COOL = [46, 38, 84], WARM = [255, 232, 180];
 const GRADIENT_Y = COS / (S * SIN), EDGE = .28;

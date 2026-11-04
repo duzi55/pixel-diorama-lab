@@ -199,9 +199,28 @@ event: done      → {ok, component}（或 event: error）
 village / autumn / forest 这些**已写好的场景**可以进编辑器编辑：
 
 ```
-选择场景 → 同源 iframe 加载 → 抓取烘焙底图（bakedPix/bakedZ/ground）
+选择场景 → 同源 iframe 加载 → 轮询等待 bake 完成 → 抓取烘焙底图
         → 编辑器进入"底图模式"
 ```
+
+**跨 iframe 取数据的约定**：`engine.js` 的 `W/H/pix/bakedPix/bakedZ/ground/groundZ`
+都是顶层 `let`，**不会挂到 `window` 上**（`win.bakedPix` 永远是 `undefined`）。
+所以 engine 暴露了一个只读 getter 对象：
+
+```js
+window.PP_SCENE = {
+  get W() { return W; }, get H() { return H; },
+  get bakedPix() { return bakedPix; },
+  // …
+};
+```
+
+`scene-import.js` 优先读 `win.PP_SCENE`，旧页面没有时退回 `win`。
+`PP_setSize` 重建缓冲后 getter 自动跟随，不需要手动同步。
+
+抓取是**轮询**而不是固定等待：每 200ms 检查一次
+（类型/尺寸对不对 → 缓冲里有没有真像素），最长 8s。
+这样慢场景不会误报"没有烘焙底图"，没调 `bake()` 的页面会给出明确错误。
 
 底图模式下的能力边界：
 

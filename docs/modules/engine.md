@@ -17,8 +17,8 @@
 
 | 名称 | 类型 | 说明 |
 |------|------|------|
-| `W`, `H` | `360`, `280` | 固定渲染分辨率 |
-| `S` | `14` | 每世界单位对应的像素数 |
+| `W`, `H` | `380`, `560` | 默认渲染分辨率，可用 `PP_W` / `PP_H` 覆盖 |
+| `S` | `11` | 每世界单位对应的像素数，可用 `PP_SCALE` 覆盖 |
 | `OX`, `OY` | 数值 | 投影原点（屏幕中心附近） |
 | `pix` | `Uint32Array` | 当前帧颜色（ABGR，小端） |
 | `zb` | `Float32Array` | 当前帧深度，越大越靠前 |
@@ -27,6 +27,19 @@
 | `groundZ` | `Float32Array` | 地面的深度参考值 |
 | `shadowMask` | `Uint8Array` | 待应用的阴影强度（0/1/2） |
 | `canvas` / `ctx` / `image` | — | Canvas 与 `ImageData` |
+
+### 跨 iframe 读取（`window.PP_SCENE`）
+
+上面这些变量是**顶层 `let`，不会挂到 `window` 上**——父页面里 `win.pix` /
+`win.bakedPix` 永远是 `undefined`。需要从外部（Studio 的底图抓取）读缓冲时，
+走 engine 暴露的只读 getter：
+
+```js
+win.PP_SCENE.W  / .H  / .pix / .bakedPix / .bakedZ / .ground / .groundZ
+```
+
+`PP_setSize()` 重建缓冲后 getter 自动指向新数组。这是
+`demo/studio/scene-import.js` 抓取场景底图的唯一约定。
 
 ## 公共 API
 
