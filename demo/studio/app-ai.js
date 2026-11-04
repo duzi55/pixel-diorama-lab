@@ -164,6 +164,88 @@ async function readSSE(res, on) {
   }
 }
 
+/* ---------------- 每个构件一份对话（本地保存） ---------------- */
+/* 切构件时各看各的：需求、思考、结果都跟着构件走，存 localStorage */
+
+const CHAT = { id: null, cache: new Map(), max: 8, inflight: new Map() };
+
+function chatTurns(id) {
+  if (!CHAT.cache.has(id)) {
+    let arr = [];
+    try {
+      const raw = localStorage.getItem('studio-chat:' + id);
+      if (raw) arr = JSON.parse(raw) || [];
+    } catch { arr = []; }
+    CHAT.cache.set(id, arr);
+  }
+  return CHAT.cache.get(id);
+}
+
+function chatSave(id) {
+  try {
+    localStorage.setItem('studio-chat:' + id, JSON.stringify(chatTurns(id).slice(0, CHAT.max)));
+  } catch { /* 配额满了只留内存 */ }
+}
+
+/* 切构件：载入该构件的对话并渲染最近一轮。
+   无正在生成的任务时强制从 localStorage 重读（多标签页/外部写入也能同步） */
+function chatSetComponent(id) {
+  CHAT.id = id;
+  if (!CHAT.inflight.has(id)) CHAT.cache.delete(id);
+  chatRender();
+}
+
+/* 开始新一轮（返回 turn 对象，后续回调都用它，避免切构件后写错会话） */
+function chatStart(prompt) {
+  const id = CHAT.id;
+  const turn = { cid: id, t: Date.now(), prompt, thinking: [], result: null, error: null };
+  CHAT.inflight.set(id, turn);
+  chatTurns(id).unshift(turn);
+  chatTurns(id).length = Math.min(chatTurns(id).length, CHAT.max);
+  chatSave(id);
+  THINK.clear();
+  THINK.line('需求', prompt);
+  return turn;
+}
+
+function chatLine(kind, text, turn) {
+  if (!turn) return;
+  const s = String(text);
+  turn.thinking.push({ kind, text: s.length > 1200 ? s.slice(0, 1200) + '…' : s });
+  if (turn.thinking.length > 200) turn.thinking.splice(0, turn.thinking.length - 200);
+  /* 只有当前正在看的构件才追加到面板 */
+  if (CHAT.id === turn.cid && chatTurns(turn.cid)[0] === turn) THINK.line(kind, s);
+}
+
+function chatFinish(turn, patch) {
+  if (!turn) return;
+  Object.assign(turn, patch || {});
+  chatSave(turn.cid);
+  if (CHAT.inflight.get(turn.cid) === turn) CHAT.inflight.delete(turn.cid);
+}
+
+/* 渲染某构件最近一轮对话：思考 + 该构件自己的 AI 结果 */
+function chatRender() {
+  THINK.clear();
+  const turns = chatTurns(CHAT.id);
+  const turn = turns[0];
+  $('#ai-code').value = '';
+  $('#ai-metaline').textContent = '';
+  if (!turn) return;
+
+  THINK.line('需求', turn.prompt);
+  for (const l of turn.thinking.slice(-100)) THINK.line(l.kind, l.text);
+  if (turn.error) THINK.line('错误', turn.error);
+  if (turn.result && turn.result.code) {
+    $('#ai-code').value = turn.result.code;
+    $('#ai-metaline').textContent = `${turn.result.name || ''} · ${turn.result.id || ''}`;
+    $('#ai-status').textContent = '已载入该构件上一次 AI 结果（可应用预览 / 保存）';
+    THINK.line('历史', `这是 ${new Date(turn.t).toLocaleString()} 的一轮对话`);
+  }
+}
+
+window.chatSetComponent = chatSetComponent;
+
 $('#ai-think-clear').addEventListener('click', () => THINK.clear());
 
 /* ---------------- 生成 / 修改 ---------------- */
@@ -176,9 +258,9 @@ async function runAi() {
   const btn = $('#btn-ai');
   btn.disabled = true;
   $('#ai-status').textContent = 'AI 生成中…（可能需要 1~3 分钟）';
-  THINK.clear();
+  const turn = chatStart(instruction);
   setProgress(4);
-  THINK.line('进度', '已提交需求，正在连接模型…');
+  chatLine('进度', '已提交需求，正在连接模型…', turn);
 
   let prompt;
   let category = '';
@@ -215,24 +297,24 @@ async function runAi() {
       let lastPct = 4;
       await readSSE(res, (ev, d) => {
         if (ev === 'open') {
-          THINK.line('进度', `已连接模型${d.model ? '（' + d.model + '）' : ''}`);
+          chatLine('进度', `已连接模型${d.model ? '（' + d.model + '）' : ''}`, turn);
           lastPct = Math.max(lastPct, 12); setProgress(lastPct);
         } else if (ev === 'progress') {
           const msg = d.message || d.stage || '';
           const tokens = d.totalTokens ? ` · ${d.totalTokens} tokens` : '';
           $('#ai-status').textContent = msg + tokens;
-          THINK.line('进度', msg + tokens);
+          chatLine('进度', msg + tokens, turn);
           lastPct = Math.min(88, lastPct + Math.max(2, (88 - lastPct) * .25));
           setProgress(lastPct);
         } else if (ev === 'thinking') {
-          THINK.line(d.kind || '推理', d.text || '');
+          chatLine(d.kind || '推理', d.text || '', turn);
         } else if (ev === 'done') {
           result = d;
           setProgress(100);
         } else if (ev === 'error') {
           error = new Error(d.error || '生成失败');
           setProgress(100, 'var(--err)');
-          THINK.line('错误', d.error || '生成失败');
+          chatLine('错误', d.error || '生成失败', turn);
         }
       });
     }
@@ -240,7 +322,8 @@ async function runAi() {
     if (!result || !result.ok) throw new Error((result && result.error) || '生成失败');
   } catch (e) {
     $('#ai-status').textContent = '失败：' + e.message;
-    THINK.line('错误', e.message);
+    chatFinish(turn, { error: e.message });
+    chatLine('错误', e.message, turn);
     setProgress(100, 'var(--err)');
     btn.disabled = false;
     setTimeout(() => setProgress(0), 1500);
@@ -248,6 +331,7 @@ async function runAi() {
   }
 
   const c = result.component;
+  chatFinish(turn, { result: { code: c.code, name: c.name, id: c.id, category: c.category, desc: c.desc } });
   if (window.histPush) histPush('AI ' + (state.aiMode === 'edit' ? '修改' : '新建') + '：' + instruction.slice(0, 24));
   state.aiComponent = c;
   state.code = c.code || '';
@@ -259,7 +343,7 @@ async function runAi() {
   $('#ai-code').value = c.code || '';
   $('#ai-metaline').textContent = `${c.name} · ${c.id} · ${CAT_NAME[c.category] || c.category}`;
   $('#ai-status').textContent = '生成完成，可「应用预览」或直接「保存到构件库」';
-  THINK.line('完成', `${c.name}（${c.id}）已生成`);
+  chatLine('完成', `${c.name}（${c.id}）已生成`, turn);
   if (state.aiMode === 'new') {
     $('#cur-name').textContent = c.name;
     $('#cur-desc').textContent = c.desc || '（AI 新构件，未保存）';

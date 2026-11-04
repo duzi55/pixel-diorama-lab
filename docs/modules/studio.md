@@ -24,6 +24,11 @@
 >   `image-rendering: pixelated` 保持锐利）；放大后视口自动对准画布中心、可滚动查看
 > - **AI 思考与进度**：生成走 SSE（`Accept: text/event-stream`），
 >   `open/progress/thinking/done/error` 事件实时显示推理、工具调用、token 数与进度条
+> - **每个构件一份 AI 对话**：需求 / 思考 / 结果都跟着构件走，
+>   存 `localStorage['studio-chat:<id>']`（每构件保留最近 8 轮）；切回时自动恢复
+> - **预览沙箱加载完整构件源文件**（trees/conifers/plants/buildings/…），
+>   否则单独注入 register 块会缺 `coneCanopy` / `kitWoodWall` 这类文件内辅助函数，
+>   切换构件就画不出来；注入的代码包一层 IIFE，连续预览不会 const 重名
 > - **修改记录**（`app-history.js`）：属性应用 / 参数存默认 / AI 结果 / 应用代码
 >   之前自动存快照（localStorage 按构件隔离，最多 30 条），可一键还原到任一版本
 > - **参考图输入**：AI 面板支持三种方式 —— 「＋添加图片」按钮、**Ctrl/⌘+V 直接粘贴**到需求框、

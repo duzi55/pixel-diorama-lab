@@ -231,7 +231,9 @@ function PV_inject(code) {
   KIT.components = Object.create(null);
   KIT.order = [];
   PV_scriptTag = document.createElement('script');
-  PV_scriptTag.textContent = code;
+  /* 包在 IIFE 里注入：顶层 const 不污染全局，
+     连续预览不同构件时不会 "Identifier already declared" */
+  PV_scriptTag.textContent = '(function(){\n' + code + '\n})();';
   try {
     document.body.appendChild(PV_scriptTag);
     return null;

@@ -112,6 +112,7 @@ function select(item) {
   state.code = item.code;
   state.meta = parseMeta(item.code, item);
   if (window.histSetComponent) histSetComponent(item.id);
+  if (window.chatSetComponent) chatSetComponent(item.id);   // 每个构件各一份 AI 对话
   fillProps(state.meta);
   $('#code').textContent = item.code;
   $('#params').innerHTML = '<div class="param"><label>预览加载中…</label></div>';
