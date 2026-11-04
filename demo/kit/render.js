@@ -90,16 +90,18 @@ const KIT_RENDER = {
     const rot = o.rot || 0;
     const sc = (o.scale == null || !Number.isFinite(o.scale) || o.scale <= 0) ? 1 : o.scale;
     const cs = Math.cos(rot), sn = Math.sin(rot);
-    /* 局部坐标 → 世界：先缩放再旋转再平移 */
+    /* 构件坐标是「世界坐标」（ctx.x + 偏移 的形式），
+       所以缩放必须绕实例原点 (ox,oy) 做 —— ox + (x-ox)*sc。
+       写成 ox + x*sc 会把位置加两次，scale≠1 时整个图形飞离碰撞体。
+       sc=1 时严格恒等。 */
     const un = (x, y) => {
-      const dx = x * sc, dy = y * sc;
+      const dx = (x - ox) * sc, dy = (y - oy) * sc;
       if (rot) {
-        const rx = dx * cs + dy * sn, ry = -dx * sn + dy * cs;
-        return [ox + rx, oy + ry];
+        return [ox + dx * cs + dy * sn, oy - dx * sn + dy * cs];
       }
       return [ox + dx, oy + dy];
     };
-    const wrapPoint = p => { const q = un(p[0], p[1]); return [q[0], q[1], p[2] * sc]; };
+    const wrapPoint = p => { const q = un(p[0], p[1]); return [q[0], q[1], (o.z || 0) + p[2] * sc]; };
 
     return {
       x: ox, y: oy, z: o.z || 0,

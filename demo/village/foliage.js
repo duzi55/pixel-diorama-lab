@@ -150,8 +150,10 @@ function growFoliage() {
 /* ---------------- 树的投影（烘焙时投一次） ---------------- */
 function castTreeShadows() {
   for (const t of trees) {
+    /* 离路太近的树只投脚下小影 —— 大影会横扫路面 */
+    const near = folRoadDist(t.x, t.y) < 9;
     const s = t.scale;
-    castShadow(t.x, t.y, 4 * s, 3.4 * s, 1, .5);
+    if (!near) castShadow(t.x, t.y, 4 * s, 3.4 * s, 1, .5);
     castShadow(t.x, t.y, 0, .3 * s, 2, 0);
   }
 }

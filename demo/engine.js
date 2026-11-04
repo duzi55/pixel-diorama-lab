@@ -241,6 +241,10 @@ function applyShadows(refZ) {
     if (!s) continue;
     shadowMask[i] = 0;
     if (!ground[i] || zb[i] !== refZ[i]) continue;
+    /* ★ 路面（KIND_NONE）免影：车行道是画面的"亮带"，
+       参考图里路面干净、只有路缘外的地面吃影 ——
+       塔林/房屋的影子若染上路，公路会被淹没读不出来 */
+    if (kinds[i] === KIND_NONE) continue;
     if (s === 1) tint(i, .54, .52, .72);
     else tint(i, .36, .34, .56);
   }

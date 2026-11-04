@@ -34,7 +34,7 @@ const SHOULDER = .55;                     /* 人行道外的留白路肩宽 */
 const DASH_PERIOD = 4.0;                  /* 虚线周期 */
 const DASH_LEN = 2.0;                     /* 虚线实段长 */
 const LINE_HW = .22;                      /* 虚线半宽 */
-const LITTER_COUNT = 2000;                /* 落叶碎屑目标数量 */
+const LITTER_COUNT = 1100;                /* 落叶碎屑目标数量（多了读作脏点） */
 
 /* 台地边界：以公路为主轴的超椭圆。长轴沿路、半轴垂直于路 ——
    这样路永远从台地中间穿过，台地连成一体（不会被路切成两块孤岛）。
@@ -42,7 +42,7 @@ const LITTER_COUNT = 2000;                /* 落叶碎屑目标数量 */
      露出一条米白背景带（参考图整幅没有背景，全是树和地面）。 */
 const HILL_HALF_LEN = 110;                    /* 沿路半长 —— 必须覆盖塔群（塔群在路
    远端之外 s≈-40，k≈-80）：否则塔脚下没有地形，树悬空在纯色背景上 */
-const HILL_HALF_HW = 34;                      /* 垂直于路的半宽（村子区）。
+const HILL_HALF_HW = 40;                      /* 垂直于路的半宽（村子区）。
    ★ 远端按 taper 放宽到 ~×1.85（≈62）：画面上部（屏幕 y 184~300）
    画布横向的世界点法向距离 d ∈ [33,54]（等距几何决定）——那边必须宽，
    否则树悬空在纯色背景上。村子区保持窄 → 路两侧干净、公路可见。
@@ -106,10 +106,12 @@ function hillE(x, y) {
   const side = c.d >= 0 ? 1.0 : .76;
   /* ★ 远端放宽（taper）：画面上部需要 ≥55 的半宽（树要落地形），
      村子区保持窄 —— 公路不被深色地形带淹没 */
-  const widen = 1 + Math.min(1, Math.max(0, (-20 - k) / 70)) * .85;
-  /* 沿路缓慢起伏（低频正弦，避免宽窄突变成台阶） */
-  const hw = HILL_HALF_HW * side * widen
-    * (1 + .20 * Math.sin(k * .062 + .6) + .09 * Math.sin(k * .038 - 1.3));
+  const widen = 1 + Math.min(1, Math.max(0, (-10 - k) / 20)) * 1.5;
+  /* 沿路缓慢起伏（低频正弦，避免宽窄突变成台阶）。
+   ★ 波形除以 widen：宽端的波形谷（×.71）会把 hw 拉破保底宽度，
+     上部边缘漏地形（塔又悬空）。宽端要的是"稳宽"，不要起伏。 */
+  const wave = 1 + (.20 * Math.sin(k * .062 + .6) + .09 * Math.sin(k * .038 - 1.3)) / widen;
+  const hw = HILL_HALF_HW * side * widen * wave;
   const ds = k / HILL_HALF_LEN;
   const dd = c.d / hw;
   const e = Math.pow(Math.pow(Math.abs(ds), HILL_POW) + Math.pow(Math.abs(dd), HILL_POW), 1 / HILL_POW);

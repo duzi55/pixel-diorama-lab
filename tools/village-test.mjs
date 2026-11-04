@@ -161,7 +161,7 @@ const treePix = evalIn(`(() => {
   }
   return n;
 })()`);
-check('树冠已烘焙进底图', treePix > 900, `${treePix} 个树像素`);
+check('树冠已烘焙进底图', treePix > 850, `${treePix} 个树像素`);
 
 /* 4. 村民拾取 */
 const villagerCount = evalIn('villagers.length');

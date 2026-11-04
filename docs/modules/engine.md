@@ -85,6 +85,8 @@ ctx.putImageData(image, 0, 0);
 |----------|--------|
 | 画面更粗糙/更精细 | `S`（每单位像素数） |
 | 光源方向 | `sphere()` 里的 `-.55 * dx - .6 * dy + .58 * nz` |
+| 画布铺满窗口 | 页面设 `PP_FULLSCREEN=true`（像素数 = 窗口/S）；窗口变化走 `PP_setSize()` 重建缓冲并回调 `window.PP_ONRESIZE`（场景重跑 bake）。无头工具设 `PP_HEADLESS=true` 跳过全屏，保持 `PP_W/PP_H` 兜底尺寸 |
+| 影子不染某类地面 | `applyShadows()` 里加 `kinds[i]` 过滤（village 用它让车行道免影，公路保持亮带） |
 | 明暗对比 | `rampOf()` 的倍率与 `COOL` / `WARM` |
 | 抖动强度 | `sphere()` 里的 `* .7` |
 | 阴影方向 | `SHADOW_X` / `SHADOW_Y` |
