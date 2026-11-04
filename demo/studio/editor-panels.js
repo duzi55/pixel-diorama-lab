@@ -32,6 +32,40 @@ function ED_refreshSel() {
   info.appendChild(ED_kv('位置', `${o.x.toFixed(2)}, ${o.y.toFixed(2)}, ${o.z.toFixed(2)}`));
   info.appendChild(ED_kv('朝向', Math.round((o.rot || 0) * 180 / Math.PI) + '°'));
 
+  /* 缩放滑块（联动碰撞体，让体积跟着变大变小） */
+  const sc0 = (o.scale == null || !Number.isFinite(o.scale) || o.scale <= 0) ? 1 : o.scale;
+  /* 碰撞体以"构件默认值 × 当前缩放"计算，避免比例复利累积 */
+  const compDef = KIT.get(o.kind);
+  const defCol = compDef && compDef.collision ? compDef.collision : null;
+  const scaleWrap = document.createElement('div');
+  scaleWrap.className = 'slider';
+  scaleWrap.innerHTML = `<label>缩放 <b>×${sc0.toFixed(2)}</b></label>`;
+  const scIn = document.createElement('input');
+  scIn.type = 'range'; scIn.min = '0.2'; scIn.max = '4'; scIn.step = '0.05';
+  scIn.value = String(sc0);
+  scIn.addEventListener('input', e => {
+    const v = Number(e.target.value);
+    o.scale = v;
+    scaleWrap.querySelector('b').textContent = '×' + v.toFixed(2);
+    /* 碰撞体 = 默认碰撞体 × 缩放（每次从默认值重算，不会越调越大） */
+    if (o.collision && defCol) {
+      const r = Math.round(v * 100) / 100;
+      if (o.collision.type === 'cylinder') {
+        o.collision.radius = Math.round(defCol.radius * r * 100) / 100;
+        o.collision.height = Math.round(defCol.height * r * 100) / 100;
+      } else {
+        o.collision.w = Math.round((defCol.w || defCol.width || 1) * r * 100) / 100;
+        o.collision.d = Math.round((defCol.d || defCol.depth || 1) * r * 100) / 100;
+        o.collision.h = Math.round((defCol.h || defCol.height || 1) * r * 100) / 100;
+      }
+    }
+    prevScale = v;
+    ED.dirty = true;
+    ED_refreshCollision();
+  });
+  scaleWrap.appendChild(scIn);
+  info.appendChild(scaleWrap);
+
   /* 朝向滑块 */
   const rotWrap = document.createElement('div');
   rotWrap.className = 'slider';

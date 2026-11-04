@@ -23,7 +23,7 @@
  * fade：向背景色晕开的过渡量（0 浓 / 1 ≈ 化进纸色）——
  * 远排树用高 fade，颜色淡出成米金剪影，与留白背景无缝过渡（水墨晕染感）。
  * 背景色 = village/palette.js 的 SKY rgb(252,236,186)，此处写字面量保持构件无依赖。 */
-const CONE_FADE_SKY = [252, 236, 186];
+const CONE_FADE_SKY = [252, 245, 218];   // = village/palette.js SKY = 页面 --paper
 function coneTones(golden, fade) {
   const base = [
     Math.round(lerp(230, 250, golden)),

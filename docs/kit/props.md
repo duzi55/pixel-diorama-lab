@@ -1221,3 +1221,156 @@ KIT.register({
   },
 });
 ```
+
+## semi-truck — 经典卡车
+
+| 项 | 内容 |
+|---|---|
+| **ID** | `semi-truck` |
+| **来源** | `demo/kit/props.js` · `KIT.register` · studio 生成 |
+| **形态** | 红蓝经典涂装的平头半挂卡车：红色驾驶室 + 银色格栅与双排气管 + 蓝色条纹集装箱 |
+| **分类** | 道具 |
+
+### 参数
+
+| 参数 | 默认 | 区间 | 步进 | 说明 |
+|------|------|------|------|------|
+| `trailer` | 5.4 | 3 ~ 5.6 | 0.2 | 挂车箱长 |
+| `boxHeight` | 2.3 | 1.4 ~ 2.3 | 0.05 | 挂车箱高 |
+| `stripes` | 3 | 0 ~ 6 | 1 | 挂车侧面银色横条数量 |
+
+### 碰撞体
+
+`{"type":"box","width":2.1,"depth":6.9,"height":2.9,"w":2.1,"d":6.9,"h":2.9}`
+
+### 移植清单
+
+- 代码：`demo/kit/props.js`
+- 注册表：`docs/kit/registry.md` · 道具节
+- 依赖引擎：`demo/engine.js` 的 `sphere/capsule/box/plot/rampOf/hash/noise`
+
+### 实现说明
+
+【是否重复】不重复。库里 30 个构件中没有任何公路车辆：wheelbarrow 是单轮手推车（木斗+双把手），shed/well-house 是建筑，骨架与「牵引车头 + 挂车箱」完全不同，必须新建。
+
+【骨架】平头（cab-over）半挂卡车，四轴八轮：前轴 1 组 + 牵引车后轴 1 组 + 挂车双联轴 2 组。部件 = 底盘纵梁 / 驾驶室（含车顶压条、分框挡风、银色格栅、大灯、保险杠、侧窗）/ 双镀铬排气管 / 侧油箱 / 鞍座连接块 / 蓝色集装箱挂车（顶包边、深蓝底边、银色横条）。
+
+【配色】G1 擎天柱经典涂装：驾驶室红 [170,48,44]，挂车蓝 [44,74,148]，格栅与排气管银 [178,184,192]，玻璃深蓝 [50,72,102]，轮胎近黑 [36,36,40]。同族色通道差都压在 10~20，避免 Bayer 抖动读成棋盘格。
+
+【三个关键实现点】
+1. 车头朝 +y（即 box 会画出来的「前面」）。所以前脸细节全在 yF + 0.02~0.09，正好落在相机侧；同时 +x 面自动成为可见的车身右侧，挂车条纹、油箱、侧窗都贴在 +x 面上。
+2. 轮毂能不能看见，取决于球心而不是半径：轮毂球心放在 ±0.96，比轮胎球心 ±0.70 更靠 +x，球面才会从轮胎前方顶出来。两颗球同心或轮毂更靠内，都会被轮胎整颗吞掉（深度测试取最近表面）。
+3. 所有贴面细节（挡风、侧窗、格栅条、挂车横条）都沿法向外移 0.03~0.05，否则与母体共面会 z-fighting 闪。
+
+【几何自洽】车头长 1.85、间隙 0.65、挂车长 L，三段恒等于 L+2.5，改 trailer 参数时车头与挂车的间隙不会变，排气管永远落在缝里。
+
+【参数】trailer 控制挂车长度（3.0~5.6），boxHeight 控制箱高（1.4 像普通厢货，2.3 像高柜），stripes 控制银色横条数（0 = 素蓝箱体）。三个参数都是数字型，符合 params 契约；涂装色不做参数（颜色不能走数字参数）。
+
+【碰撞体】box 2.1 × 6.9 × 2.9，贴合车身外形，轮毂外凸的 0.3 和排气管顶端不计入（按「不含装饰」原则）。若编辑器读的是 w/d/h 字段而非 width/depth/height，只需把这三个键改名，数值不变。
+
+【坑】capsule 的 colorOf 必须返回 [r,g,b] 基色数组（这里用 () => STEEL 忽略回调参数，无论回调传 z 还是 t 都安全）；绝不能在 draw 里出现 Math.random()，本构件本身不用随机，所有 seed 只做 box 的纹理盐值。
+
+### 实现
+
+```js
+KIT.register({
+  id: 'semi-truck',
+  name: '经典卡车',
+  category: 'prop',
+  desc: '红蓝经典涂装的平头半挂卡车：红色驾驶室 + 银色格栅与双排气管 + 蓝色条纹集装箱',
+  params: {
+    trailer:   { def: 4.2, min: 3.0, max: 5.6, step: 0.2,  desc: '挂车箱长' },
+    boxHeight: { def: 1.85, min: 1.4, max: 2.3, step: 0.05, desc: '挂车箱高' },
+    stripes:   { def: 3,   min: 0,   max: 6,   step: 1,    desc: '挂车侧面银色横条数量' },
+  },
+  collision: { type: 'box', width: 2.1, depth: 6.9, height: 2.9 },
+
+  draw(ctx, inst) {
+    const P = ctx.params, S = ctx.seed, X = ctx.x, Y = ctx.y;
+    const L = P.trailer, H = P.boxHeight;
+    const total = L + 2.5;
+    const yB = Y - total / 2;      // 车尾
+    const yF = Y + total / 2;      // 车头最前（朝 +y，即相机方向）
+    const yCab = yF - 1.85;        // 驾驶室后壁
+    const yTrl = yB + L;           // 挂车前壁（与驾驶室恒留 0.65 间隙）
+
+    // 基色一律 [r,g,b] 数组，只给 sphere/capsule/box 用
+    const RED     = [170, 48, 44];
+    const BLUE    = [44, 74, 148];
+    const BLUE_D  = [32, 56, 118];
+    const STEEL   = [178, 184, 192];
+    const STEEL_D = [148, 154, 164];
+    const GLASS   = [50, 72, 102];
+    const DARK    = [50, 54, 60];
+    const TIRE    = [36, 36, 40];
+    const HUB     = [188, 194, 202];
+    const LAMP    = [246, 228, 176];
+
+    // ── 底盘纵梁：贯穿车头与挂车 ──
+    ctx.box(X - 0.82, yB + 0.20, 0.42, X + 0.82, yF - 0.20, 0.66, DARK, S + 1);
+
+    // ── 四轴八轮：前轴 / 牵引车后轴 / 挂车双联轴 ──
+    const axles = [yF - 0.72, yCab - 0.18, yB + 0.95, yB + 1.72];
+    for (let i = 0; i < axles.length; i++) {
+      const ay = axles[i];
+      for (let s = -1; s <= 1; s += 2) {
+        ctx.sphere(X + s * 0.70, ay, 0.50, 0.50, TIRE, 'rough');
+        // 轮毂球心必须比轮胎球心更靠外，否则会被轮胎整颗吞掉
+        ctx.sphere(X + s * 0.96, ay, 0.50, 0.27, HUB, 'gloss');
+      }
+    }
+
+    // ── 驾驶室主体 + 车顶银色压条 ──
+    ctx.box(X - 0.92, yCab, 0.56, X + 0.92, yF, 2.34, RED, S + 2);
+    ctx.box(X - 0.90, yCab + 0.08, 2.34, X + 0.90, yF - 0.06, 2.44, STEEL, S + 3);
+
+    // ── 前挡风：左右两片，中间留红色分框 ──
+    ctx.box(X - 0.76, yF - 0.03, 1.52, X - 0.06, yF + 0.05, 2.16, GLASS, S + 4);
+    ctx.box(X + 0.06, yF - 0.03, 1.52, X + 0.76, yF + 0.05, 2.16, GLASS, S + 5);
+
+    // ── 银色格栅 + 四道横条 ──
+    ctx.box(X - 0.66, yF - 0.02, 0.80, X + 0.66, yF + 0.06, 1.42, STEEL, S + 6);
+    for (let i = 0; i < 4; i++) {
+      const gz = 0.90 + i * 0.13;
+      ctx.box(X - 0.62, yF + 0.06, gz, X + 0.62, yF + 0.09, gz + 0.05, STEEL_D, S + 7 + i);
+    }
+
+    // ── 前大灯 ──
+    ctx.sphere(X - 0.74, yF + 0.07, 0.98, 0.13, LAMP, 'gloss');
+    ctx.sphere(X + 0.74, yF + 0.07, 0.98, 0.13, LAMP, 'gloss');
+
+    // ── 前保险杠（略宽出车身） ──
+    ctx.box(X - 0.98, yF + 0.02, 0.40, X + 0.98, yF + 0.17, 0.66, STEEL_D, S + 12);
+
+    // ── 右侧车门侧窗（贴 +x 面，外移 0.05 防被墙吞） ──
+    ctx.box(X + 0.92, yCab + 0.92, 1.60, X + 0.97, yF - 0.20, 2.12, GLASS, S + 13);
+
+    // ── 双排气管：立在驾驶室后，高过车顶 ──
+    const sy = yCab - 0.10;
+    for (let s = -1; s <= 1; s += 2) {
+      ctx.capsule([X + s * 0.94, sy, 0.68], [X + s * 0.94, sy, 2.88], 0.11, 0.09, () => STEEL, 'gloss');
+    }
+
+    // ── 右侧镀铬油箱 ──
+    ctx.capsule([X + 0.97, yCab + 0.28, 0.84], [X + 0.97, yCab + 0.90, 0.84], 0.24, 0.24, () => STEEL, 'gloss');
+
+    // ── 鞍座连接块：填住车头与挂车之间的缝 ──
+    ctx.box(X - 0.55, yTrl, 0.50, X + 0.55, yCab, 0.74, DARK, S + 40);
+
+    // ── 挂车箱体 + 顶包边 + 深蓝底边 ──
+    ctx.box(X - 0.96, yB, 0.72, X + 0.96, yTrl, 0.72 + H, BLUE, S + 20);
+    ctx.box(X - 0.99, yB - 0.03, 0.72 + H, X + 0.99, yTrl + 0.03, 0.82 + H, STEEL_D, S + 21);
+    ctx.box(X - 0.97, yB + 0.02, 0.62, X + 0.97, yTrl - 0.02, 0.74, BLUE_D, S + 22);
+
+    // ── 挂车侧面银色横条（贴 +x 面外移 0.05） ──
+    const ns = Math.max(0, Math.round(P.stripes));
+    for (let i = 0; i < ns; i++) {
+      const sz = 0.88 + (H - 0.50) * (i + 0.5) / ns;
+      ctx.box(X + 0.96, yB + 0.14, sz, X + 1.01, yTrl - 0.14, sz + 0.10, STEEL, S + 30 + i);
+    }
+
+    // ── 落地阴影 ──
+    ctx.shadow(2.0, 1, 0.5);
+  },
+});
+```

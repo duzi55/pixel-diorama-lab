@@ -127,6 +127,7 @@
 | [`stone-lantern`](props.md#sign--路牌) | 石灯 | 方柱承灯室，夜里亮着 | `demo` `kit/props.js` | `height/lit` | ✅ |
 | [`well`](props.md#sign--路牌) | 圆石井 | 圆环石砌井口 + 暗井水 | `demo` `kit/props.js` | `radius/height` | ✅ |
 | [`wheelbarrow`](props.md#wheelbarrow--苹果手推车) | 苹果手推车 | 木斗单轮手推车：梯形斗身、木轮、双把手双支腿，斗里堆满红苹果 | `demo` `kit/props.js` | `apples`/`length`/`wheel` | ✅ |
+| [`semi-truck`](props.md#semi-truck--经典卡车) | 经典卡车 | 红蓝经典涂装的平头半挂卡车：红色驾驶室 + 银色格栅与双排气管 + 蓝色条纹集装箱 | `demo` `kit/props.js` | `trailer`/`boxHeight`/`stripes` | ✅ |
 
 ---
 

@@ -65,7 +65,7 @@
 | 构件库·姿态表 | `demo/kit/figures.js` | `KIT_POSE` 十种实用姿态（含 `reach`）+ `kitPose()` 覆盖助手 | `docs/kit/figures.md 附录` |
 | 构件库·渲染 | `demo/kit/render.js` | 场景模型 → 画布：地面协议、画家算法排序、实例旋转 | `docs/modules/studio.md §5` |
 | 构件库·构件 | `demo/kit/trees.js` · `demo/kit/plants.js` | 树 / 草木灌木构件（与 docs/kit/ 篇目对齐） | `docs/kit/registry.md` |
-| 构件库·构件 | `demo/kit/buildings.js` · `demo/kit/stoneworks.js` · `demo/kit/props.js` | 建筑 / 石砌 / 道具构件（AI 生成物按分类落对应模块） | `docs/kit/registry.md` |
+| 构件库·构件 | `demo/kit/buildings.js` · `demo/kit/stoneworks.js` · `demo/kit/props.js` · `demo/kit/cart.js` | 建筑 / 石砌 / 道具 / 载具构件（AI 生成物按分类落对应模块） | `docs/kit/registry.md` |
 | 构件库·锥状树 | `demo/kit/conifers.js` | `cone-mast` 巨层塔树 / `cone-spire` 尖锥树：实心融合塔体 + 层缝弧线，秋日背景林（golden 参数组调色） | `docs/kit/trees.md §5.7-5.8` |
 | 构件库·地面 | `demo/kit/ground.js` | 5 种地面材质（草地/泥土/沙地/石板/水面） | `docs/kit/scene.md` |
 | **Studio 生成页** | `demo/studio/index.html` | 描述需求 → AI 按规范写代码 → 进度条 → 预览调参 → 确认保存；顶部可切换模型 | `docs/modules/studio.md` |

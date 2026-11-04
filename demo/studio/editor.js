@@ -23,6 +23,7 @@ const ED = {
   nextId: 1,
   placing: null,         /* 正在放置的构件 kind */
   rot: 0,
+  scale: 1,
   showGrid: false,
   showBox: true,
   crowdMode: '',
@@ -267,6 +268,21 @@ function ED_bindCanvas() {
 
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
+    if (e.shiftKey) {
+      /* Shift+滚轮 = 缩放 */
+      const ds = (e.deltaY > 0 ? -1 : 1) * 0.1;
+      if (ED.tool === 'place' && ED.placing) {
+        ED.scale = clamp(Math.round(((ED.scale || 1) + ds) * 20) / 20, 0.2, 4);
+        ED.dirty = true;
+        studioStatus('放置缩放 ×' + ED.scale.toFixed(2));
+      } else if (ED.selected) {
+        ED.selected.scale = clamp(Math.round(((ED.selected.scale || 1) + ds) * 20) / 20, 0.2, 4);
+        ED_refreshSel();
+        ED.dirty = true;
+        studioStatus('选中物体缩放 ×' + ED.selected.scale.toFixed(2));
+      }
+      return;
+    }
     const delta = (e.deltaY > 0 ? 1 : -1) * Math.PI / 12;
     if (ED.tool === 'place' && ED.placing) {
       ED.rot = ((ED.rot || 0) + delta + Math.PI * 4) % (Math.PI * 2);
@@ -343,6 +359,7 @@ function ED_placeObject(kind, x, y) {
     y: ry,
     z: TERRAIN.heightAt(rx, ry),
     rot: ED.rot || 0,
+    scale: ED.scale || 1,
     params: KIT.defaults(kind),
     seed: Math.floor(hash(ED.nextId * 17, 91) * 100000) + 1,
     collision: comp.collision ? { ...comp.collision } : null,

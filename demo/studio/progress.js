@@ -33,3 +33,41 @@ const PROGRESS = {
   },
 };
 
+/* ---------------- SSE 流式读取（共用） ---------------- */
+
+/**
+ * 解析 fetch 返回的 SSE 流，每个事件回调 onEvent(event, payload)。
+ * resolve 值 = { result, error } —— done/error 事件的 data。
+ */
+async function readSSE(res, onEvent) {
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  const acc = { result: null, error: null };
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+
+    let idx;
+    while ((idx = buf.indexOf('\n\n')) >= 0) {
+      const raw = buf.slice(0, idx);
+      buf = buf.slice(idx + 2);
+      let event = 'message', data = '';
+      for (const line of raw.split('\n')) {
+        if (line.startsWith('event: ')) event = line.slice(7).trim();
+        else if (line.startsWith('data: ')) data += line.slice(6);
+      }
+      if (!data) continue;
+      let payload;
+      try { payload = JSON.parse(data); } catch { continue; }
+
+      if (event === 'done') acc.result = payload;
+      else if (event === 'error') acc.error = payload.error;
+      if (onEvent) onEvent(event, payload);
+    }
+  }
+  return acc;
+}
+

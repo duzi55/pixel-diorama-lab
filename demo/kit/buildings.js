@@ -41,7 +41,7 @@ KIT.register({
     depth: { def: 3.4, min: 1.2, max: 8, step: .1, desc: '深（y 方向）' },
     height: { def: 2.8, min: 1.2, max: 6, step: .1, desc: '墙高' },
     rise: { def: 1.2, min: 0, max: 3, step: .05, desc: '屋顶升起' },
-    moss: { def: .3, min: 0, max: 1, step: .05, desc: '屋顶苔藓' },
+    moss: { def: 0, min: 0, max: 1, step: .05, desc: '屋顶苔藓（0 = 干净的瓦）' },
     chimney: { def: 0, min: 0, max: 1, step: 1, desc: '有烟囱' },
     windows: { def: 2, min: 0, max: 4, step: 1, desc: '窗户数' },
     balconyDepth: { def: 0, min: 0, max: 2, step: .1, desc: '阳台挑出深度（0=无阳台）' },

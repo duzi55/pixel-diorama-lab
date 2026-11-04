@@ -72,6 +72,25 @@ function syncCollisionIntoCode(col) {
 function renderParamSliders(paramsDef) {
   const box = el('gen-params');
   box.innerHTML = '';
+
+  /* 预览缩放（不写入构件参数，只影响转盘预览的显示大小） */
+  const scWrap = document.createElement('div');
+  scWrap.className = 'slider';
+  scWrap.innerHTML = `<label><span>预览缩放 <code>scale</code></span><b id="gen-scale-v">1.00</b></label>`;
+  const scIn = document.createElement('input');
+  scIn.type = 'range'; scIn.min = '0.3'; scIn.max = '2.5'; scIn.step = '0.05';
+  scIn.value = '1';
+  scIn.addEventListener('input', e => {
+    const v = Number(e.target.value);
+    document.getElementById('gen-scale-v').textContent = v.toFixed(2);
+    const frame = el('frame');
+    if (frame.contentWindow) {
+      frame.contentWindow.postMessage({ type: 'scale', scale: v }, '*');
+    }
+  });
+  scWrap.appendChild(scIn);
+  box.appendChild(scWrap);
+
   const keys = Object.keys(paramsDef || {});
   if (!keys.length) {
     box.innerHTML = '<div class="empty-note">该构件无可调参数</div>';
@@ -167,6 +186,7 @@ function renderCollisionEditor(col) {
   }
 }
 
+
 /* ---------------- AI 生成（SSE 流式进度） ---------------- */
 
 async function doGenerate() {
@@ -182,6 +202,8 @@ async function doGenerate() {
   el('btn-gen').disabled = true;
   el('btn-save').disabled = true;
   PROGRESS.show();
+  TP.attach(el('thinking-panel'));
+  TP.begin();
   studioStatus('AI 正在按 docs/kit/ 规范编写构件代码…', 'busy');
 
   try {
@@ -210,61 +232,39 @@ async function doGenerate() {
       return;
     }
 
-    /* 解析 SSE 流 */
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = '';
-    let result = null, errMsg = null;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-
-      let idx;
-      while ((idx = buf.indexOf('\n\n')) >= 0) {
-        const raw = buf.slice(0, idx);
-        buf = buf.slice(idx + 2);
-        let event = 'message', data = '';
-        for (const line of raw.split('\n')) {
-          if (line.startsWith('event: ')) event = line.slice(7).trim();
-          else if (line.startsWith('data: ')) data += line.slice(6);
-        }
-        if (!data) continue;
-        let payload;
-        try { payload = JSON.parse(data); } catch { continue; }
-
-        if (event === 'progress') {
-          if (payload.stage === 'connected') {
-            PROGRESS.set(18, payload.message, payload.totalTokens ? `${payload.totalTokens} tokens` : '');
-            PROGRESS._thinkingPct = 25;
-          } else if (payload.stage === 'thinking') {
-            PROGRESS._thinkingPct = Math.min(82, (PROGRESS._thinkingPct || 25) + 3.5);
-            PROGRESS.set(
-              PROGRESS._thinkingPct,
-              payload.message || '模型推理中…',
-              payload.outputTokens ? `已输出 ${payload.outputTokens} tokens` : ''
-            );
-          } else if (payload.stage === 'done') {
-            PROGRESS.set(94, '生成完成，正在校验…',
-              payload.outputTokens ? `共 ${payload.outputTokens} tokens · ${(payload.durationMs / 1000).toFixed(1)}s` : '');
-          }
-        } else if (event === 'done') {
-          result = payload;
-        } else if (event === 'error') {
-          errMsg = payload.error;
-        }
+    const onGenEvent = (event, payload) => {
+      if (event === 'thinking') {
+        TP.append(payload.kind || '推理', payload.text || '');
+        return;
       }
-    }
+      if (event !== 'progress') return;
+      if (payload.stage === 'connected') {
+        PROGRESS.set(18, payload.message, payload.totalTokens ? `${payload.totalTokens} tokens` : '');
+        PROGRESS._thinkingPct = 25;
+      } else if (payload.stage === 'thinking') {
+        PROGRESS._thinkingPct = Math.min(82, (PROGRESS._thinkingPct || 25) + 3.5);
+        PROGRESS.set(
+          PROGRESS._thinkingPct,
+          payload.message || '模型推理中…',
+          payload.outputTokens ? `已输出 ${payload.outputTokens} tokens` : ''
+        );
+      } else if (payload.stage === 'done') {
+        PROGRESS.set(94, '生成完成，正在校验…',
+          payload.outputTokens ? `共 ${payload.outputTokens} tokens · ${(payload.durationMs / 1000).toFixed(1)}s` : '');
+      }
+    };
 
-    if (errMsg) throw new Error(errMsg);
-    if (!result || !result.component) throw new Error('生成结束但没有收到构件数据');
+    const { result: genResult, error: genError } = await readSSE(res, onGenEvent);
+    if (genError) throw new Error(genError);
+    if (!genResult || !genResult.component) throw new Error('生成结束但没有收到构件数据');
 
-    sendToPreview(result.component);
+    sendToPreview(genResult.component);
     PROGRESS.done();
-    studioStatus('已生成：' + result.component.name + '（可在右侧调节参数与碰撞体积后保存）', 'ok');
+    TP.end(true, '已生成「' + genResult.component.name + '」');
+    studioStatus('已生成：' + genResult.component.name + '（可在右侧调节参数与碰撞体积后保存）', 'ok');
   } catch (e) {
     PROGRESS.fail();
+    TP.end(false, e.message);
     studioStatus('生成提示：' + e.message, 'err');
   } finally {
     GEN.generating = false;

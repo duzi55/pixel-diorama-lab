@@ -89,6 +89,7 @@ const files = [
   'demo/kit/plants.js',
   'demo/kit/buildings.js',
   'demo/kit/stoneworks.js',
+  'demo/kit/cart.js',
   'demo/kit/props.js',
 ];
 for (const f of files) {

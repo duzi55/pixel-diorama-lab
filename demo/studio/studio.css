@@ -113,11 +113,12 @@ button.ghost { background: transparent; padding: 5px 10px; font-size: 12px; }
 }
 .chk input { accent-color: var(--accent); }
 
-/* ---------- 生成进度条 ---------- */
+/* ---------- 生成进度条 + 推理过程 ---------- */
 .progress-wrap {
   margin: 0 0 14px;
   padding: 10px 12px;
-  background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+  background: var(--bg); border: 1px solid var(--accent); border-radius: 8px;
+  box-shadow: 0 0 12px rgba(232, 182, 76, .12);
 }
 .progress-head {
   display: flex; justify-content: space-between; align-items: center;
@@ -300,6 +301,7 @@ details.code pre, textarea.code-edit {
   width: 150px; padding: 3px 8px; font-size: 12px;
 }
 #ai-config .model-meta { color: var(--fg-dim); opacity: .8; font-size: 11.5px; }
+#ai-config { margin: -6px 0 14px; }
 
 /* ---------- 地形 AI ---------- */
 .terrain-progress {
@@ -309,3 +311,40 @@ details.code pre, textarea.code-edit {
 .terrain-progress.busy { color: var(--accent); }
 .terrain-progress.ok { color: var(--ok); }
 .terrain-progress.err { color: var(--err); }
+
+/* ---------- 推理过程面板 ---------- */
+.thinking-panel.tp {
+  margin-top: 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-2);
+  font-size: 12px;
+}
+.tp-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 10px; cursor: pointer; user-select: none;
+}
+.tp-title { font-weight: 600; color: var(--accent); font-size: 11.5px; }
+.tp-summary { color: var(--fg-dim); font-size: 11.5px; flex: 1;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tp-toggle { color: var(--fg-dim); font-size: 11px; }
+.tp-body {
+  display: none;
+  max-height: 260px; overflow-y: auto;
+  border-top: 1px solid var(--line);
+  padding: 8px 10px;
+}
+.tp-open .tp-body { display: block; }
+.tp-line { margin-bottom: 7px; line-height: 1.55; word-break: break-word; }
+.tp-tag {
+  display: inline-block; padding: 0 6px; margin-right: 6px;
+  border-radius: 4px; font-size: 10px; line-height: 16px;
+  background: var(--bg-3); color: var(--fg-dim); vertical-align: 1px;
+}
+.tp-think { color: var(--fg-dim); font-style: italic; }
+.tp-out { color: var(--fg); }
+.tp-tool { color: var(--accent-2); font-family: var(--mono); font-size: 11.5px; }
+
+/* ---------- 生成页右栏布局优化 ---------- */
+.gen .right { gap: 10px; }
+.preview { height: 340px; }

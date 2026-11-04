@@ -18,6 +18,7 @@
 const PV = {
   code: '', id: null, params: {}, collision: null,
   spin: true, showBox: true, rot: 0.4, lastStep: -1,
+  scale: 1,
   drawFn: null, error: null,
 };
 
@@ -108,8 +109,23 @@ function PV_makeCtx(p) {
   const un = (x, y) => [x * cs + y * sn, -x * sn + y * cs];
   const wrapP = p2 => { const q = un(p2[0], p2[1]); return [q[0], q[1], p2[2]]; };
 
+  const sc = (PV.scale == null || !Number.isFinite(PV.scale) || PV.scale <= 0) ? 1 : PV.scale;
+  const ox = 0, oy = 0;
+  const unScaled = (x, y) => {
+    const dx = x * sc, dy = y * sc;
+    if (rot) {
+      const rx = dx * cs + dy * sn, ry = -dx * sn + dy * cs;
+      return [ox + rx, oy + ry];
+    }
+    return [ox + dx, oy + dy];
+  };
+  const wrapPScaled = p2 => { const q = unScaled(p2[0], p2[1]); return [q[0], q[1], p2[2] * sc]; };
+
   return {
-    x: 0, y: 0, z: 0, params: p, seed: 7, rot,
+    x: 0, y: 0, z: 0, params: p, seed: 7, rot, scale: sc,
+    sphere: (x, y, z, r, c, mode) => { const q = unScaled(x, y); sphere(q[0], q[1], z * sc, r * sc, c, mode); },
+    capsule: (a, b, r0, r1, f, mode) => capsule(wrapPScaled(a), wrapPScaled(b), r0 * sc, r1 * sc, f, mode),
+    plot: (x, y, z, c) => { const q = unScaled(x, y); plot(q[0], q[1], z * sc, c); },
     sphere: (x, y, z, r, c, mode) => { const q = un(x, y); sphere(q[0], q[1], z, r, c, mode); },
     capsule: (a, b, r0, r1, f, mode) => capsule(wrapP(a), wrapP(b), r0, r1, f, mode),
     plot: (x, y, z, c) => { const q = un(x, y); plot(q[0], q[1], z, c); },
@@ -253,6 +269,12 @@ window.addEventListener('message', e => {
   }
   if (msg.type === 'collision') {
     PV.collision = msg.collision || null;
+    PV_render();
+    return;
+  }
+  if (msg.type === 'scale') {
+    const v = Number(msg.scale);
+    PV.scale = Number.isFinite(v) && v > 0 ? v : 1;
     PV_render();
     return;
   }

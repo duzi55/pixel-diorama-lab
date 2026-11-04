@@ -80,35 +80,45 @@ const KIT_RENDER = {
   /** 构造给构件 draw() 的上下文
    *
    * 旋转：ctx.rot 是弧度，绕构件自身原点 (ox, oy) 旋转。
-   * 传入原语的坐标会自动旋转，构件代码完全不用关心自己被摆成什么朝向。
+   * 缩放：ctx.scale 乘在所有局部坐标与半径上（1 = 原始大小，0.5 一半，2 两倍）。
+   * 两者都在包装层完成 —— 构件代码完全不用关心自己被摆成什么朝向、多大。
    */
   makeCtx(o) {
     const params = KIT.resolve(o.kind, o.params);
     const seed = o.seed == null ? 1 : o.seed;
     const ox = o.x, oy = o.y;
     const rot = o.rot || 0;
+    const sc = (o.scale == null || !Number.isFinite(o.scale) || o.scale <= 0) ? 1 : o.scale;
     const cs = Math.cos(rot), sn = Math.sin(rot);
+    /* 局部坐标 → 世界：先缩放再旋转再平移 */
     const un = (x, y) => {
-      if (!rot) return [x, y];
-      const dx = x - ox, dy = y - oy;
-      return [ox + dx * cs + dy * sn, oy - dx * sn + dy * cs];
+      const dx = x * sc, dy = y * sc;
+      if (rot) {
+        const rx = dx * cs + dy * sn, ry = -dx * sn + dy * cs;
+        return [ox + rx, oy + ry];
+      }
+      return [ox + dx, oy + dy];
     };
-    const wrapPoint = p => { const q = un(p[0], p[1]); return [q[0], q[1], p[2]]; };
+    const wrapPoint = p => { const q = un(p[0], p[1]); return [q[0], q[1], p[2] * sc]; };
 
     return {
       x: ox, y: oy, z: o.z || 0,
       params, seed,
-      rot,
+      rot, scale: sc,
       sphere(x, y, z, r, c, mode) {
         const q = un(x, y);
-        sphere(q[0], q[1], z, r, c, mode);
+        sphere(q[0], q[1], (o.z || 0) + z * sc, r * sc, c, mode);
       },
       capsule(a, b, r0, r1, colorOf, mode) {
-        capsule(wrapPoint(a), wrapPoint(b), r0, r1, colorOf, mode);
+        const qa = wrapPoint(a), qb = wrapPoint(b);
+        capsule(qa, qb, r0 * sc, r1 * sc, colorOf, mode);
       },
       box(x0, y0, z0, x1, y1, z1, c, seed2 = 0) {
+        const zz0 = (o.z || 0) + z0 * sc, zz1 = (o.z || 0) + z1 * sc;
         if (!rot) {
-          box(x0, y0, z0, x1, y1, z1, c, seed2);
+          const [ax, ay] = un(x0, y0), [bx, by] = un(x1, y1);
+          box(Math.min(ax, bx), Math.min(ay, by), zz0,
+              Math.max(ax, bx), Math.max(ay, by), zz1, c, seed2);
           return;
         }
         /* 旋转盒子：对顶面与四个侧面采样，经 un() 旋转后写入 zb 与 pix */
@@ -124,7 +134,7 @@ const KIT_RENDER = {
         };
         const step = .045, longX = x1 - x0 >= y1 - y0;
         for (let a = x0; a <= x1; a += step) for (let b = y0; b <= y1; b += step)
-          paint(a, b, z1, 3.4, longX ? noise(a * .8 + seed2, b * 9) : noise(a * 9, b * .8 + seed2));
+          paint(a, b, zz1, 3.4, longX ? noise(a * .8 + seed2, b * 9) : noise(a * 9, b * .8 + seed2));
         for (let a = x0; a <= x1; a += step) for (let b = z0; b <= z1; b += step) {
           const g = noise(a * .8 + seed2, b * 9);
           paint(a, y1, b, 2.3, g);
@@ -138,15 +148,15 @@ const KIT_RENDER = {
       },
       plot(x, y, z, color) {
         const q = un(x, y);
-        plot(q[0], q[1], z, color);
+        plot(q[0], q[1], (o.z || 0) + z * sc, color);
       },
       rampOf, rgb, hash, noise, lerp, clamp,
       shadow: (r, strength, dither) => {
-        castShadow(ox, oy, (o.z || 0) + .01, r, strength == null ? 1 : strength, dither);
+        castShadow(ox, oy, (o.z || 0) + .01, r * sc, strength == null ? 1 : strength, dither);
       },
       shadowAt: (x, y, z, r, strength, dither) => {
         const q = un(x, y);
-        castShadow(q[0], q[1], z, r, strength, dither);
+        castShadow(q[0], q[1], (o.z || 0) + z * sc, r * sc, strength, dither);
       },
     };
   },

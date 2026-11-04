@@ -278,5 +278,11 @@ function shadowHouses() {
     for (let x = h.x0 - .2; x <= h.x1 + .2; x += .5)
       for (let y = h.y0 - .2; y <= h.y1 + .2; y += .5)
         for (let z = .3; z <= h.z1 + h.rise; z += .7) castShadow(x, y, z, .55);
+    /* 房脚接触阴影：贴地一圈比墙体略宽的重影 —— 没有它房子像
+       "摆在桌面上的船模"（底边一条硬线，与地面无融合） */
+    for (let x = h.x0 - 1.0; x <= h.x1 + 1.0; x += .5)
+      for (let y = h.y0 - 1.0; y <= h.y1 + 1.0; y += .5)
+        if (x < h.x0 - .3 || x > h.x1 + .3 || y < h.y0 - .3 || y > h.y1 + .3)
+          castShadow(x, y, .2, .85);
   }
 }

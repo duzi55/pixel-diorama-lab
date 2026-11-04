@@ -83,6 +83,7 @@ const files = [
   'demo/kit/plants.js',
   'demo/kit/buildings.js',
   'demo/kit/stoneworks.js',
+  'demo/kit/cart.js',
   'demo/kit/props.js',
   'demo/kit/figures.js',
   'demo/kit/crowd.js',

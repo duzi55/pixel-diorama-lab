@@ -134,6 +134,16 @@ const server = http.createServer(async (req, res) => {
             send('progress', { stage: 'connected', message: `已连接模型（会话 ${String(ev.session_id || '').slice(0, 8)}…）` });
           } else if (ev.type === 'assistant' && ev.message) {
             const u = ev.message.usage || {};
+            const content = Array.isArray(ev.message.content) ? ev.message.content : [];
+            for (const blk of content) {
+              if (blk.type === 'thinking' && blk.thinking) {
+                send('thinking', { kind: '推理', text: blk.thinking });
+              } else if (blk.type === 'text' && blk.text) {
+                send('thinking', { kind: '输出', text: blk.text });
+              } else if (blk.type === 'tool_use') {
+                send('thinking', { kind: '工具', text: `调用 ${blk.name}…` });
+              }
+            }
             send('progress', { stage: 'thinking', message: '设计地形中…', outputTokens: u.output_tokens || null });
           } else if (ev.type === 'result') {
             const u = ev.usage || {};
@@ -187,7 +197,17 @@ const server = http.createServer(async (req, res) => {
             send('progress', { stage: 'connected', message: `已连接模型（会话 ${String(ev.session_id || '').slice(0, 8)}…）` });
           } else if (ev.type === 'assistant' && ev.message) {
             const u = ev.message.usage || {};
-            const turns = (ev.message.role === 'assistant') ? '' : '';
+            /* 内容块里可能有 thinking / text —— 全部转发给推理面板 */
+            const content = Array.isArray(ev.message.content) ? ev.message.content : [];
+            for (const blk of content) {
+              if (blk.type === 'thinking' && blk.thinking) {
+                send('thinking', { kind: '推理', text: blk.thinking });
+              } else if (blk.type === 'text' && blk.text) {
+                send('thinking', { kind: '输出', text: blk.text });
+              } else if (blk.type === 'tool_use') {
+                send('thinking', { kind: '工具', text: `调用 ${blk.name}…` });
+              }
+            }
             send('progress', {
               stage: 'thinking',
               message: '模型推理中…',
@@ -265,7 +285,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/kit' && req.method === 'GET') {
     try {
       const items = [];
-      for (const f of ['trees.js', 'plants.js', 'buildings.js', 'stoneworks.js', 'props.js']) {
+      for (const f of ['trees.js', 'plants.js', 'buildings.js', 'stoneworks.js', 'cart.js', 'props.js']) {
         const p = path.join(DEMO_DIR, 'kit', f);
         if (!fs.existsSync(p)) continue;
         const txt = fs.readFileSync(p, 'utf8');

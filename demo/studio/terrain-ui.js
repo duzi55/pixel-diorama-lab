@@ -83,6 +83,8 @@ function initTerrainAI() {
 
     btn.disabled = true;
     setProgress('AI 设计中…（连接模型）', 'busy');
+    TP.attach(document.getElementById('terrain-thinking'));
+    TP.begin();
 
     try {
       const res = await fetch('/api/generate-terrain', {
@@ -95,7 +97,9 @@ function initTerrainAI() {
 
       if ((res.headers.get('content-type') || '').includes('text/event-stream')) {
         await readSSE(res, (name, payload) => {
-          if (name === 'progress') {
+          if (name === 'thinking') {
+            TP.append(payload.kind || '推理', payload.text || '');
+          } else if (name === 'progress') {
             if (payload.stage === 'connected') setProgress('已连接模型，设计地形中…', 'busy');
             else if (payload.stage === 'thinking') setProgress(
               '设计地形中…' + (payload.outputTokens ? ` 已输出 ${payload.outputTokens} tokens` : ''), 'busy');
@@ -124,9 +128,11 @@ function initTerrainAI() {
       ED.dirty = true;
 
       setProgress(`✓ 已生成「${r.name}」：${r.cells} 格 · ${preset.shapes.length} 个形状`, 'ok');
+      TP.end(true, '已生成「' + r.name + '」');
       studioStatus(`AI 地形「${r.name}」已铺好（${r.cells} 格）`, 'ok');
     } catch (e) {
       setProgress('生成失败：' + e.message, 'err');
+      TP.end(false, e.message);
       studioStatus('AI 地形生成失败：' + e.message, 'err');
     } finally {
       btn.disabled = false;

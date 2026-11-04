@@ -16,10 +16,12 @@
  * ★ 树是**锥状树构件**（demo/kit/conifers.js）：
  *   中景金黄 cone-mast 巨塔是主体，远排向背景色晕开（fade 参数）。
  *
- * ★ 构图是「岛式留白」（用户明确要求）：
- *   · 画布背景 = 纯色（SKY 米色），没有元素的地方直接留白
- *   · 树排只保留村子背后一圈，向上淡出晕开到背景 —— 不铺满画布
- *   · fade 高的远排塔色 ≈ 纸色，水墨式过渡；不存在整片林底色板
+ * ★ 构图（用户明确要求，第四版结论）：
+ *   · 画布背景 = 纯色（SKY = 页面纸色），没有元素的地方直接留白
+ *   · 树 = 完整的树（高矮不一、实心），树林靠排数/尺寸自然结束，
+ *     **禁止**人为淡出、缩小、包络裁切、碎点晕开层（全部试过，全被否决）
+ *   · 树脚下必须有地形（台地覆盖塔群范围）
+ *   · 超出画布的树完整绘制（画布只是窗口）
  * ------------------------------------------------------------------ */
 
 /* 远景树海：每一"排"是一层树，越远越小越淡
@@ -30,52 +32,27 @@
  *   所以每一排用一个"屏幕高度"来定义，再反解成 x+y。
  */
 const SEA_ROWS = [
-  /* [屏幕y(树基), 树数, sizeK, 晕开量fade, 巨塔比例]
-   *   ★ 构图是「岛式留白」：村子+背后一圈塔林是主体，
-   *     塔向上（远排）淡出晕开到纯色背景 —— 不是铺满画布的裁剪式树海。
-   *   fade：塔色向背景 SKY 混合的比例（0 浓 / .55 ≈ 化进纸色）。
-   *   y < 118 的区域完全留白。 */
-  [184, 4, .84, .10, .7],
-  [220, 4, .90, 0, .75],
-  [258, 4, .95, 0, .80],
-  [296, 4, 1.0, 0, .80],
-  [340, 3, 1.0, 0, .75],
-  [382, 3, 1.0, 0, .70],
-  [426, 3, 1.0, 0, .70],
-  [470, 3, 1.0, 0, .65],
+  /* [k 沿路偏移(相对台地中心 sMid), 每排树数, sizeK, 巨塔比例]
+   * ★ 布点用**路轴世界坐标**（s,d），与台地（terrain.js hillE）同一坐标系
+   *   —— 树脚下必有地形。旧版"屏幕横坐标反解世界点"是错的：
+   *   等距投影里画布水平线对应世界对角线，横向世界点会斜穿出台地
+   *   （d≈107 ≫ 台地半宽 30）→ 塔悬空在纯色背景上。
+   *   k=-89（画面上部）→ k=+9（村子下缘），Δk≈14 ≈ 屏幕 44px。
+   *   树 = 完整的树（高矮不一），树林靠排数自然结束。 */
+  [-89, 5, .82, .70],
+  [-75, 5, .90, .75],
+  [-61, 5, .95, .80],
+  [-47, 5, 1.0, .80],
+  [-33, 4, 1.0, .75],
+  [-19, 4, 1.0, .70],
+  [-5, 4, 1.0, .70],
+  [9, 4, 1.0, .65],
 ];
 
-/* 前景树海的起始屏幕高度：从这一排开始，树画在房子**前面** */
-const SEA_SPLIT = 300;
-
-/* 屏幕高度 → 世界 x+y 的和 */
-function seaSumFor(screenY, z) {
-  return ((screenY - OY) / (0.5 * S) + z * Math.sqrt(3) / 2) * R2;
-}
+/* 近景排的起始 k：k ≥ SEA_FORE_FROM 的排画在房子**前面** */
+const SEA_FORE_FROM = -33;
 
 /* ---------------- 避让 ---------------- */
-
-/* 村庄避让区
- *
- * ★ 参考图实测：房子是**清晰可见的主角**，树在房子**边上**而不是盖住房子。
- *
- *   所以这里分两档：
- *   · 路面 + 人行道（d < halfW+2）：绝对空，车要开
- *   · 房子带（d < 12）：空，房子完整可见
- *   · 更外侧：放树，形成"树丛包围村子"
- *
- *   中间那条空带靠**近景树**（画在房子之后的那些排）来补，
- *   见 drawTreeSeaFore —— 它不受本函数限制。
- */
-function seaClearsVillage(x, y) {
-  const dx = ROAD.bx - ROAD.ax, dy = ROAD.by - ROAD.ay;
-  const t = clamp(((x - ROAD.ax) * dx + (y - ROAD.ay) * dy) / (dx * dx + dy * dy), 0, 1);
-  const px = ROAD.ax + dx * t, py = ROAD.ay + dy * t;
-  const d = Math.hypot(x - px, y - py);
-  if (d < ROAD.halfW + 2.0) return false;
-  if (d < 12) return false;
-  return true;
-}
 
 /* 树基是否落在**路面**上（在路面 + 极窄的路缘上也不长） */
 function seaOnRoad(x, y) {
@@ -83,12 +60,6 @@ function seaOnRoad(x, y) {
   const t = clamp(((x - ROAD.ax) * dx + (y - ROAD.ay) * dy) / (dx * dx + dy * dy), 0, 1);
   const px = ROAD.ax + dx * t, py = ROAD.ay + dy * t;
   return Math.hypot(x - px, y - py) < ROAD.halfW + .4;
-}
-
-/* 近景树专用：只在**路面**上让开，房子可以压。
-   画在房子之后 → 近树会盖住房子一角（参考图的关键手法）。 */
-function seaClearsRoadOnly(x, y) {
-  return !seaOnRoad(x, y);
 }
 
 /* ★ 近景树必须给**路**让出通道。
@@ -114,25 +85,6 @@ function seaClearsRoadCorridor(x, y, crownR, h) {
   return true;
 }
 
-/* 村子带（房子所在处）：沿路参数 t 在 [0, 0.9] 且离路 < 10 → 不放近景树。
-   这样近景树只出现在村子两侧和更远处，房子始终露得出来。 */
-function seaClearsVillageBand(x, y) {
-  const dx = ROAD.bx - ROAD.ax, dy = ROAD.by - ROAD.ay;
-  const len2 = dx * dx + dy * dy;
-  const t = ((x - ROAD.ax) * dx + (y - ROAD.ay) * dy) / len2;
-  if (t < -.05 || t > .95) return true;              /* 村子范围外 */
-  const px = ROAD.ax + dx * t, py = ROAD.ay + dy * t;
-  return Math.hypot(x - px, y - py) >= 10;
-}
-
-/* 村子带在**屏幕**上的范围：房子大约落在 y 300~470。
-   这一段的树海全部让开（无论远近），房子才能当主角。 */
-const VILLAGE_SCREEN_Y0 = 300, VILLAGE_SCREEN_Y1 = 470;
-
-function seaInVillageScreen(sx, sy) {
-  return sy > VILLAGE_SCREEN_Y0 && sy < VILLAGE_SCREEN_Y1;
-}
-
 /* ---------------- 树海绘制 ----------------
  *
  * 树海在**地形之后**画（地形会清空 pix），但必须画在村庄物体之下。
@@ -149,75 +101,63 @@ function seaInVillageScreen(sx, sy) {
  *   近景树（屏幕靠下）后画 → 盖住房子一角 → 树在房子前面
  * 这样同一片树海自然分出前后景。
  */
-function drawTreeSeaRange(from, to, fore) {
+/* 画树海：只画 k 在 fromK..toK 之间的排
+ *
+ * 分两批画的意义：参考图里**树压在房子前面**。
+ *   远景排（k 小）先画 → 房子盖在它上面 → 树在房子后面
+ *   近景排（k 大）后画 → 盖住房子一角 → 树在房子前面
+ */
+function drawTreeSeaRange(fromK, toK, fore) {
   for (let ri = 0; ri < SEA_ROWS.length; ri++) {
     const row = SEA_ROWS[ri];
-    if (row[0] < from || row[0] > to) continue;
-    const [rowY, count, sizeK, fade, mast] = row;
+    if (row[0] < fromK || row[0] > toK) continue;
+    const [kk, count, sizeK, mast] = row;
     for (let k = 0; k < count; k++) {
       const seed = ri * 1000 + k;
-      /* ★ 直接按**屏幕横坐标**布点：定住 (x-y) 横向位置就定了，
-         深度用 (x+y) 控制 → 屏幕纵向位置。
-         横向抖动 ±55px：塔要**错落**，均匀分布会读作列队贴图。 */
-      const sx = -30 + (k + .5) / count * 360 + (hash(seed, 301) - .5) * 110;
-      const dxy = (sx - OX) * R2 / S;          /* x - y */
-      const sum = seaSumFor(rowY + (hash(seed, 302) - .5) * 22, 0);  /* x + y */
-      const x = (sum + dxy) / 2, y = (sum - dxy) / 2;
-      /* ★ 岛式群包络：塔群整体是"上窄下宽"的有机轮廓（林冠剪影），
-         排两端按噪声碎开 —— 不是每排从左铺到右的矩形。
-         包络外直接跳过 → 群外缘自然碎落成留白。 */
-      {
-        const gx = Math.abs(sx - W / 2) / (W * .5);           // 0 中心 → 1 画布缘
-        const gy = clamp((rowY - 184) / (470 - 184), 0, 1);   // 0 群顶 → 1 群底
-        const env = 1.18 - .55 * (1 - gy) * (1 - gy);         // 顶 .63 底 1.18
-        if (gx > env * (.82 + hash(seed, 375) * .36)) continue;
-      }
-      /* 远景树：完整避开村庄带（房子要露出来）
-         近景树：只避开路面（可以压住房子一角 —— 参考图的关键手法） */
-      if (fore ? !seaClearsRoadOnly(x, y) : !seaClearsVillage(x, y)) continue;
+      /* ★ 世界坐标布点（路轴 s,d）—— 与台地同一坐标系 → 树脚下必有地形。
+         d ∈ [-15, 15]：台地法向半宽 30 内留边；负侧台地较窄（hillE side .76），
+         所以负向只到 -15。 */
+      const sw = RD.sMid + kk + (hash(seed, 301) - .5) * 10;
+      const d = -15 + (k + .5) / count * 30 + (hash(seed, 302) - .5) * 8;
+      const x = RD.ax + RD.ex * sw + RD.nx * d;
+      const y = RD.ay + RD.ey * sw + RD.ny * d;
       if (seaOnRoad(x, y)) continue;
 
-      /* ★ 村子在屏幕 y 300~470 的三分逻辑（保留自旧版）：
-         · d ∈ [4.5, 9)：小尖锥填充树（稀一点，hash 概率 .5）
-         · d ∈ [11, 15)：全尺寸巨塔（贴房子外侧，塔冠可压屋角）
-         · 其余：跳过 —— 村子是林间空地，不是被塔围死的
-         区间按锥塔冠幅重标定：small 冠外扩 ≈1.8、全尺寸 ≈7.4 世界单位，
-         11 - 7.4 = 3.6 > 路半宽 2.4 → 不堵车行道。 */
+      /* 村子带（世界距离，直接可靠）：
+         · |d| ∈ [4.5, 9)：小尖锥填充（hash 概率 .2）
+         · |d| ∈ [9, 11)：跳过（房子主角带）
+         · |d| ∈ [11, 15)：全尺寸巨塔贴房外（冠外扩 7.4 → 冠缘 3.6 > 路半宽）
+         · 其余跳过 */
+      const ad = Math.abs(d);
       let small = false;
-      const treeSy = project(x, y, 0).sy;
-      if (seaInVillageScreen(sx, treeSy)) {
-        const dx = ROAD.bx - ROAD.ax, dy = ROAD.by - ROAD.ay;
-        const t = clamp(((x - ROAD.ax) * dx + (y - ROAD.ay) * dy) / (dx * dx + dy * dy), 0, 1);
-        const px = ROAD.ax + dx * t, py = ROAD.ay + dy * t;
-        const d = Math.hypot(x - px, y - py);
-        if (d >= 4.5 && d < 9 && hash(seed, 349) < .2) small = true;
-        else if (d < 4.5 || (d >= 9 && d < 11) || d >= 15) continue;
-      }
+      if (ad < 4.5) continue;
+      if (ad < 9) { if (hash(seed, 349) < .2) small = true; else continue; }
+      else if (ad < 11) continue;
 
       /* ---- 组装锥树实例（demo/kit/conifers.js） ---- */
       const sJ = .85 + hash(seed, 303) * .3;
-      /* golden 随排淡度：远排深橙（雾再把它们漂白），近排浓金黄 */
-      const gK = clamp(.55 + (1 - fade) * .45 + (hash(seed, 305) - .5) * .16, 0, 1);
+      /* 浓金黄主色（每棵 ±.08 微差） */
+      const gK = clamp(.92 + (hash(seed, 305) - .5) * .16, 0, 1);
       let kind, p;
       if (small) {
         kind = 'cone-spire';
         p = { height: 4.5 + hash(seed, 306) * 1.5, crownR: 1.2 + hash(seed, 307) * .4,
-              rows: 6, golden: .85, fade: .12 };
+              rows: 6, golden: .85 };
       } else if (hash(seed, 304) < mast) {
         kind = 'cone-mast';
         p = { height: 22 * sizeK * sJ,
               crownR: 5.2 * sizeK * (.9 + hash(seed, 308) * .2),
               layers: 5 + (hash(seed, 309) * 3 | 0),
-              golden: gK, fade,
+              golden: gK,
               trunkV: .13 + hash(seed, 310) * .05 };
       } else {
         kind = 'cone-spire';
         p = { height: 10.5 * sizeK * sJ,
               crownR: 2.4 * sizeK * (.9 + hash(seed, 308) * .2),
               rows: 7 + (hash(seed, 309) * 4 | 0),
-              golden: gK, fade };
+              golden: gK };
       }
-      /* 近景排（fore）的巨塔给路让通道：冠心 (x, y, h*.55) 屏幕投影 */
+      /* 近景排（fore）的巨塔给路让通道：塔身三高度屏幕采样 */
       if (fore && !small && !seaClearsRoadCorridor(x, y, p.crownR, p.height)) continue;
 
       const o = { id: 'sea' + ri + '_' + k, kind, x, y, z: 0, rot: 0, params: p, seed };
@@ -228,20 +168,19 @@ function drawTreeSeaRange(from, to, fore) {
 
 /* 画面最底部的"前景树冠带"
  *
- * ★ 参考图实测：画面最底部是**深橙红的近景树**（比主树海深两档），
- *   压住画面底边。树基在画布之外，只有冠/塔身伸进画面。
- *   用深橙 cone-mast（golden .1~.35），沿屏幕横坐标排开。
+ * ★ 深橙近景树（golden .1~.35）压住画面底边，树基在画布下方之外。
+ *   同样用路轴世界坐标布点（与台地同系 → 树脚下有地形）：
+ *   k ≈ +40（台地近端），d 在路两侧 ±(9~20)。
  */
 function drawBottomCanopy() {
   const cols = 7;
   for (let k = 0; k < cols; k++) {
     const seed = 9000 + k;
-    const sx = -20 + (k + .5) / cols * 340 + (hash(seed, 331) - .5) * 22;
-    /* 树基在画面底部之下（画布外），塔身伸进画面 */
-    const sy = 545 + (hash(seed, 332) - .5) * 36;
-    const dxy = (sx - OX) * R2 / S;
-    const sum = seaSumFor(sy, 0);
-    const x = (sum + dxy) / 2, y = (sum - dxy) / 2;
+    const sw = RD.sMid + 40 + (hash(seed, 332) - .5) * 16;
+    const side = k % 2 === 0 ? 1 : -1;
+    const d = side * (9 + (k / cols) * 11 + hash(seed, 331) * 2);
+    const x = RD.ax + RD.ex * sw + RD.nx * d;
+    const y = RD.ay + RD.ey * sw + RD.ny * d;
     const h = 13 + hash(seed, 333) * 4, cr = 4.6 + hash(seed, 334) * 1.2;
     /* 底部巨塔会从下方盖住公路，必须给路让通道 */
     if (!seaClearsRoadCorridor(x, y, cr, h)) continue;
@@ -273,45 +212,11 @@ function drawLandmarkTower() {
   KIT.get('cone-mast').draw(KIT_RENDER.makeCtx(o), o);
 }
 
-/* 远景塔影：水墨式晕开的"消散层"。
- * 主塔林上方散布 3 层淡色团斑（无完整轮廓 → 读作"晕开的林影"不是漂浮塔），
- * 色一层比一层接近纸色，最后化进留白。画在主塔林**之前**（被盖住下缘）。
- * 色：mix=0 浓金黄影 → 1 = SKY 纸色。 */
-function drawSeaHaze() {
-  /* 水墨式消散：沿主塔林的上缘向外撒 4 层碎散点带——
-     离塔群越远：点越少、越小、越接近纸色。
-     ★ 小碎点直接单球（水墨边缘本就是碎块），大团才需要多球融合。 */
-  const BANDS = [
-    /* [sy 中心, 横向半宽, 点数, 混背景量, rMin, rMax] */
-    [172, 118, 12, .42, .9, 1.5],
-    [146, 100, 9, .60, .7, 1.2],
-    [120, 82, 6, .76, .5, .9],
-    [97, 62, 4, .88, .4, .7],
-  ];
-  for (const [sy0, halfW, n, mix, r0, r1] of BANDS) {
-    for (let k = 0; k < n; k++) {
-      const seed = 6000 + sy0 * 10 + k;
-      const sx = W / 2 + (hash(seed, 371) - .5) * 2 * halfW;
-      const sy = sy0 + (hash(seed, 372) - .5) * 16;
-      const dxy = (sx - OX) * R2 / S;
-      const sum = seaSumFor(sy, 0);
-      const x = (sum + dxy) / 2, y = (sum - dxy) / 2;
-      const r = r0 + hash(seed, 373) * (r1 - r0);
-      const z = 5 + hash(seed, 374) * 3;
-      const c = [Math.round(lerp(238, 252, mix)),
-                 Math.round(lerp(194, 236, mix)),
-                 Math.round(lerp(72, 186, mix))];
-      sphere(x, y, z, r, c, 'flat');
-      if (hash(seed, 376) > .5) sphere(x + r * .9, y - r * .4, z + r * .8, r * .6, c, 'flat');
-    }
-  }
-}
-
-/* 远景树海（房子之前）—— 只画 SEA_SPLIT 以上的排 */
-function drawTreeSea() { drawSeaHaze(); drawTreeSeaRange(0, SEA_SPLIT, false); drawLandmarkTower(); }
+/* 远景树海（房子之前）—— 只画 SEA_FORE_FROM 以上的排 */
+function drawTreeSea() { drawTreeSeaRange(-999, SEA_FORE_FROM - 1, false); drawLandmarkTower(); }
 
 /* 近景树海（房子之后，压住房子一角） */
-function drawTreeSeaFore() { drawTreeSeaRange(SEA_SPLIT, 9999, true); }
+function drawTreeSeaFore() { drawTreeSeaRange(SEA_FORE_FROM, 9999, true); }
 
 /* ---------------- 空气透视调色 ---------------- */
 
@@ -338,6 +243,9 @@ function applySceneHaze(refZ) {
     if (amt < .004) continue;
     for (let ix = 0; ix < W; ix++) {
       const i = iy * W + ix;
+      /* ★ 背景像素（zb=-1e9）不雾化：留白必须保持纯 SKY（=页面纸色），
+         否则 canvas 上部被雾染成橙黄渐变 → 读作一个"方框"贴在页面上 */
+      if (zb[i] < -1e8) continue;
       const c = pix[i];
       const r = c & 255, g = c >> 8 & 255, b = c >> 16 & 255;
       pix[i] = rgb(lerp(r, hr, amt), lerp(g, hg, amt), lerp(b, hb, amt));
