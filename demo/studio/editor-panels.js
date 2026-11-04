@@ -329,21 +329,26 @@ function ED_applyScene(scene) {
 
 /* ---------------- 默认场景 ---------------- */
 
-/* 开屏给一块地形，省得对着空白发呆 */
+/* 开屏默认场景：用地形预设铺出多层次地貌（能直接看到材质过渡） */
 function ED_seedDemo() {
-  for (let gx = -8; gx <= 8; gx++) for (let gy = -6; gy <= 6; gy++) {
-    const d = Math.hypot(gx / 8, gy / 6);
-    if (d > 1) continue;
-    const z = Math.round(Math.max(0, 1.2 - d * 1.2) * 4) / 4;
-    TERRAIN.set(gx, gy, 'grass', z);
-  }
-  /* 一条石板路 */
-  for (let gy = -6; gy <= 6; gy++) {
-    for (let gx = -1; gx <= 1; gx++) {
-      if (TERRAIN.get(gx, gy)) TERRAIN.set(gx, gy, 'stone', TERRAIN.get(gx, gy).z);
+  if (typeof TERRAIN_SHAPES !== 'undefined') {
+    TERRAIN_SHAPES.apply({
+      name: '默认村落',
+      shapes: [
+        { type: 'island', cx: 0, cy: 0, rx: 9, ry: 7, mat: 'grass', z: 0, wobble: 0.14 },
+        { type: 'island', cx: -4.5, cy: -3.5, rx: 2.6, ry: 2.2, mat: 'soil', z: 0, wobble: 0.2 },
+        { type: 'path', mat: 'stone', width: 1.0, points: [[-7, 4], [-1, 1], [3, -1], [7, -5]] },
+        { type: 'island', cx: 5, cy: 3, rx: 2.2, ry: 1.8, mat: 'sand', z: 0, wobble: 0.22 },
+        { type: 'island', cx: 5, cy: 3, rx: 1.2, ry: 0.95, mat: 'water', z: 0, wobble: 0.15 },
+        { type: 'hill', cx: 1, cy: -2, r: 2.6, h: 0.75, falloff: 1.5 },
+      ],
+    });
+  } else {
+    for (let gx = -8; gx <= 8; gx++) for (let gy = -6; gy <= 6; gy++) {
+      if (Math.hypot(gx / 8, gy / 6) <= 1) TERRAIN.set(gx, gy, 'grass', 0);
     }
   }
-  /* 几棵树 */
+
   ED.objects.push({
     id: 'o1', kind: 'broadleaf', x: -5, y: -3, z: TERRAIN.heightAt(-5, -3),
     rot: 0, params: KIT.defaults('broadleaf'), seed: 101,

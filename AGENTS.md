@@ -59,7 +59,7 @@
 | 山村公路与车 | `demo/village/road.js` | 公路几何（切向/法向/投影/路坐标系）+ 黄色小甲壳虫（沿路行驶、警灯闪烁、动态阴影） | `docs/kit/props.md §8b` |
 | 山村路面绘制 | `demo/village/road-paint.js` | road.js 的兜底路面实现：沥青 + 路缘石 + 黄色虚线（terrain.js 已画路面时不要调） | `docs/kit/props.md §8b` |
 | **秋日山村场景** | `demo/village/` | **竖幅秋日山村**：层叠树海 + 斜穿公路 + 亮灯木屋 + 甲壳虫车 + 村民（点击打招呼） | `docs/modules/village.md` |
-| **远景树海** | `demo/village/sea.js` | 按屏幕坐标布点的层叠树群 + 空气透视调色（整幅无天空） | `docs/kit/depth-and-haze.md §4` |
+| **远景树海** | `demo/village/sea.js` | 锥树构件布场（cone-mast/cone-spire，大而少 3~4 棵/排）+ 林底色板 + 空气透视（整幅无天空） | `docs/kit/depth-and-haze.md §4` |
 | **构件库运行时** | `demo/kit/core.js` | `KIT.register` 构件注册表：id / name / category / params / collision / draw | `docs/modules/studio.md §5` |
 | 构件库·人群行为 | `demo/kit/crowd.js` | `KIT_CROWD`：spectator/wanderer/crowd 三变体（目标选择+软排斥+姿态合成） | `docs/modules/studio.md §8` |
 | 构件库·姿态表 | `demo/kit/figures.js` | `KIT_POSE` 十种实用姿态（含 `reach`）+ `kitPose()` 覆盖助手 | `docs/kit/figures.md 附录` |
@@ -68,7 +68,10 @@
 | 构件库·构件 | `demo/kit/buildings.js` · `demo/kit/stoneworks.js` · `demo/kit/props.js` | 建筑 / 石砌 / 道具构件（AI 生成物按分类落对应模块） | `docs/kit/registry.md` |
 | 构件库·锥状树 | `demo/kit/conifers.js` | `cone-mast` 巨层塔树 / `cone-spire` 尖锥树：实心融合塔体 + 层缝弧线，秋日背景林（golden 参数组调色） | `docs/kit/trees.md §5.7-5.8` |
 | 构件库·地面 | `demo/kit/ground.js` | 5 种地面材质（草地/泥土/沙地/石板/水面） | `docs/kit/scene.md` |
-| **Studio 生成页** | `demo/studio/index.html` | 描述需求 → AI 按规范写代码 → 预览 → 确认保存 | `docs/modules/studio.md` |
+| **Studio 生成页** | `demo/studio/index.html` | 描述需求 → AI 按规范写代码 → 进度条 → 预览调参 → 确认保存；顶部可切换模型 | `docs/modules/studio.md` |
+| Studio AI 配置 | `demo/studio/config.mjs` · `studio.config.json` | 模型 / 思考强度 / 预算 / 超时；环境变量可覆盖 | `docs/modules/studio.md §2.2` |
+| Studio 地形生成 | `demo/studio/terrain-shapes.js` | 程序化地形原语：island / rect / path / hill，供 AI 预设与编辑器共用 | `docs/modules/studio.md §4.2b` |
+| Studio 地形过渡 | `demo/studio/terrain-render.js` | 主体/过渡/子项三层渲染：噪声抖动混合带、屏幕四边形光栅化、收边补洞 | `docs/modules/studio.md §4.2` |
 | **Studio 编辑器** | `demo/studio/editor.html` | 逐格画地形 · 装配物体 · 调碰撞体积 · 存场景 | `docs/modules/studio.md §4` |
 | Studio 服务端 | `demo/studio/server.mjs` | 静态服务 + AI 桥 + 落盘器（零依赖，只用 node: 内置模块） | `docs/modules/studio.md §6` |
 | 技术分析 | `docs/analysis.md` | 原项目完整管线拆解与代码索引 | — |

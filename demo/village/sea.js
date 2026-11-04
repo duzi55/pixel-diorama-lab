@@ -38,21 +38,21 @@ const SEA_ROWS = [
    *   ★ 树数必须少（塔比旧团块大 3~4 倍，5~9 棵/排）：
    *   排密塔密会读作"列队贴图"，参考图的塔是错落的，
    *   塔间要露出深色的林底缝隙。 */
-  [30, 7, .78, .74, .60],
-  [58, 7, .80, .62, .62],
-  [88, 7, .82, .50, .62],
-  [120, 8, .84, .38, .65],
-  [154, 8, .86, .26, .70],
-  [190, 8, .90, .14, .70],
-  [228, 8, .94, .05, .75],
-  [268, 8, 1.0, 0, .80],
-  [310, 8, 1.0, 0, .80],
-  [355, 7, 1.0, 0, .75],
-  [402, 7, 1.0, 0, .75],
-  [452, 6, 1.0, 0, .70],
-  [505, 6, 1.0, 0, .70],
-  [560, 5, 1.0, 0, .70],
-  [615, 5, 1.0, 0, .70],
+  [30, 4, .78, .74, .60],
+  [58, 4, .80, .62, .62],
+  [88, 4, .82, .50, .62],
+  [120, 4, .84, .38, .65],
+  [154, 4, .86, .26, .70],
+  [190, 4, .90, .14, .70],
+  [228, 4, .94, .05, .75],
+  [268, 4, 1.0, 0, .80],
+  [310, 4, 1.0, 0, .80],
+  [355, 4, 1.0, 0, .75],
+  [402, 4, 1.0, 0, .75],
+  [452, 3, 1.0, 0, .70],
+  [505, 3, 1.0, 0, .70],
+  [560, 3, 1.0, 0, .70],
+  [615, 3, 1.0, 0, .70],
 ];
 
 /* 前景树海的起始屏幕高度：从这一排开始，树画在房子**前面** */
@@ -108,15 +108,20 @@ function seaClearsRoadOnly(x, y) {
      世界距离判据必然漏（坑见 docs/kit/depth-and-haze.md）。
    ★ 锥塔冠的屏幕外扩保守取 1.35×crownR：实测 1.1 时塔身下部
      仍会扫到路缘（塔不是圆，下部宽 + 融合波动）。 */
-function seaClearsRoadCorridor(x, y, crownR, zc) {
-  const c = project(x, y, zc);
+function seaClearsRoadCorridor(x, y, crownR, h) {
   const crownRpx = crownR * 1.35 * S;
-  const roadHalfPx = ROAD.halfW * S * .5;
+  const roadHalfPx = ROAD.halfW * S;   // 路面屏幕半宽（4.8 世界宽 × S/√2×√2 → halfW×S）
   const A = project(ROAD.ax, ROAD.ay, 0), B = project(ROAD.bx, ROAD.by, 0);
-  const vx = B.sx - A.sx, vy = B.sy - A.sy;
-  const t = clamp(((c.sx - A.sx) * vx + (c.sy - A.sy) * vy) / (vx * vx + vy * vy), 0, 1);
-  const dxl = c.sx - (A.sx + vx * t), dyl = c.sy - (A.sy + vy * t);
-  return Math.hypot(dxl, dyl) > crownRpx + roadHalfPx;
+  const vx = B.sx - A.sx, vy = B.sy - A.sy, v2 = vx * vx + vy * vy;
+  /* ★ 塔是竖长的，单点判定防不住"塔基在路外、塔身横跨路"——
+     对塔身下/中/上三个高度都测，任一点扫到路就砍 */
+  for (const f of [.15, .45, .75]) {
+    const c = project(x, y, h * f);
+    const t = clamp(((c.sx - A.sx) * vx + (c.sy - A.sy) * vy) / v2, 0, 1);
+    const dxl = c.sx - (A.sx + vx * t), dyl = c.sy - (A.sy + vy * t);
+    if (Math.hypot(dxl, dyl) <= crownRpx + roadHalfPx) return false;
+  }
+  return true;
 }
 
 /* 村子带（房子所在处）：沿路参数 t 在 [0, 0.9] 且离路 < 10 → 不放近景树。
@@ -159,25 +164,6 @@ function drawTreeSeaRange(from, to, fore) {
     const row = SEA_ROWS[ri];
     if (row[0] < from || row[0] > to) continue;
     const [rowY, count, sizeK, pale, mast] = row;
-    /* 背景暗色树冠团：参考图塔缝里露出的"更远的暗树"。
-       ★ 只给远排（pale>.1）：近排塔缝露出的是地形，不是暗树。
-       ★ 团要小而稀（r 3.6、每排 5 个、间距 > 球径 2 倍）——
-         连成整带会读作"巧克力云墙"，比塔还抢眼；
-         孤立点缀才像"塔缝里透出的暗部"。 */
-    if (!fore && pale > .1) {
-      const bn = 5;
-      for (let b = 0; b < bn; b++) {
-        const bs = ri * 1000 + 500 + b;
-        const bx = -20 + (b + .5) / bn * 320 + (hash(bs, 361) - .5) * 40;
-        const bdxy = (bx - OX) * R2 / S;
-        const bsum = seaSumFor(rowY + 9 + (hash(bs, 362) - .5) * 8, 0);
-        const bxx = (bsum + bdxy) / 2, byy = (bsum - bdxy) / 2;
-        const kc = 1 - pale * .4;
-        const c = [Math.round(214 - 18 * kc), Math.round(152 - 22 * kc), Math.round(52 - 12 * kc)];
-        sphere(bxx, byy, 4.5, 3.6, c, 'flat');
-        if (b % 2 === 0) sphere(bxx + 2, byy - 1, 6, 2.6, c, 'flat');
-      }
-    }
     for (let k = 0; k < count; k++) {
       const seed = ri * 1000 + k;
       /* ★ 直接按**屏幕横坐标**布点：定住 (x-y) 横向位置就定了，
@@ -205,7 +191,7 @@ function drawTreeSeaRange(from, to, fore) {
         const t = clamp(((x - ROAD.ax) * dx + (y - ROAD.ay) * dy) / (dx * dx + dy * dy), 0, 1);
         const px = ROAD.ax + dx * t, py = ROAD.ay + dy * t;
         const d = Math.hypot(x - px, y - py);
-        if (d >= 4.5 && d < 9 && hash(seed, 349) < .35) small = true;
+        if (d >= 4.5 && d < 9 && hash(seed, 349) < .2) small = true;
         else if (d < 4.5 || (d >= 9 && d < 11) || d >= 15) continue;
       }
 
@@ -220,20 +206,20 @@ function drawTreeSeaRange(from, to, fore) {
               rows: 6, golden: .85 };
       } else if (hash(seed, 304) < mast) {
         kind = 'cone-mast';
-        p = { height: 20 * sizeK * sJ,
-              crownR: 5.8 * sizeK * (.9 + hash(seed, 308) * .2),
+        p = { height: 22 * sizeK * sJ,
+              crownR: 5.2 * sizeK * (.9 + hash(seed, 308) * .2),
               layers: 5 + (hash(seed, 309) * 3 | 0),
               golden: gK,
               trunkV: .13 + hash(seed, 310) * .05 };
       } else {
         kind = 'cone-spire';
-        p = { height: 9.5 * sizeK * sJ,
-              crownR: 2.6 * sizeK * (.9 + hash(seed, 308) * .2),
+        p = { height: 10.5 * sizeK * sJ,
+              crownR: 2.4 * sizeK * (.9 + hash(seed, 308) * .2),
               rows: 7 + (hash(seed, 309) * 4 | 0),
               golden: gK };
       }
       /* 近景排（fore）的巨塔给路让通道：冠心 (x, y, h*.55) 屏幕投影 */
-      if (fore && !small && !seaClearsRoadCorridor(x, y, p.crownR, p.height * .35)) continue;
+      if (fore && !small && !seaClearsRoadCorridor(x, y, p.crownR, p.height)) continue;
 
       const o = { id: 'sea' + ri + '_' + k, kind, x, y, z: 0, rot: 0, params: p, seed };
       KIT.get(kind).draw(KIT_RENDER.makeCtx(o), o);
@@ -253,13 +239,13 @@ function drawBottomCanopy() {
     const seed = 9000 + k;
     const sx = -20 + (k + .5) / cols * 340 + (hash(seed, 331) - .5) * 22;
     /* 树基在画面底部之下（画布外），塔身伸进画面 */
-    const sy = 560 + (hash(seed, 332) - .5) * 36;
+    const sy = 545 + (hash(seed, 332) - .5) * 36;
     const dxy = (sx - OX) * R2 / S;
     const sum = seaSumFor(sy, 0);
     const x = (sum + dxy) / 2, y = (sum - dxy) / 2;
     const h = 13 + hash(seed, 333) * 4, cr = 4.6 + hash(seed, 334) * 1.2;
     /* 底部巨塔会从下方盖住公路，必须给路让通道 */
-    if (!seaClearsRoadCorridor(x, y, cr, h * .35)) continue;
+    if (!seaClearsRoadCorridor(x, y, cr, h)) continue;
     const o = { id: 'bc' + k, kind: 'cone-mast', x, y, z: 0, rot: 0,
       params: { height: h, crownR: cr, layers: 5 + (hash(seed, 335) * 2 | 0),
                 golden: .1 + hash(seed, 336) * .25, trunkV: .12 }, seed };
@@ -269,7 +255,7 @@ function drawBottomCanopy() {
       const sx2 = -20 + (k + 1) / cols * 340 + (hash(seed, 337) - .5) * 22;
       const sum2 = seaSumFor(sy + 14, 0);
       const x2 = (sum2 + (sx2 - OX) * R2 / S) / 2, y2 = (sum2 - (sx2 - OX) * R2 / S) / 2;
-      if (seaClearsRoadCorridor(x2, y2, 3, h * .5)) sphere(x2, y2, h * .5, 3.4, [188, 118, 32], 'flat');
+      if (seaClearsRoadCorridor(x2, y2, 3, h)) sphere(x2, y2, h * .5, 3.4, [188, 118, 32], 'flat');
     }
   }
 }
@@ -295,8 +281,33 @@ function drawLandmarkTower() {
   KIT.get('cone-mast').draw(KIT_RENDER.makeCtx(o), o);
 }
 
+/* 林底色板：上半屏没有地形也没有塔的地方刷成"无尽远方的林"
+ * —— 参考图从无背景露出，塔缝里永远是深浅不一的远处林色。
+ * 在 drawTreeSea 开头调用：只刷 zb 仍为背景的像素，
+ * 深度设 -1e7（比一切物体远，不挡任何东西）。
+ * 色：顶部淡金（接近雾色，衔接空气透视）→ 底部浓金橙。 */
+function paintForestFloor() {
+  /* 排线暗化带：塔根附近的林底加深（树根阴影），塔底不悬空 */
+  const rows = SEA_ROWS.map(r => r[0]).filter(y => y < SEA_SPLIT);
+  for (let iy = 0; iy < SEA_SPLIT + 40; iy++) {
+    const v = clamp(iy / SEA_SPLIT, 0, 1);
+    let dark = 0;
+    for (const ry of rows) {
+      const d = Math.abs(iy - ry);
+      if (d < 9) dark = Math.max(dark, (1 - d / 9) * .14);
+    }
+    const c = rgb(Math.round(lerp(246, 226, v) * (1 - dark)),
+                  Math.round(lerp(208, 162, v) * (1 - dark)),
+                  Math.round(lerp(80, 50, v) * (1 - dark)));
+    for (let ix = 0; ix < W; ix++) {
+      const i = iy * W + ix;
+      if (zb[i] < -1e8) { pix[i] = c; zb[i] = -1e7; }
+    }
+  }
+}
+
 /* 远景树海（房子之前）—— 只画 SEA_SPLIT 以上的排 */
-function drawTreeSea() { drawTreeSeaRange(0, SEA_SPLIT, false); drawLandmarkTower(); }
+function drawTreeSea() { paintForestFloor(); drawTreeSeaRange(0, SEA_SPLIT, false); drawLandmarkTower(); }
 
 /* 近景树海（房子之后，压住房子一角） */
 function drawTreeSeaFore() { drawTreeSeaRange(SEA_SPLIT, 9999, true); }

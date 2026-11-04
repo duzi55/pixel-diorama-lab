@@ -469,22 +469,7 @@ for (const b of document.querySelectorAll('.ex')) {
   });
 }
 
-/* ---------------- 启动：拉取 AI 配置展示 ---------------- */
-
-async function loadAiConfig() {
-  const box = el('ai-config');
-  if (!box) return;
-  try {
-    const res = await fetch('/api/config');
-    const data = await res.json();
-    if (!data.ok) throw new Error('读取失败');
-    const c = data.config;
-    box.innerHTML = `模型: <b>${esc(c.model)}</b> · 思考: ${esc(c.effort)} · 预算: $${c.maxBudgetUsd}/次 · 超时: ${Math.round(c.timeoutMs / 1000)}s`
-      + ` <span style="opacity:.7">（改 demo/studio/studio.config.json）</span>`;
-  } catch {
-    box.textContent = 'AI 配置读取失败（使用 CLI 默认）';
-  }
-}
-loadAiConfig();
+/* ---------------- 启动 ---------------- */
 
 loadKitLibrary();
+

@@ -97,6 +97,60 @@ const server = http.createServer(async (req, res) => {
     return sendJSON(res, 200, { ok: true, config: describeConfig() });
   }
 
+  /* 修改 AI 配置（页面上的模型切换） */
+  if (url.pathname === '/api/config' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const { setConfig, describeConfig } = await import('./config.mjs');
+      setConfig(body || {});
+      return sendJSON(res, 200, { ok: true, config: describeConfig() });
+    } catch (e) {
+      return sendJSON(res, 500, { ok: false, error: String(e && e.message || e) });
+    }
+  }
+
+  /* 地形预设生成（SSE 流式，与构件生成同一套进度机制） */
+  if (url.pathname === '/api/generate-terrain' && req.method === 'POST') {
+    const wantsStream = (req.headers.accept || '').includes('text/event-stream');
+    try {
+      const body = await readBody(req);
+      const { generateTerrain } = await import('./terrain-ai.mjs');
+
+      if (!wantsStream) {
+        return sendJSON(res, 200, await generateTerrain(body));
+      }
+
+      res.writeHead(200, {
+        'content-type': 'text/event-stream; charset=utf-8',
+        'cache-control': 'no-store',
+        'connection': 'keep-alive',
+      });
+      const send = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      send('open', { model: (await import('./config.mjs')).describeConfig().model });
+
+      try {
+        const result = await generateTerrain(body, ev => {
+          if (ev.type === 'system' && ev.subtype === 'init') {
+            send('progress', { stage: 'connected', message: `已连接模型（会话 ${String(ev.session_id || '').slice(0, 8)}…）` });
+          } else if (ev.type === 'assistant' && ev.message) {
+            const u = ev.message.usage || {};
+            send('progress', { stage: 'thinking', message: '设计地形中…', outputTokens: u.output_tokens || null });
+          } else if (ev.type === 'result') {
+            const u = ev.usage || {};
+            send('progress', { stage: 'done', message: '设计完成', outputTokens: u.output_tokens || null, durationMs: ev.duration_ms || null });
+          }
+        });
+        send('done', result);
+      } catch (e) {
+        send('error', { error: String(e && e.message || e) });
+      }
+      res.end();
+      return;
+    } catch (e) {
+      return sendJSON(res, 500, { ok: false, error: String(e && e.message || e) });
+    }
+  }
+
   /* 生成（SSE 流式：进度事件实时推送，最后一条 event: done 带结果或错误）
      请求体经查询参数太长，改为：POST /api/generate-stream 先拿 taskId，
      再 GET /api/progress/<taskId> 收 SSE。简化实现：body 先读入，

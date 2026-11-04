@@ -48,6 +48,23 @@ export function getConfig() {
   return merged;
 }
 
+/**
+ * 修改配置并写回 studio.config.json（页面上的模型切换用）。
+ * @param {object} patch { model?, effort?, maxBudgetUsd?, timeoutMs? }
+ */
+export function setConfig(patch) {
+  let file = {};
+  try { file = JSON.parse(fs.readFileSync(CFG_PATH, 'utf8')); } catch { /* 首次创建 */ }
+  const next = { ...file };
+  for (const k of ['model', 'effort', 'maxBudgetUsd', 'timeoutMs']) {
+    if (patch[k] !== undefined) next[k] = patch[k];
+  }
+  /* 保留 _说明 字段 */
+  fs.writeFileSync(CFG_PATH, JSON.stringify(next, null, 2) + '\n', 'utf8');
+  _cache = null;                      /* 清缓存，下次 getConfig 重新读 */
+  return getConfig();
+}
+
 /** 生成页展示用的摘要（隐藏空项） */
 export function describeConfig() {
   const c = getConfig();

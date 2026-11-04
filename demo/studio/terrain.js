@@ -12,16 +12,58 @@
  * 相邻格高低不同时画"侧壁"，地形才有立体感。
  * ------------------------------------------------------------------ */
 
+/* ==================================================================
+ * 地形材质：三层体系（主体 / 过渡 / 子项）
+ *
+ * 参考社区成熟做法：
+ *   - Splat blending（Unity Terrain / Godot）：按权重混合相邻材质
+ *   - Noise-jittered band：用噪声抖动把边界打散成不规则锯齿
+ *     （docs/kit/scene.md §2 的溶解带，从"岛边缘"推广到"任意材质边界"）
+ *   - Height blending：过渡带内做高度插值，高差变成缓坡而非断崖
+ *
+ * 每层职责：
+ *   base  主体 —— 大面积底色 [r,g,b]
+ *   blend 过渡 —— width 过渡带宽（格），jitter 抖动强度，slope 坡度混合
+ *   detail 子项 —— 材质自带的装饰（斑块/杂点/缝隙/波纹）
+ * ================================================================== */
 const TERRAIN = {
   /* 网格半径（格）。世界坐标范围约 [-20, 20] */
   R: 20,
-  /* 材质表：id → { name, color, kind } */
+
+  /* 全局过渡参数（编辑器可调） */
+  blend: {
+    width: 0.42,     /* 过渡带宽度（格）：0.2 窄而硬 · 0.7 宽而柔 */
+    jitter: 0.55,    /* 边界抖动：0 平滑渐变 · 1 碎片化锯齿 */
+    slope: false,    /* 高度坡面混合（实验性）：只改深度不改几何，高差处会露洞，默认关 */
+  },
+
+  /* 材质表：id → { name, base, kind, blend, detail } */
   mats: {
-    grass: { name: '草地', color: [104, 132, 62], kind: KIND_GRASS },
-    soil: { name: '泥土', color: [176, 148, 104], kind: KIND_NONE },
-    sand: { name: '沙地', color: [200, 172, 130], kind: KIND_NONE },
-    stone: { name: '石板', color: [150, 146, 138], kind: KIND_NONE },
-    water: { name: '水面', color: [58, 96, 122], kind: KIND_NONE },
+    grass: {
+      name: '草地', base: [104, 132, 62], kind: KIND_GRASS,
+      blend: { width: 0.45, jitter: 0.6 },
+      detail: { clump: 0.45, speckle: 0.22 },   /* 苔藓斑块 + 杂点 */
+    },
+    soil: {
+      name: '泥土', base: [176, 148, 104], kind: KIND_NONE,
+      blend: { width: 0.55, jitter: 0.75 },     /* 泥土边界最松散 */
+      detail: { pebble: 0.05, speckle: 0.3 },
+    },
+    sand: {
+      name: '沙地', base: [200, 172, 130], kind: KIND_NONE,
+      blend: { width: 0.6, jitter: 0.8 },       /* 沙会渗进邻格 */
+      detail: { ripple: 0.5, speckle: 0.2 },
+    },
+    stone: {
+      name: '石板', base: [150, 146, 138], kind: KIND_NONE,
+      blend: { width: 0.2, jitter: 0.25 },      /* 人工铺装：边界利落 */
+      detail: { seam: true, speckle: 0.12 },
+    },
+    water: {
+      name: '水面', base: [58, 96, 122], kind: KIND_NONE,
+      blend: { width: 0.35, jitter: 0.45 },
+      detail: { wave: 0.6, speckle: 0.1 },
+    },
   },
 
   /* 网格数据：key = (gy + R) * (2R+1) + (gx + R) */
@@ -103,12 +145,12 @@ const TERRAIN = {
   /* 清空 */
   clear() { TERRAIN.cells.clear(); },
 
-  /* 序列化 */
+  /* 序列化（含过渡参数，保证场景复现） */
   toJSON() {
     const cells = [];
     for (const c of TERRAIN.cells.values())
       cells.push([c.gx, c.gy, c.mat, Math.round(c.z * 100) / 100]);
-    return { r: TERRAIN.R, cells };
+    return { r: TERRAIN.R, cells, blend: { ...TERRAIN.blend } };
   },
 
   /* 反序列化 */
@@ -116,5 +158,6 @@ const TERRAIN = {
     TERRAIN.clear();
     if (!data || !data.cells) return;
     for (const [gx, gy, mat, z] of data.cells) TERRAIN.set(gx, gy, mat, z);
+    if (data.blend) Object.assign(TERRAIN.blend, data.blend);
   },
 };
