@@ -83,7 +83,7 @@
 | 引擎·光照 | `demo/engine-light.js` | `LIGHT` 状态 + `PP_shadePoints` 点光源 + `PP_applyGrade` 色调/环境/暗角 | `docs/modules/studio.md §4.4` |
 | Studio·光照面板 | `demo/studio/editor-light.js` | 光照 UI 绑定（色调预设/方向/亮度）+ 场景点光源收集 | `docs/modules/studio.md §4.4` |
 | Studio·视图变换 | `demo/studio/editor-view.js` | 画布视图缩放/平移/复位 + 碰撞线框 + 应用工具 | `docs/modules/studio.md §4.1` |
-| Studio·参考图 | `demo/studio/gen-images.js` | 图片上传（≤3 张自动压缩），AI 经 Read 白名单读图 | `docs/modules/studio.md §2.3b` |
+| Studio·参考图 | `demo/studio/gen-images.js` | 图片输入三通道（选文件 / 粘贴 / 拖拽，≤3 张自动压缩），AI 经 Read 白名单读图 | `docs/modules/studio.md §2.3b` |
 | Studio 地形·共用 | `demo/studio/terrain-common.js` | 投影/归属/材质过渡混合/子项装饰/收边补洞 | `docs/modules/studio.md §4.2` |
 | Studio 地形·台阶 | `demo/studio/terrain-render.js` | 逐格 quad + 侧壁渲染（快，拖动时降级用） | `docs/modules/studio.md §4.2a` |
 | **Studio 地形·坡面** | `demo/studio/terrain-march.js` | 高度场 sphere tracing 光线步进：缓坡 + 坡度光照，默认渲染器 | `docs/modules/studio.md §4.2a` |

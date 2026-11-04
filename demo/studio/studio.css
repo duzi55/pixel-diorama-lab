@@ -397,6 +397,10 @@ details.code pre, textarea.code-edit {
   font-size: 11px; cursor: pointer; text-align: center;
 }
 .ref-add:hover { border-color: var(--accent-2); color: var(--accent-2); }
+.ref-add.is-full { opacity: .35; pointer-events: none; }
+.ref-row.drop-active {
+  outline: 2px dashed var(--accent-2); outline-offset: 6px; border-radius: 10px;
+}
 .ref-thumb {
   position: relative; width: 64px; height: 64px;
   border-radius: 8px; overflow: hidden; border: 1px solid var(--line);
