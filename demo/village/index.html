@@ -5,41 +5,65 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>秋日山村 · Pixel Diorama</title>
 <style>
-  :root { --ink: #2a2118; --muted: #9a8b78; --paper: #fcf5da; --line: #e8dfcc; }
+  :root {
+    --ink: #2a2118;
+    --muted: #9a8b78;
+    --paper: #fcf5da; /* 统一纸色背景，整个页面与 Canvas 完全一体 */
+    --line: #e8dfcc;
+  }
   * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; background: var(--paper); color: var(--ink); }
-  body { font: 13px/1.4 ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace; overflow: hidden; }
-  #stage { position: fixed; inset: 0; }
-  canvas { display: block; image-rendering: pixelated; touch-action: none; cursor: default; outline: none; }
-  #hud { position: fixed; left: max(16px, env(safe-area-inset-left)); top: max(14px, env(safe-area-inset-top)); pointer-events: none; }
-  #hud h1 { margin: 0 0 4px; font-size: 13px; font-weight: 600; letter-spacing: .02em; }
-  #hud p { margin: 0; color: var(--muted); }
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    overflow: hidden;
+  }
+  body {
+    font: 13px/1.4 ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace;
+    user-select: none;
+  }
+  #stage {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: var(--paper);
+  }
+  canvas {
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    touch-action: none;
+    cursor: default;
+    outline: none;
+    background: var(--paper);
+  }
+  #hud {
+    position: fixed;
+    left: max(20px, env(safe-area-inset-left));
+    top: max(18px, env(safe-area-inset-top));
+    pointer-events: none;
+  }
+  #hud h1 { margin: 0 0 4px; font-size: 15px; font-weight: 600; letter-spacing: .02em; }
+  #hud p { margin: 0; color: var(--muted); font-size: 12px; }
 </style>
 </head>
 <body>
-<div id="stage"><canvas id="c" aria-label="秋日山村等距像素场景，可点击村民"></canvas></div>
+<div id="stage"><canvas id="c" aria-label="秋日山村等距像素场景，点击村民可打招呼"></canvas></div>
 
 <div id="hud">
-  <h1>秋日山村</h1>
-  <p>点击村民打招呼 · 树在风里摇</p>
+  <h1>秋日山村 · Autumn Diorama</h1>
+  <p>点击村民打招呼 · 黄色小车行驶 · 树在风中微漾</p>
 </div>
 
 <script>
-  /* ★ 全屏画布：像素密度不变（PP_SCALE 固定 9），画布像素数 = 窗口 / 9。
-     无头渲染/测试工具设 PP_HEADLESS=true，用 300×520 兜底尺寸。 */
-  /* ★ 像素密度：每世界单位 6 内部像素，显示 1:1（fit 不拉伸）——
-     浏览器观感 = 无头截图观感，人/车/树比例真实 */
-  window.PP_SCALE = 6;
+  /* 画布分辨率与世界尺度映射（微缩模型标准清晰度，细节精致分明） */
+  window.PP_W = 440;
+  window.PP_H = 620;
+  window.PP_SCALE = 11;
   window.PP_ORIGIN_X = 0;
-  window.PP_W = 300; window.PP_H = 500;   /* 兜底（无头工具尺寸） */
-  if (!window.PP_HEADLESS) {
-    window.PP_FULLSCREEN = true;
-    window.PP_W = Math.ceil(innerWidth / PP_SCALE);
-    window.PP_H = Math.ceil(innerHeight / PP_SCALE);
-    window.PP_ORIGIN_Y = 0;
-  } else {
-    window.PP_ORIGIN_Y = 0;
-  }
+  window.PP_ORIGIN_Y = 25;
 </script>
 <script src="../engine.js"></script>
 <script src="../kit/core.js"></script>

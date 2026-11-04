@@ -58,6 +58,7 @@ function ED_init() {
   ED_bindCanvas();
   ED_bindPanels();
 
+  ED_initLightingUI();
   ED_seedDemo();
   ED_fit();
   addEventListener('resize', ED_fit);
@@ -361,6 +362,7 @@ function ED_placeObject(kind, x, y) {
     collision: comp.collision ? { ...comp.collision } : null,
   };
   ED.objects.push(obj);
+  ED_collectLights();
   ED_select(obj);
   ED_refreshObjects();
   ED.dirty = true;
@@ -381,12 +383,14 @@ function ED_select(o) {
   ED.selected = o;
   ED_refreshSel();
   ED_refreshObjects();
+  ED_collectLights();
   ED.dirty = true;
 }
 
 function ED_deleteSelected() {
   if (!ED.selected) return;
   ED.objects = ED.objects.filter(o => o !== ED.selected);
+  ED_collectLights();
   ED_select(null);
   ED_refreshObjects();
   ED.dirty = true;
@@ -438,8 +442,9 @@ function ED_render(t = 0) {
     terrainRender(!!ED.painting && (ED.tool === 'paint' || ED.tool === 'erase' || ED.tool === 'raise' || ED.tool === 'lower'));
   }
 
-  /* 静态物体：按 y 从大到小（画家算法） */
-  const objs = [...ED.objects].sort((a, b) => b.y - a.y);
+  /* 静态物体：层级（zOrder，大 = 上层）优先，同层按 y 画家算法 */
+  const objs = [...ED.objects].sort((a, b) =>
+    ((a.zOrder || 0) - (b.zOrder || 0)) || (b.y - a.y));
   for (const o of objs) ED_drawObject(o);
 
   /* 动态人群 AI */
@@ -467,6 +472,10 @@ function ED_render(t = 0) {
     const p = project(s.x, s.y, (s.z || 0) + h + 0.5);
     drawArrow(p.sx, p.sy, t);
   }
+
+  /* 全局光照：点光源（路灯等）→ 色调/环境/暗角 */
+  PP_shadePoints();
+  PP_applyGrade();
 
   /* 直接将 engine.js 的全局 image 提交到画布 */
   ctx.putImageData(image, 0, 0);

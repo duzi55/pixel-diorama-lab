@@ -96,9 +96,9 @@ function vMake(k, x, y) {
     x, y, yaw, look: yaw, targetX: x, targetY: y,
     walking: false,
     gait: hash(k, 86) * 6,                        // 步态相位（累积）
-    speed: .38 + hash(k, 87) * .34,
+    speed: .42 + hash(k, 87) * .28,
     wait: hash(k, 88) * 2.5,
-    scale: .76 + hash(k, 89) * .09,               // 人很小：.75～.85
+    scale: 0.95 + hash(k, 89) * 0.12,             // 比例与木屋门车身协调精致
     phase: hash(k, 90) * 6.283,                   // 呼吸/转头相位（各人不同）
     side: 0, lat: 0, t: 0, walker: false, lookAt: yaw,
     seed: k, pickCount: 0,

@@ -1,55 +1,80 @@
 'use strict';
 /* ------------------------------------------------------------------
- * 秋日山村 · 树木（极简版）
- * 全村统一锥树构件（demo/kit/conifers.js）：几棵树，高矮不一，
- * 沿公路两侧错落。树影烘焙一次。落叶源供 falling.js。
+ * 秋日山村 · 金黄层叠塔林（参考图神韵还原）
  * ------------------------------------------------------------------ */
 
-/* 树表：[t 沿路, lat 横向, kind, height, crownR] —— 高矮不一 */
-const FOL_TREES = [
-  [-.10,  8.5, 'mast',  4.6, 1.75],
-  [ .06, -8.8, 'spire', 5.4, 1.35],
-  [ .20,  9.2, 'spire', 4.2, 1.20],
-  [ .30, -9.4, 'mast',  5.8, 2.10],
-  [ .46,  9.6, 'mast',  6.6, 2.30],
-  [ .60, -8.6, 'spire', 3.8, 1.10],
-  [ .72,  8.8, 'spire', 5.0, 1.30],
-  [ .84, -9.2, 'mast',  4.4, 1.70],
-  [ .97,  7.6, 'mast',  3.6, 1.45],
+/* 核心树木配置表（严格对照参考图错落构图，全部完整绘制） */
+const FOL_TREE_SPECS = [
+  // 1. 👑【全图画眼】黄金参天巨树（中景木屋背后高耸入云，遮天蔽日）
+  { x: -4.0, y:  8.5, kind: 'cone-mast',  h: 25.0, cr: 5.8, tkH: 5.5, layers: 8, seed: 777 },
+
+  // 2. 山坡后排参天金杉群（构筑深远秀丽的天际线）
+  { x: -13.5, y: 14.5, kind: 'cone-mast',  h: 20.0, cr: 4.8, tkH: 4.5, layers: 7, seed: 101 },
+  { x:  -5.0, y: 19.5, kind: 'cone-mast',  h: 22.5, cr: 5.2, tkH: 4.8, layers: 8, seed: 202 },
+  { x:   5.5, y: 18.5, kind: 'cone-spire', h: 18.5, cr: 4.2, tkH: 3.8,           seed: 303 },
+  { x:  14.0, y: 13.5, kind: 'cone-spire', h: 16.5, cr: 4.0, tkH: 3.5,           seed: 404 },
+
+  // 3. 中景木屋周围掩映穿插的树木
+  { x: -14.5, y:  6.0, kind: 'cone-spire', h: 13.5, cr: 3.5, tkH: 3.0,           seed: 505 },
+  { x:   4.5, y:  9.5, kind: 'cone-mast',  h: 15.0, cr: 4.0, tkH: 3.4, layers: 6, seed: 606 },
+  { x:  12.5, y:  3.5, kind: 'cone-spire', h: 13.0, cr: 3.4, tkH: 2.8,           seed: 707 },
+
+  // 4. 近景公路侧与路边错落树木
+  { x: -17.5, y: -2.0, kind: 'cone-spire', h: 11.5, cr: 3.0, tkH: 2.6,           seed: 808 },
+  { x:   6.5, y:-12.5, kind: 'cone-spire', h: 10.0, cr: 2.8, tkH: 2.2,           seed: 909 },
+  { x:  14.5, y:-10.0, kind: 'cone-mast',  h:  9.0, cr: 2.6, tkH: 2.0, layers: 5, seed: 919 },
 ];
 
-/* 全局树表（CONTRACT §11 规定归 foliage.js）；落叶源供 falling.js */
+/* 全局树表 */
 const trees = [];
 const FOL_LEAF_SOURCES = [];
 let FOL_READY = false;
 
-/* 路参数坐标 → 世界坐标 */
-function folRoadPoint(t, lat) {
-  const dx = ROAD.bx - ROAD.ax, dy = ROAD.by - ROAD.ay;
-  return [ROAD.ax + dx * t + dy / Math.hypot(dx, dy) * lat,
-          ROAD.ay + dy * t - dx / Math.hypot(dx, dy) * lat];
+/* 绘制单棵大树 */
+function drawSingleTree(spec) {
+  const isMast = spec.kind === 'cone-mast';
+  const p = isMast
+    ? { height: spec.h, crownR: spec.cr, trunkH: spec.tkH, layers: spec.layers }
+    : { height: spec.h, crownR: spec.cr, trunkH: spec.tkH };
+
+  const inst = {
+    id: 'tree_' + spec.seed,
+    kind: spec.kind,
+    x: spec.x,
+    y: spec.y,
+    z: 0,
+    rot: 0,
+    params: p,
+    seed: spec.seed,
+  };
+
+  KIT.get(spec.kind).draw(KIT_RENDER.makeCtx(inst), inst);
+
+  FOL_LEAF_SOURCES.push({ x: spec.x, y: spec.y, z: spec.h * 0.72 });
+  trees.push({ x: spec.x, y: spec.y, kind: spec.kind, h: spec.h, crownR: spec.cr, seed: spec.seed });
 }
 
-/* 树 = KIT 锥树构件，烘焙一次（静态）；动态由草外的落叶/车/村民承担 */
+/* 烘焙生成植被树木 */
 function growFoliage() {
   if (FOL_READY) return;
   FOL_READY = true;
   trees.length = 0;
-  for (let i = 0; i < FOL_TREES.length; i++) {
-    const [t, lat, kind, h, cr] = FOL_TREES[i];
-    const [x, y] = folRoadPoint(t, lat);
-    const seed = 1000 + i * 37;
-    const isMast = kind === 'mast';
-    const p = isMast
-      ? { height: h, crownR: cr, layers: 5 + (i % 2), golden: .95, trunkV: .18 }
-      : { height: h, crownR: cr, rows: 8, golden: .85 };
-    const o = { id: 'fol' + i, kind: 'cone-' + kind, x, y, z: 0, rot: 0, params: p, seed };
-    KIT.get('cone-' + kind).draw(KIT_RENDER.makeCtx(o), o);
-    trees.push({ x, y, kind: 'cone-' + kind, scale: h / 6, seed });
-    FOL_LEAF_SOURCES.push({ x, y, z: h * .75 });
-    /* 投影：离路近只投脚下小影 */
-    const r = roadDist(x, y);
-    if (r.d > ROAD.halfW + 2.5) castShadow(x, y, h * .35, cr * 1.7, 1, .5);
-    castShadow(x, y, 0, .28, 2, 0);
+  FOL_LEAF_SOURCES.length = 0;
+
+  // 画家算法：由远及近绘制
+  const sorted = [...FOL_TREE_SPECS].sort((a, b) => b.y - a.y);
+  for (const spec of sorted) {
+    drawSingleTree(spec);
   }
 }
+
+/* 树木投射在落叶地面的柔和阴影 */
+function castTreeShadows() {
+  for (const t of FOL_TREE_SPECS) {
+    castShadow(t.x, t.y, t.tkH + 1.0, t.cr * 1.3, 1, 0.45);
+    castShadow(t.x, t.y, 0, 0.45, 2, 0);
+  }
+}
+
+/* 每帧动画接口 */
+function drawFoliage() {}

@@ -50,8 +50,8 @@ function updateLeaves(t, dt) {
   const gust = gustAt(t);
   for (const m of fallingLeaves) {
     m.z -= m.vz * dt * (1 + gust * .9);
-    m.x += (.18 + gust * .85 + Math.sin(t * 2.1 + m.ph) * .13) * dt;
-    m.y += Math.cos(t * 1.7 + m.ph) * .09 * dt;
+    m.x += (.18 + gust * 0.85 + Math.sin(t * 2.1 + m.ph) * 0.13) * dt;
+    m.y += Math.cos(t * 1.7 + m.ph) * 0.09 * dt;
     m.spin += dt * (1.4 + gust * 2);
     if (m.z < .03) spawnLeaf(m, (Math.random() * 997) | 0, false);
   }

@@ -224,15 +224,27 @@ function hPlace(t, lat, w, dp) {
 }
 
 const HOUSE_SPEC = [
-  /* 4 个小房子，沿路两侧错落（t 沿路，lat 横向；正 = 屏幕右上侧） */
-  { t: .16, lat:  6.6, w: 3.4, dp: 2.8, z1: 2.5, rise: 1.30, roof: TILE,    moss: .18, chimney: true,
-    seed: 11, windows: [{ u: .35 }, { u: .72 }], doorU: .18 },
-  { t: .40, lat: -6.8, w: 3.6, dp: 2.9, z1: 2.6, rise: 1.40, roof: SHINGLE, moss: .45, chimney: false,
-    seed: 31, windows: [{ u: .32 }, { u: .70 }], doorU: .5 },
-  { t: .62, lat:  7.0, w: 3.8, dp: 3.0, z1: 2.7, rise: 1.45, roof: SHINGLE, moss: .80, chimney: true,
-    seed: 37, windows: [{ u: .30 }, { u: .68 }], doorU: .47 },
-  { t: .86, lat: -6.4, w: 3.2, dp: 2.6, z1: 2.4, rise: 1.25, roof: TILE,   moss: .30, chimney: false,
-    seed: 83, windows: [{ u: .36 }, { u: .70 }], doorU: .5 },
+  /* 5 栋木屋，错落分布在公路两侧山丘间（严格对照参考图布局） */
+  
+  // 1. 中景路北木屋（左侧主屋，侧对公路，后方耸立黄金参天巨树）
+  { t: 0.32, lat:  7.2, w: 5.8, dp: 4.8, z1: 4.2, rise: 2.2, roof: SHINGLE, moss: 0.55, chimney: true,
+    seed: 19, windows: [{ u: 0.32 }, { u: 0.72 }], doorU: 0.22, sideWindow: true },
+
+  // 2. 近景路南大木屋（参考图核心焦点：正面迎路，覆满厚重鲜绿青苔，温馨暖窗）
+  { t: 0.58, lat: -6.6, w: 6.8, dp: 5.4, z1: 4.6, rise: 2.4, roof: SHINGLE, moss: 0.90, chimney: false,
+    seed: 37, windows: [{ u: 0.28 }, { u: 0.72 }], doorU: 0.50 },
+
+  // 3. 近景路南右侧小屋（红褐屋顶，带烟囱与亮窗）
+  { t: 0.82, lat: -6.2, w: 5.4, dp: 4.6, z1: 3.8, rise: 2.0, roof: TILE,    moss: 0.35, chimney: true,
+    seed: 83, windows: [{ u: 0.35 }, { u: 0.70 }], doorU: 0.48 },
+
+  // 4. 后景路北山坡木屋（半掩映在参天巨树树冠之下）
+  { t: 0.52, lat: 14.8, w: 5.2, dp: 4.4, z1: 3.8, rise: 2.0, roof: SHINGLE, moss: 0.40, chimney: false,
+    seed: 45, windows: [{ u: 0.35 }, { u: 0.70 }], doorU: 0.50 },
+
+  // 5. 远景右上木屋（依山林而建的小木屋）
+  { t: 0.76, lat: 15.5, w: 5.4, dp: 4.5, z1: 3.8, rise: 2.0, roof: TILE,    moss: 0.25, chimney: true,
+    seed: 62, windows: [{ u: 0.32 }, { u: 0.68 }], doorU: 0.20 },
 ];
 
 const HOUSES = HOUSE_SPEC.map(sp => Object.assign(hPlace(sp.t, sp.lat, sp.w, sp.dp), {
@@ -249,14 +261,15 @@ function drawHouses() {
 /* 体积阴影：在物体体积内三维采样打点，每点投一个地面椭圆 */
 function shadowHouses() {
   for (const h of HOUSES) {
-    for (let x = h.x0 - .2; x <= h.x1 + .2; x += .5)
-      for (let y = h.y0 - .2; y <= h.y1 + .2; y += .5)
-        for (let z = .3; z <= h.z1 + h.rise; z += .7) castShadow(x, y, z, .55);
-    /* 房脚接触阴影：贴地一圈比墙体略宽的重影 —— 没有它房子像
-       "摆在桌面上的船模"（底边一条硬线，与地面无融合） */
-    for (let x = h.x0 - 1.0; x <= h.x1 + 1.0; x += .5)
-      for (let y = h.y0 - 1.0; y <= h.y1 + 1.0; y += .5)
-        if (x < h.x0 - .3 || x > h.x1 + .3 || y < h.y0 - .3 || y > h.y1 + .3)
-          castShadow(x, y, .2, .85);
+    // 房屋主体投影
+    for (let x = h.x0 - 0.2; x <= h.x1 + 0.2; x += 0.8)
+      for (let y = h.y0 - 0.2; y <= h.y1 + 0.2; y += 0.8)
+        for (let z = 0.5; z <= h.z1 + h.rise; z += 1.2) castShadow(x, y, z, 0.9);
+        
+    // 房脚贴地接触阴影，消除漂浮感
+    for (let x = h.x0 - 0.8; x <= h.x1 + 0.8; x += 0.6)
+      for (let y = h.y0 - 0.8; y <= h.y1 + 0.8; y += 0.6)
+        if (x < h.x0 - 0.2 || x > h.x1 + 0.2 || y < h.y0 - 0.2 || y > h.y1 + 0.2)
+          castShadow(x, y, 0.2, 0.85);
   }
 }

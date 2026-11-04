@@ -76,6 +76,7 @@ const context = vm.createContext(sb);
 /* ---- 按顺序加载 ---- */
 const files = [
   'demo/engine.js',
+  'demo/engine-light.js',
   'demo/kit/core.js',
   'demo/kit/palette.js',
   'demo/kit/render.js',

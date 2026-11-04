@@ -15,12 +15,22 @@
  * PP_FULLSCREEN=true 时画布铺满浏览器窗口（像素数 = 窗口 / PP_SCALE）。
  * 尺寸变化走 PP_setSize() 重建全部缓冲，并回调 window.PP_ONRESIZE
  * （场景在里面重跑 bake）。 */
-let W = window.PP_W || 360, H = window.PP_H || 280;
-const S = window.PP_SCALE || 14;
+let W = window.PP_W || 380, H = window.PP_H || 560;
+const S = window.PP_SCALE || 11;
 const SIN = 0.5, COS = Math.sqrt(3) / 2, R2 = Math.SQRT2;
 let OX = W / 2 + (window.PP_ORIGIN_X || 0);
 let OY = H / 2 + (window.PP_ORIGIN_Y == null ? 18 : window.PP_ORIGIN_Y);
 const SHADOW_X = 1.3, SHADOW_Y = -0.12;
+
+/* 全局光照配置（兼容 Studio 光照系统，默认等距斜上方平行光） */
+const LIGHT = window.LIGHT || {
+  dir: { x: -0.55, y: -0.6, z: 0.58 },
+  shadow: { x: 1.3, y: -0.12 },
+  tint: [1, 1, 1],
+  ambient: 1,
+  vignette: 0,
+  points: [],          /* [{x,y,z,r,color,power}] 点光源（路灯等） */
+};
 
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
@@ -29,9 +39,6 @@ const ctx = canvas.getContext('2d');
 const KIND_NONE = 0, KIND_GRASS = 3;
 
 let image, pix, zb, bakedPix, bakedZ, ground, groundZ, shadowMask, staticShadow, kinds;
-/* 本帧已被暗化处理过的像素：AO 与投影是两套独立系统，
-   都用 tint 乘法压暗，同一像素被两套各染一次会叠加成近黑
-   （.56 × .54 ≈ .30）—— 标记后第二套直接跳过。随 PP_setSize 重建。 */
 let darkened;
 
 function PP_setSize(w, h) {
@@ -49,13 +56,11 @@ function PP_setSize(w, h) {
   ground = new Uint8Array(W * H);
   groundZ = new Float32Array(W * H);
   shadowMask = new Uint8Array(W * H);
-  /* 静态阴影掩码：bake 完成后留存，动态元素（草/叶/水）读它决定明暗 */
   staticShadow = new Uint8Array(W * H);
   kinds = new Uint8Array(W * H);
   if (window.PP_ONRESIZE) window.PP_ONRESIZE();
 }
 PP_setSize(W, H);
-if (window.PP_FULLSCREEN) PP_setSize(Math.ceil(innerWidth / S), Math.ceil(innerHeight / S));
 
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + .5) / 16);
 const COOL = [46, 38, 84], WARM = [255, 232, 180];
@@ -150,7 +155,7 @@ function sphere(x, y, z, r, c, mode) {
     /* 深度检查对 capture 同样生效：被场景物体挡住的像素不进入缓存，
        否则回放时树叶会盖在树干前面 */
     if (d <= zb[i]) continue;
-    let l = clamp(-.55 * dx - .6 * dy + .58 * nz, 0, 1);
+    let l = clamp(-LIGHT.dir.x * dx - LIGHT.dir.y * dy + LIGHT.dir.z * nz, 0, 1);
     if (mode === 'rough') l += (hash(ix, iy) - .5) * .55;
     if (dy > .35) l = Math.max(l, .12 + dy * .24);   // 地面反弹的暖光
     if (capture) {
@@ -229,7 +234,7 @@ function box(x0, y0, z0, x1, y1, z1, c, seed = 0) {
 
 /* 投影阴影：把 (x,y,z) 沿光方向压到地面，写椭圆 mask */
 function castShadow(x, y, z, r, strength = 1, dither = .4) {
-  const p = project(x + SHADOW_X * z, y + SHADOW_Y * z, 0);
+  const p = project(x + LIGHT.shadow.x * z, y + LIGHT.shadow.y * z, 0);
   const rx = r * S * 1.05, ry = rx * SIN + 1;
   const y0 = Math.max(0, Math.floor(p.sy - ry)), y1 = Math.min(H - 1, Math.ceil(p.sy + ry));
   const x0 = Math.max(0, Math.floor(p.sx - rx)), x1 = Math.min(W - 1, Math.ceil(p.sx + rx));
@@ -467,15 +472,9 @@ function drawArrow(sx, sy, time) {
 }
 
 function fit() {
-  /* ★ 全屏 = 画布内部像素数 = 窗口/PP_SCALE，显示 **1:1**（绝不拉伸）——
-     拉伸会让像素变成巨型马赛克且横纵比不同的窗口会把画面拉变形 */
-  if (window.PP_FULLSCREEN) {
-    canvas.style.width = W + 'px';
-    canvas.style.height = H + 'px';
-    return;
-  }
   const dpr = window.devicePixelRatio || 1;
-  const scale = Math.max(1, Math.floor(Math.min(innerWidth / W, (innerHeight - 80) / H) * dpr)) / dpr;
-  canvas.style.width = W * scale + 'px';
-  canvas.style.height = H * scale + 'px';
+  const fitScale = Math.min(window.innerWidth / W, window.innerHeight / H);
+  const scale = Math.max(1, Math.min(2.5, fitScale));
+  canvas.style.width = Math.round(W * scale) + 'px';
+  canvas.style.height = Math.round(H * scale) + 'px';
 }

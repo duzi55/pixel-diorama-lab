@@ -32,6 +32,38 @@ function ED_refreshSel() {
   info.appendChild(ED_kv('位置', `${o.x.toFixed(2)}, ${o.y.toFixed(2)}, ${o.z.toFixed(2)}`));
   info.appendChild(ED_kv('朝向', Math.round((o.rot || 0) * 180 / Math.PI) + '°'));
 
+  /* 层级：0 = 自动（按 y 画家算法），±N = 强制提到某层 */
+  const zWrap = document.createElement('div');
+  zWrap.className = 'slider';
+  zWrap.innerHTML = `<label>层级 <b>${o.zOrder || 0}（0 = 自动）</b></label>`;
+  const zIn = document.createElement('input');
+  zIn.type = 'range'; zIn.min = '-5'; zIn.max = '5'; zIn.step = '1';
+  zIn.value = String(o.zOrder || 0);
+  zIn.addEventListener('input', e => {
+    o.zOrder = Number(e.target.value);
+    zWrap.querySelector('b').textContent = `${o.zOrder}（${o.zOrder ? '强制' : '自动'}）`;
+    ED.dirty = true;
+  });
+  zWrap.appendChild(zIn);
+  info.appendChild(zWrap);
+
+  const zBtns = document.createElement('div');
+  zBtns.className = 'pill-row';
+  zBtns.style.marginBottom = '10px';
+  for (const [label, v] of [['⬆ 置顶', 5], ['⬇ 置底', -5]]) {
+    const b = document.createElement('button');
+    b.className = 'pill';
+    b.textContent = label;
+    b.addEventListener('click', () => {
+      o.zOrder = v;
+      zIn.value = String(v);
+      zWrap.querySelector('b').textContent = `${v}（强制）`;
+      ED.dirty = true;
+    });
+    zBtns.appendChild(b);
+  }
+  info.appendChild(zBtns);
+
   /* 缩放滑块（联动碰撞体，让体积跟着变大变小） */
   const sc0 = (o.scale == null || !Number.isFinite(o.scale) || o.scale <= 0) ? 1 : o.scale;
   /* 碰撞体以"构件默认值 × 当前缩放"计算，避免比例复利累积 */
@@ -268,6 +300,13 @@ function ED_sceneJSON() {
     version: 2,
     terrain: TERRAIN.toJSON(),
     objects: ED.objects,
+    lighting: {
+      dir: { ...LIGHT.dir },
+      shadow: { ...LIGHT.shadow },
+      tint: [...LIGHT.tint],
+      ambient: LIGHT.ambient,
+      vignette: LIGHT.vignette,
+    },
   };
   /* 底图模式：把底图以 PNG 存进 JSON，载入时还原 */
   if (ED.baseMap && typeof SCENE_IMPORT !== 'undefined') {
@@ -355,6 +394,14 @@ async function ED_loadSceneList() {
 function ED_applyScene(scene) {
   if (!scene) return;
   TERRAIN.fromJSON(scene.terrain);
+  /* 光照设置还原 */
+  if (scene.lighting && typeof LIGHT !== 'undefined') {
+    Object.assign(LIGHT.dir, scene.lighting.dir || {});
+    Object.assign(LIGHT.shadow, scene.lighting.shadow || {});
+    LIGHT.tint = [...(scene.lighting.tint || [1, 1, 1])];
+    LIGHT.ambient = scene.lighting.ambient != null ? scene.lighting.ambient : 1;
+    LIGHT.vignette = scene.lighting.vignette || 0;
+  }
   /* 底图还原（异步，完成后 ED.dirty 自动置位） */
   if (scene.baseMap && scene.baseMap.png && typeof SCENE_IMPORT !== 'undefined') {
     SCENE_IMPORT.fromDataURL(scene.baseMap.png, scene.baseMap.W, scene.baseMap.H)

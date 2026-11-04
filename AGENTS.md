@@ -71,6 +71,8 @@
 | **Studio 生成页** | `demo/studio/index.html` | 描述需求 → AI 按规范写代码 → 进度条 → 预览调参 → 确认保存；顶部可切换模型 | `docs/modules/studio.md` |
 | Studio AI 配置 | `demo/studio/config.mjs` · `studio.config.json` | 模型 / 思考强度 / 预算 / 超时；环境变量可覆盖 | `docs/modules/studio.md §2.2` |
 | Studio 地形生成 | `demo/studio/terrain-shapes.js` | 程序化地形原语：island / rect / path / hill，供 AI 预设与编辑器共用 | `docs/modules/studio.md §4.2b` |
+| 引擎·光照 | `demo/engine-light.js` | `LIGHT` 状态 + `PP_shadePoints` 点光源 + `PP_applyGrade` 色调/环境/暗角 | `docs/modules/studio.md §4.4` |
+| Studio·光照面板 | `demo/studio/editor-light.js` | 光照 UI 绑定（色调预设/方向/亮度）+ 场景点光源收集 | `docs/modules/studio.md §4.4` |
 | Studio 地形·共用 | `demo/studio/terrain-common.js` | 投影/归属/材质过渡混合/子项装饰/收边补洞 | `docs/modules/studio.md §4.2` |
 | Studio 地形·台阶 | `demo/studio/terrain-render.js` | 逐格 quad + 侧壁渲染（快，拖动时降级用） | `docs/modules/studio.md §4.2a` |
 | **Studio 地形·坡面** | `demo/studio/terrain-march.js` | 高度场 sphere tracing 光线步进：缓坡 + 坡度光照，默认渲染器 | `docs/modules/studio.md §4.2a` |

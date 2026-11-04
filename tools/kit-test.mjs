@@ -81,6 +81,7 @@ const sb = makeSandbox();
 const context = vm.createContext(sb);
 const files = [
   'demo/engine.js',
+  'demo/engine-light.js',
   'demo/kit/core.js',
   'demo/kit/palette.js',
   'demo/kit/render.js',

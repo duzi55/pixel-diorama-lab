@@ -1,191 +1,145 @@
 'use strict';
 /* ------------------------------------------------------------------
- * 构件库 · 锥状树（秋日山村背景林）
- *
- * 参考图实测（3× 放大目视核对）背景是两类锥状树：
- *   cone-mast  —— 巨层塔树：宽塔（高:底宽 ≈ 1.6:1），实心锥体，
- *                 塔面有细的水平层缝弧线，边缘微波，平涂金黄底暗顶亮，
- *                 粗壮深褐树干。参考图上半部的主角树。
- *   cone-spire —— 尖锥树：窄高连续锥（≈ 2.5:1），同实心画法，
- *                 背景缝隙里的填充树。
- *
- * ★ 关键画法（第一版踩过的坑，详见 docs/kit/trees.md 配方卡）：
- *   塔体必须用**密层大球融合**成实心锥（层 z 间距 < 球屏幕半径的 1/4），
- *   每层只画"中心大球 + 圆周 6 小球"。稀疏大球会读作"一坨坨橄榄球堆"。
- *   层缝不是画暗色带，而是**贴塔面的小暗点环线**（前半环可见、
- *   后半环被塔体自遮挡 → 自然形成下弯弧线）。
- *   主色必须 'flat' 平涂 —— 'rough' 的 5 级色阶会把金黄读成脏橙。
- *
- * 配色不增殖 ID：golden 参数组（1 = 浓金黄 ↔ 0 = 深橙）。
+ * 构件库 · 秋日金黄层叠锥塔树（参考图神韵还原）
  * ------------------------------------------------------------------ */
 
-/* 秋日锥树的五档色：dark(塔底) · base(塔面) · lit(塔顶) · seam(层缝线)
- * fade：向背景色晕开的过渡量（0 浓 / 1 ≈ 化进纸色）——
- * 远排树用高 fade，颜色淡出成米金剪影，与留白背景无缝过渡（水墨晕染感）。
- * 背景色 = village/palette.js 的 SKY rgb(252,236,186)，此处写字面量保持构件无依赖。 */
-const CONE_FADE_SKY = [252, 245, 218];   // = village/palette.js SKY = 页面 --paper
-function coneTones(golden, fade) {
-  const base = [
-    Math.round(lerp(230, 250, golden)),
-    Math.round(lerp(142, 198, golden)),
-    Math.round(lerp(36, 38, golden)),
-  ];
-  if (fade > 0) {
-    const f = Math.min(1, fade);
-    for (let i = 0; i < 3; i++) base[i] = Math.round(lerp(base[i], CONE_FADE_SKY[i], f));
+const GOLD_HI   = [255, 228, 86];   // 阳光高光金黄
+const GOLD_MID  = [248, 196, 42];   // 纯正饱满金黄主体
+const GOLD_WARM = [228, 164, 34];   // 暖金背侧
+const GOLD_SHD  = [164, 102, 28];   // 盘底整洁出檐暗影
+
+/* 绘制单层 100% 连续平整、边缘微波的金黄伞盘（极简连续扫描） */
+function drawTreeTier(ctx, cx, cy, z, R, isTop, seed) {
+  const thick = Math.max(0.48, R * 0.25);
+
+  // 1. 伞盘底面与出檐阴影（暗金底盘）
+  const rShd = R * 0.90;
+  for (let r = 0.5; r <= rShd; r += 0.55) {
+    const steps = Math.max(8, Math.round(r * 8.0));
+    for (let i = 0; i < steps; i++) {
+      const a = (i / steps) * 6.283;
+      const wave = 1.0 + 0.07 * Math.sin(a * 7 + seed);
+      const pr = r * wave;
+      ctx.sphere(cx + Math.cos(a) * pr, cy + Math.sin(a) * pr, z - thick * 0.45, thick * 0.45, GOLD_SHD, 'flat');
+    }
   }
-  return {
-    dark: [Math.round(base[0] * .80), Math.round(base[1] * .78), Math.round(base[2] * .76)],
-    base,
-    lit: [Math.min(255, Math.round(base[0] * 1.01 + 3)),
-          Math.min(255, Math.round(base[1] * 1.01 + 5)),
-          Math.round(base[2] * 1.01 + 4)],
-    seam: [Math.round(base[0] * .62), Math.round(base[1] * .60), Math.round(base[2] * .58)],
-  };
-}
 
-/* 塔体纵向色：dark →(0~.08)→ base →(.80~1)→ lit 连续插值。
-   参考图的塔几乎整体均匀金黄，只有塔尖一点微亮、塔底一条窄暗。
-   过渡区宽了会在塔面读出横向色带界线。 */
-function coneToneAt(T, t, out) {
-  let a, b, k;
-  if (t < .08) { a = T.dark; b = T.base; k = t / .08; }
-  else if (t < .80) { a = T.base; b = T.base; k = 0; }
-  else { a = T.base; b = T.lit; k = (t - .80) / .20; }
-  const s = k * k * (3 - 2 * k);                       // smoothstep
-  out[0] = Math.round(lerp(a[0], b[0], s));
-  out[1] = Math.round(lerp(a[1], b[1], s));
-  out[2] = Math.round(lerp(a[2], b[2], s));
-  return out;
-}
-
-/* ---- 实心融合塔体：供两种锥树共用 ----
- * N = 密层数（融合精度），layers = 可见层缝数。
- * 返回塔体上 t∈[0,1] 处的半径包络由 radial(t) 给出。 */
-function coneBody(ctx, h, z0, cr, N, tones, radial, seed) {
-  const tone = [0, 0, 0];
-  for (let i = 0; i < N; i++) {
-    const t = i / (N - 1);
-    const z = z0 + t * (h - z0);
-    const R = radial(t);
-    if (R < .12) continue;
-    coneToneAt(tones, t, tone);
-    const kk = seed * 17 + i * 131;
-    /* 底层中心球缩小：满尺寸中心球的下缘会裸露成大圆弧（洋葱底），
-       底缘改由横向排开的"底裙球"决定 → 平直 */
-    ctx.sphere(ctx.x, ctx.y, z, R * (t < .15 ? .48 : .62), tone, 'flat');
-    /* 底层中心球抬高：满尺寸中心球的球底下缘会裸露成圆弧（洋葱底）。
-       参考图里塔底本来就被前排树冠遮住 —— 构件只保证"被遮时观感对"，
-       不追求孤立展示时的完美底缘。 */
-    const zLift = i === 0 ? R * .14 : 0;
-    ctx.sphere(ctx.x, ctx.y, z + zLift, R * (i === 0 ? .52 : .62), tone, 'flat');
-    /* 小盘不画圆周球：顶层 R 很小时圆周球会突出塔尖（分叉尾巴） */
-    if (R < cr * .16) continue;
-    for (let k = 0; k < 6; k++) {
-      /* ★ 角度加层间大偏移 i*.55：偏移小（.3）时相邻层的球都围着
-         固定方位排 → 融合后读出 6 条纵向条纹（"液化"感） */
-      const a = k / 6 * 6.283 + hash(kk + k, 61) * .3 + i * .55;
-      ctx.sphere(ctx.x + Math.cos(a) * R * .55, ctx.y + Math.sin(a) * R * .55,
-        z + hash(kk + k, 62) * R * .08, R * .30, tone, 'flat');
+  // 2. 伞盘饱满连续金黄主体（同心环密铺，完全消除小斑点孔洞）
+  for (let r = 0.3; r <= R; r += 0.52) {
+    const steps = Math.max(8, Math.round(r * 8.5));
+    const isEdge = (r >= R - 0.6);
+    for (let i = 0; i < steps; i++) {
+      const a = (i / steps) * 6.283;
+      const wave = isEdge ? (1.0 + 0.08 * Math.sin(a * 7 + seed) + 0.04 * Math.cos(a * 13)) : 1.0;
+      const pr = r * wave;
+      const col = (Math.cos(a) + Math.sin(a) > -0.25) ? GOLD_HI : GOLD_MID;
+      ctx.sphere(cx + Math.cos(a) * pr, cy + Math.sin(a) * pr, z, thick * 0.52, col, 'flat');
     }
   }
 }
 
-/* ---- 层缝弧线：贴塔面的细密半环 ----
- * 参考图的层缝是 1~2px 的细下弯弧线，不是粗虚线：
- *   · 点要小（r ≈ .2 世界单位 → 屏幕直径 ~4px）
- *   · 点要密（M=22 → 相邻点相融成连续线）
- *   · 位置 R*.72 / z-R*.05：贴着塔面前表面，不被融合球吞掉也不凸成疙瘩 */
-function coneSeams(ctx, h, z0, cr, layers, seam, radial, seed) {
-  for (let k = 1; k < layers; k++) {
-    const t = k / layers;
-    if (t > .82) continue;                               // 塔尖一段不留缝
-    const z = z0 + t * (h - z0);
-    const R = radial(t);
-    if (R < .3) continue;
-    const kk = seed * 23 + k * 197;
-    /* 点数随锥径缩放：窄锥少点（否则读作梯子横杠），宽塔多点连成线。
-       ★ 弧段用 .10~1.72 rad：等距投影下这是「朝观众且屏幕对称」的
-       前表面段（(cos a − sin a) 覆盖 ±.5R）。延伸到 3π/4 以外的点
-       会跑到轮廓外，在塔缘读作凸出的暗包。 */
-    const M = Math.max(8, Math.round(30 * R / cr));
-    for (let m = 0; m <= M; m++) {
-      const a = .10 + (m / M) * 1.62;
-      ctx.sphere(ctx.x + Math.cos(a) * R * .72, ctx.y + Math.sin(a) * R * .72,
-        z - R * .05, Math.max(.12, R * .045), seam, 'flat');
-    }
-  }
-}
-
-/* ---- 巨层塔树：实心宽塔 + 表面层缝弧线 ---- */
+/* 巨层塔树（The Great Autumn Tree & 标志性金杉巨木） */
 KIT.register({
   id: 'cone-mast',
   name: '巨层塔树',
   category: 'tree',
-  desc: '宽塔锥树：实心融合锥体 + 塔面层缝弧线 + 平涂金黄底暗顶亮 + 粗深褐干',
+  desc: '高耸挺拔、出檐分明的黄金参天大树：贯通主干 + 多层舒展金黄盘冠 + 顶端尖锐挺拔',
   params: {
-    height: { def: 16, min: 6, max: 26, step: .5, desc: '树高（世界单位）' },
-    crownR: { def: 5.5, min: 2, max: 9, step: .2, desc: '底层冠半径' },
-    layers: { def: 6, min: 4, max: 9, step: 1, desc: '层缝数（塔面分层感）' },
-    golden: { def: 1, min: 0, max: 1, step: .05, desc: '叶色：1 浓金黄 / 0 深橙' },
-    trunkV: { def: .16, min: .05, max: .4, step: .01, desc: '树干可见高度（占树高比）' },
-    fade: { def: 0, min: 0, max: .85, step: .05, desc: '向背景色晕开（远景过渡）' },
+    height: { def: 23.0, min: 10.0, max: 32.0, step: 0.5, desc: '整树高度' },
+    crownR: { def: 5.6,  min: 2.8,  max: 9.0,  step: 0.2, desc: '底层最大展开半径' },
+    trunkH: { def: 5.2,  min: 2.0,  max: 9.0,  step: 0.2, desc: '树干裸露高度' },
+    layers: { def: 8,    min: 5,    max: 10,   step: 1,   desc: '层叠枝盘数' },
   },
-  collision: { type: 'cylinder', radius: .6, height: 16 },
+  collision: { type: 'cylinder', radius: 0.9, height: 23.0 },
   draw(ctx, inst) {
-    const h = ctx.params.height, cr = ctx.params.crownR;
-    const layers = Math.max(3, ctx.params.layers | 0);
-    const T = coneTones(ctx.params.golden, ctx.params.fade);
-    const bark = [96, 60, 36];
-    const barkLit = [118, 76, 44];
+    const h = ctx.params.height;
+    const cr = ctx.params.crownR;
+    const tkH = Math.min(ctx.params.trunkH, h * 0.35);
+    const layers = Math.max(5, ctx.params.layers | 0);
+    const seed = ctx.seed;
 
-    /* 树干：粗壮直立，干粗随冠幅缩放（参考图：干径 ≈ 底盘半径 1/8） */
-    const tr = Math.max(.3, cr * .12);
-    const tk = ctx.params.trunkV;
-    ctx.capsule([ctx.x, ctx.y, 0], [ctx.x, ctx.y, h * tk], tr, tr * .8, () => bark, 'rough');
-    ctx.capsule([ctx.x + tr * .3, ctx.y + tr * .3, 0],
-      [ctx.x + tr * .3, ctx.y + tr * .3, h * tk], tr * .3, tr * .2, () => barkLit, 'rough');
+    const tr = Math.max(0.40, cr * 0.13);
+    const bark = [92, 58, 36];
+    const barkLit = [136, 92, 56];
 
-    /* 塔体：**纯线性包络**。试过 4% 微波（与层缝对齐）——融合球把它
-       放大成"洋葱串"轮廓；参考图的塔缘是平直的，层感全靠缝线。 */
-    const z0 = h * .12;
-    const radial = t => cr * (1 - t * .96);
-    coneBody(ctx, h, z0, cr, Math.max(12, layers * 3), T, radial, ctx.seed);
-    coneSeams(ctx, h, z0, cr, layers, T.seam, radial, ctx.seed);
-    /* 塔尖小顶芽 */
-    ctx.sphere(ctx.x, ctx.y, h + cr * .05, Math.max(.12, cr * .06), T.lit, 'flat');
-    ctx.shadow(cr * 1.1, 1, .5);
+    // 1. 直贯主干（深褐色挺拔树干）
+    const trunkTop = h * 0.88;
+    ctx.capsule([ctx.x, ctx.y, 0], [ctx.x, ctx.y, trunkTop], tr * 1.2, tr * 0.4, () => bark, 'rough');
+    ctx.capsule([ctx.x + tr * 0.35, ctx.y + tr * 0.35, 0],
+                [ctx.x + tr * 0.2, ctx.y + tr * 0.2, trunkTop],
+                tr * 0.35, tr * 0.14, () => barkLit, 'rough');
+    // 树根爪
+    for (let i = 0; i < 4; i++) {
+      const a = i * 1.57 + hash(seed + i, 7) * 0.4;
+      const rx = Math.cos(a) * tr * 1.8, ry = Math.sin(a) * tr * 1.8;
+      ctx.capsule([ctx.x, ctx.y, 0], [ctx.x + rx, ctx.y + ry, 0], tr * 0.65, tr * 0.2, () => bark, 'rough');
+    }
+
+    // 2. 层叠金色枝盘
+    const zBase = tkH;
+    const spanH = h - zBase;
+
+    for (let li = 0; li < layers; li++) {
+      const u = li / (layers - 1);
+      const z = zBase + u * spanH;
+      // 优美的挺拔金塔收缩曲线
+      const R = cr * Math.pow(1.0 - u * 0.94, 0.82);
+      if (R < 0.25) continue;
+
+      drawTreeTier(ctx, ctx.x, ctx.y, z, R, li === layers - 1, seed * 13 + li * 79);
+    }
+
+    // 3. 树顶挺拔尖梢（饱满连续收尖，无浮空孤岛）
+    ctx.capsule([ctx.x, ctx.y, h - 0.6], [ctx.x, ctx.y, h + 0.6], 0.42, 0.16, () => GOLD_HI, 'flat');
+
+    // 4. 地面柔和阴影
+    ctx.shadow(cr * 1.25, 1, 0.45);
   },
 });
 
-/* ---- 尖锥树：窄高实心锥 + 少量层缝 ---- */
+/* 尖锥树（修长挺拔的森林背景金杉） */
 KIT.register({
   id: 'cone-spire',
   name: '尖锥树',
   category: 'tree',
-  desc: '窄高尖锥：实心融合锥面微波轮廓，底暗顶亮，背景填充树',
+  desc: '修长秀丽的金黄尖锥塔：笔直深干 + 密集优美的层叠枝盘',
   params: {
-    height: { def: 9, min: 3, max: 20, step: .5, desc: '树高（世界单位）' },
-    crownR: { def: 2.2, min: .8, max: 6, step: .1, desc: '锥底半径' },
-    rows: { def: 9, min: 5, max: 14, step: 1, desc: '层缝数（锥面分层感）' },
-    golden: { def: .75, min: 0, max: 1, step: .05, desc: '叶色：1 浓金黄 / 0 深橙' },
-    fade: { def: 0, min: 0, max: .85, step: .05, desc: '向背景色晕开（远景过渡）' },
+    height: { def: 16.0, min: 8.0, max: 24.0, step: 0.5, desc: '整树高度' },
+    crownR: { def: 3.6,  min: 1.5, max: 6.0,  step: 0.1, desc: '锥底展开半径' },
+    trunkH: { def: 3.6,  min: 1.2, max: 6.0,  step: 0.2, desc: '树干裸露高度' },
   },
-  collision: { type: 'cylinder', radius: .4, height: 9 },
+  collision: { type: 'cylinder', radius: 0.6, height: 16.0 },
   draw(ctx, inst) {
-    const h = ctx.params.height, cr = ctx.params.crownR;
-    const rows = Math.max(4, ctx.params.rows | 0);
-    const T = coneTones(ctx.params.golden, ctx.params.fade);
+    const h = ctx.params.height;
+    const cr = ctx.params.crownR;
+    const tkH = Math.min(ctx.params.trunkH, h * 0.3);
+    const seed = ctx.seed;
+
+    const tr = Math.max(0.28, cr * 0.12);
     const bark = [88, 56, 34];
+    const barkLit = [128, 86, 52];
 
-    ctx.capsule([ctx.x, ctx.y, 0], [ctx.x, ctx.y, h * .14], Math.max(.16, cr * .1),
-      Math.max(.1, cr * .06), () => bark, 'rough');
+    const trunkTop = h * 0.85;
+    ctx.capsule([ctx.x, ctx.y, 0], [ctx.x, ctx.y, trunkTop], tr * 1.15, tr * 0.35, () => bark, 'rough');
+    ctx.capsule([ctx.x + tr * 0.3, ctx.y + tr * 0.3, 0],
+                [ctx.x + tr * 0.15, ctx.y + tr * 0.15, trunkTop],
+                tr * 0.3, tr * 0.1, () => barkLit, 'rough');
 
-    /* 锥体：线性包络 + 微波（sin 扰动） */
-    const z0 = h * .1;
-    const radial = t => cr * (1 - t * .92) * (1 + .05 * Math.sin(t * 11 + ctx.seed));
-    coneBody(ctx, h, z0, cr, Math.max(14, rows * 3), T, radial, ctx.seed);
-    coneSeams(ctx, h, z0, cr, rows, T.seam, radial, ctx.seed);
-    ctx.shadow(cr * 1.05, 1, .5);
+    const zBase = tkH;
+    const spanH = h - zBase;
+    const layers = Math.max(6, Math.round(spanH * 0.68));
+
+    for (let li = 0; li < layers; li++) {
+      const u = li / (layers - 1);
+      const z = zBase + u * spanH;
+      const R = cr * Math.pow(1.0 - u * 0.95, 0.82);
+      if (R < 0.2) continue;
+
+      drawTreeTier(ctx, ctx.x, ctx.y, z, R, li === layers - 1, seed * 17 + li * 91);
+    }
+
+    ctx.capsule([ctx.x, ctx.y, h - 0.5], [ctx.x, ctx.y, h + 0.5], 0.32, 0.14, () => GOLD_HI, 'flat');
+
+    ctx.shadow(cr * 1.15, 1, 0.4);
   },
 });
