@@ -64,7 +64,9 @@ function bake() {
   bakedZ.set(zb);
 
   // 6. 落叶源
-  setupFallingLeaves(FOL_LEAF_SOURCES, 16);
+  /* ★ 不要传具体数字 —— 用 falling.js 的 LEAF_FALL_COUNT（120）。
+     之前这里硬编码 16，在 600×760 画布上等于没有（用户反馈"树没有落叶"）。 */
+  setupFallingLeaves(FOL_LEAF_SOURCES);
 }
 
 /* ---------------- 每帧动态更新 ---------------- */

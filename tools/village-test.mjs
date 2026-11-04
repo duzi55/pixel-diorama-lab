@@ -269,6 +269,43 @@ if (picked) {
   check('树冠随风摆动', sprites > 0 && changed > 150, `${sprites} 个树冠精灵 · 上部帧差 ${changed}px`);
 }
 
+/* 8.7 落叶（用户反馈过"树没有落叶"，加断言防回归）
+ *
+ * 三个都要查，缺一不可：
+ *   ① 数量够（<40 在 600×760 上看不见）
+ *   ② 都在画面内（跑到画布外等于没有）
+ *   ③ 画出来的像素**确实存在且和树冠有色差**（颜色太接近会融进树海）
+ */
+{
+  const W = evalIn('W'), H = evalIn('H');
+  const n = evalIn('fallingLeaves.length');
+  check('落叶数量足够', n >= 40, `${n} 片`);
+
+  /* 屏幕内占比 */
+  const onScreen = evalIn(`(function(){
+    let c = 0;
+    for (const m of fallingLeaves) {
+      const p = project(m.x, m.y, m.z);
+      if (p.sx >= 0 && p.sx < W && p.sy >= 0 && p.sy < H) c++;
+    }
+    return c;
+  })()`);
+  check('落叶都在画面内', onScreen === n, `${onScreen}/${n}`);
+
+  /* 落叶像素实际存在：draw 之后数"亮橙叶片"的像素。
+   * 判据要**远离树冠色** [250,198,38]（r-g=52）和地面色 [214,158,48]，
+   * 否则会把树冠暗部/地面算进来，断言就失去意义。 */
+  evalIn('lastStep = -1; update(0, 0); draw(0)');
+  const px = Array.from(evalIn('pix'));
+  let leafPx = 0;
+  for (let i = 0; i < px.length; i++) {
+    const c = px[i], r = c & 255, g = c >> 8 & 255, b = c >> 16 & 255;
+    /* 落叶主体是亮橙：r 很高、g 中等、r-g 大（树冠只有 52） */
+    if (r > 225 && g > 110 && g < 185 && b < 80 && r - g > 70) leafPx++;
+  }
+  check('落叶确实画在画面上', leafPx > 300, `${leafPx} 个落叶像素`);
+}
+
 /* 9. 内容不触碰画布边缘（防"方框裁切"回归）
  * 用户反复看到的"方框" = 地形/树木在画布边界被直线切断。
  * 断言：非背景像素的包围盒四边都留出 ≥12px 纯色纸背景。 */

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>构件工坊 · Studio</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <h1>构件工坊 <span>Studio</span></h1>
+  <nav class="tabs" id="tabs">
+    <button data-view="kit" class="on">构件库</button>
+    <button data-view="gen">生成</button>
+    <button data-view="scene">场景</button>
+  </nav>
+  <span class="status" id="status">加载中…</span>
+</header>
+
+<!-- ============ 构件库：左列表 / 中预览+代码 / 右 AI ============ -->
+<div class="workspace on" id="view-kit">
+
+  <aside class="pane list-pane">
+    <input id="search" type="search" placeholder="搜索构件…">
+    <div id="list"></div>
+  </aside>
+
+  <main class="pane stage-pane">
+    <div class="stage-head">
+      <div>
+        <h2 id="cur-name">选择左侧构件</h2>
+        <p id="cur-desc">从构件库挑一个，或点「生成」新建。</p>
+      </div>
+      <div class="stage-meta">
+        <code id="cur-id"></code>
+        <span id="cur-cat" class="badge"></span>
+      </div>
+    </div>
+
+    <div class="preview-wrap">
+      <iframe id="pv" src="preview.html" title="构件动画预览"></iframe>
+      <div class="preview-hint" id="pv-hint">把鼠标移上去可暂停/继续旋转</div>
+    </div>
+
+    <div class="block">
+      <div class="block-head"><span>参数</span><button class="mini" id="btn-reset">重置</button></div>
+      <div class="params" id="params"></div>
+    </div>
+
+    <div class="block">
+      <div class="block-head"><span>代码</span><button class="mini" id="btn-copy">复制</button></div>
+      <pre class="code" id="code"></pre>
+    </div>
+  </main>
+
+  <aside class="pane ai-pane">
+    <div class="ai-head">
+      <h3>AI 编辑</h3>
+      <div class="seg" id="ai-mode">
+        <button data-mode="edit" class="on">修改当前</button>
+        <button data-mode="new">新建构件</button>
+      </div>
+    </div>
+    <p class="ai-tip" id="ai-tip">说明你想怎么改这个构件，AI 会按项目规范重写代码。</p>
+    <textarea id="ai-prompt" rows="4" placeholder="例如：把树冠改窄一点，树干更粗，颜色偏橙"></textarea>
+    <div class="ai-actions">
+      <button class="primary" id="btn-ai">让 AI 生成</button>
+      <span class="ai-status" id="ai-status"></span>
+    </div>
+
+    <div class="block grow">
+      <div class="block-head"><span>AI 结果（可手动改）</span><span class="mini" id="ai-metaline"></span></div>
+      <textarea class="code-edit" id="ai-code" spellcheck="false"
+        placeholder="AI 返回的完整构件代码会出现在这里，可先预览再保存。"></textarea>
+      <div class="ai-actions">
+        <button id="btn-apply">应用预览</button>
+        <button class="primary" id="btn-save">保存到构件库</button>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- ============ 生成 / 场景：复用现有页面 ============ -->
+<section class="embed" id="view-gen"><iframe src="index.html" title="AI 生成构件"></iframe></section>
+<section class="embed" id="view-scene"><iframe src="editor.html" title="场景编辑器"></iframe></section>
+
+<script src="app.js"></script>
+</body>
+</html>

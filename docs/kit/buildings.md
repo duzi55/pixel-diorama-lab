@@ -1226,3 +1226,207 @@ KIT.register({
 
 - **capsule 的 colorOf 必须返回基色数组**：最初写成 `() => rampOf(KIT_WOOD)[2]`（打包值），全量实画测试逮出
 - 平台画在屋顶循环**之前**，否则屋檐出挑会盖掉栏杆
+
+## forest-cabin — 落叶小屋
+
+| 项 | 内容 |
+|---|---|
+| **ID** | `forest-cabin` |
+| **来源** | `demo/kit/buildings.js` · `KIT.register` · studio 生成 |
+| **形态** | 林中木屋：石基木板墙 + 陡坡屋顶覆满金黄落叶，檐口垂下叶串 |
+| **分类** | 建筑 |
+
+### 参数
+
+| 参数 | 默认 | 区间 | 步进 | 说明 |
+|------|------|------|------|------|
+| `width` | 3.2 | 2.4 ~ 4.4 | 0.1 | 屋身宽度 |
+| `depth` | 2.6 | 1.8 ~ 3.6 | 0.1 | 屋身进深 |
+| `height` | 1.9 | 1.4 ~ 2.6 | 0.1 | 檐口高度 |
+| `pitch` | 1 | 0.5 ~ 1.6 | 0.05 | 屋顶陡度（脊高倍数） |
+| `leaves` | 0.8 | 0 ~ 1 | 0.05 | 屋顶落叶覆盖密度 |
+| `warm` | 0.45 | 0 ~ 1 | 0.05 | 叶色偏橙程度 |
+| `lamp` | 1 | 0 ~ 1 | 1 | 窗内是否亮灯 |
+
+### 碰撞体
+
+`{"type":"box","width":3.4,"depth":2.8,"height":3.2,"w":3.4,"d":2.8,"h":3.2}`
+
+### 移植清单
+
+- 代码：`demo/kit/buildings.js`
+- 注册表：`docs/kit/registry.md` · 建筑节
+- 依赖引擎：`demo/engine.js` 的 `sphere/capsule/box/plot/rampOf/hash/noise`
+
+### 实现说明
+
+【与已有构件的差异】wood-house 是"风化木板墙 + 坡屋顶 + 亮灯窗（含阳台参数组）"的普通木屋，屋顶是裸瓦；本构件多出三个它做不出来的部件：①屋面整片落叶覆盖层（低频噪声成团 + 檐口/屋脊加密，`leaves` 可 0~1 连续调）；②檐口垂下的叶串（超出屋面的第二层装饰）；③石基 + 石烟囱（烟囱顶也落着叶）。若只需要普通木屋，直接用 wood-house 调参即可，不要造这个。
+
+【关键实现】
+- 屋面用 plot 双重点阵参数化铺：u∈[-1,1] 沿 x，v∈[0,1] 从檐到脊，pz = Z+H+(RIDGE-H)*v。两坡都画（sg=±1），靠深度缓冲自动选可见面，不赌相机朝向。
+- 落叶画在 pz+0.05（沿屋面法线抬高一点），否则同深度会和屋面底色抢像素被深度测试拒掉。
+- 落叶分布 = ctx.noise 成团（cov）+ 檐口 boost 0.22*(1-v) + 屋脊 boost 0.12*v³，阈值 `0.95 - leaves*0.7`；leaves=0 时几乎全裸屋，=1 时约 85% 覆盖。
+- 叶色三档 leafA/B/C 由 `warm` 在明黄→橙红之间整体插值；同一次绘制内三档通道差控制在 20~24，不会读成棋盘格。
+- 坐标一律 X/Y/Z 偏移；顶层只有 KIT.register，其余 const 全在 draw 内。
+
+【坑】
+- 山墙必须用 plot 单独铺三角（box 顶面是平的，盖不出三角），且 x 比屋面外沿内缩 0.05，否则被屋面边缘像素穿花。
+- box 只吃 [r,g,b] 基色数组，plot 只吃 rgb()/rampOf() 打包值，两张皮不能混。
+- 门窗画在墙面外 0.05 处（Y±(D+0.05)、X±(W+0.05)），贴面会被墙盖掉。
+- collision 用 box 的 width/depth/height 字段；若编辑器读不到，退回 {type:'cylinder', radius:1.9, height:3.2}。
+
+【代码规模】约 120 行，在 40~120 目标区间上沿。
+
+### 实现
+
+```js
+KIT.register({
+  id: 'forest-cabin',
+  name: '落叶小屋',
+  category: 'building',
+  desc: '林中木屋：石基木板墙 + 陡坡屋顶覆满金黄落叶，檐口垂下叶串',
+  params: {
+    width:  { def: 3.2, min: 2.4, max: 4.4, step: 0.1,  desc: '屋身宽度' },
+    depth:  { def: 2.6, min: 1.8, max: 3.6, step: 0.1,  desc: '屋身进深' },
+    height: { def: 1.9, min: 1.4, max: 2.6, step: 0.1,  desc: '檐口高度' },
+    pitch:  { def: 1.0, min: 0.5, max: 1.6, step: 0.05, desc: '屋顶陡度（脊高倍数）' },
+    leaves: { def: 0.8, min: 0,   max: 1,   step: 0.05, desc: '屋顶落叶覆盖密度' },
+    warm:   { def: 0.45, min: 0,  max: 1,   step: 0.05, desc: '叶色偏橙程度' },
+    lamp:   { def: 1,   min: 0,   max: 1,   step: 1,    desc: '窗内是否亮灯' }
+  },
+  collision: { type: 'box', width: 3.4, depth: 2.8, height: 3.2 },
+
+  draw(ctx, inst) {
+    const P = ctx.params, S = ctx.seed;
+    const X = ctx.x, Y = ctx.y, Z = ctx.z;
+    const W = P.width * 0.5, D = P.depth * 0.5, H = P.height;
+    const OV = 0.3;                            // 檐口出挑
+    const RIDGE = H + D * 0.92 * P.pitch;      // 屋脊高度
+    const t = P.warm;
+    const mix = (a, b) => Math.round(ctx.lerp(a, b, t));
+
+    // —— 基色（只喂 box） ——
+    const WOOD  = [124, 94, 66];
+    const STONE = [110, 108, 102];
+    const CHIM  = [134, 130, 122];
+
+    // —— 打包像素色（只喂 plot） ——
+    const seamC  = ctx.rgb(96, 72, 50);
+    const wallA  = ctx.rgb(128, 98, 70);
+    const wallB  = ctx.rgb(112, 84, 60);
+    const doorC  = ctx.rgb(84, 60, 42);
+    const frameC = ctx.rgb(64, 46, 32);
+    const roofC  = ctx.rgb(90, 74, 60);
+    const roofD  = ctx.rgb(74, 60, 48);
+    const leafA  = ctx.rgb(mix(238, 226), mix(200, 156), mix(104, 70));
+    const leafB  = ctx.rgb(mix(220, 208), mix(176, 134), mix(78, 54));
+    const leafC  = ctx.rgb(mix(198, 186), mix(150, 112), mix(58, 40));
+    const winIn  = P.lamp > 0.5 ? ctx.rgb(255, 232, 168) : ctx.rgb(126, 140, 146);
+    const winHi  = P.lamp > 0.5 ? ctx.rgb(248, 202, 116) : ctx.rgb(104, 118, 126);
+
+    // 1. 石基 + 墙身
+    ctx.box(X - W - 0.08, Y - D - 0.08, Z, X + W + 0.08, Y + D + 0.08, Z + 0.28, STONE, S);
+    ctx.box(X - W, Y - D, Z + 0.28, X + W, Y + D, Z + H, WOOD, S + 11);
+
+    // 2. 木板横缝（四面都铺，深度测试自动选可见面）
+    for (let z = Z + 0.44; z < Z + H - 0.06; z += 0.26) {
+      for (let x = -W + 0.06; x < W - 0.02; x += 0.09) {
+        ctx.plot(X + x, Y + D + 0.03, z, seamC);
+        ctx.plot(X + x, Y - D - 0.03, z, seamC);
+      }
+      for (let y = -D + 0.06; y < D - 0.02; y += 0.09) {
+        ctx.plot(X + W + 0.03, Y + y, z, seamC);
+        ctx.plot(X - W - 0.03, Y + y, z, seamC);
+      }
+    }
+
+    // 3. 墙面面板助手：axis 'y' 贴前后墙，'x' 贴左右墙
+    function face(axis, sgn, u0, v0, hw, hh, body, hi) {
+      for (let u = -hw; u <= hw + 1e-6; u += 0.06) {
+        for (let v = -hh; v <= hh + 1e-6; v += 0.06) {
+          const edge = Math.abs(u) > hw - 0.055 || Math.abs(v) > hh - 0.05;
+          const c = edge ? frameC : (v > hh * 0.2 ? hi : body);
+          if (axis === 'y') ctx.plot(u0 + u, Y + sgn * (D + 0.05), v0 + v, c);
+          else              ctx.plot(X + sgn * (W + 0.05), u0 + u, v0 + v, c);
+        }
+      }
+    }
+
+    // 门（前墙偏左）+ 把手
+    face('y', 1, X - W * 0.42, Z + 0.28 + 0.52, 0.26, 0.52, doorC, doorC);
+    ctx.plot(X - W * 0.42 + 0.2, Y + D + 0.07, Z + 0.28 + 0.5, ctx.rgb(214, 178, 96));
+    // 四面各一扇窗
+    face('y',  1, X + W * 0.45, Z + 1.34, 0.22, 0.17, winIn, winHi);
+    face('y', -1, X + W * 0.45, Z + 1.34, 0.22, 0.17, winIn, winHi);
+    face('x',  1, Y + D * 0.12, Z + 1.34, 0.22, 0.17, winIn, winHi);
+    face('x', -1, Y + D * 0.12, Z + 1.34, 0.22, 0.17, winIn, winHi);
+
+    // 4. 山墙三角（±x 端面，用 plot 铺平面）
+    for (let y = -D; y <= D + 1e-6; y += 0.09) {
+      const top = Z + H + (RIDGE - H) * (1 - Math.abs(y) / D);
+      for (let z = Z + H; z <= top; z += 0.09) {
+        const c = ctx.hash(Math.round((y + 4) * 43) + Math.round((z - Z) * 71), S) > 0.5 ? wallA : wallB;
+        ctx.plot(X + W + 0.01, Y + y, z, c);
+        ctx.plot(X - W - 0.01, Y + y, z, c);
+      }
+    }
+
+    // 5. 双坡屋面 + 落叶覆盖
+    const halfX = W + 0.06;
+    const nU = 24, nV = 15;
+    for (let sg = 1; sg >= -1; sg -= 2) {
+      const base = sg > 0 ? 0 : 701;
+      for (let iu = 0; iu <= nU; iu++) {
+        const u = -1 + 2 * iu / nU;
+        const px = X + u * halfX;
+        for (let iv = 0; iv <= nV; iv++) {
+          const v = iv / nV;
+          const py = Y + sg * (D + OV) * (1 - v);
+          const pz = Z + H + (RIDGE - H) * v;
+          // 屋面底色（暗木瓦）
+          ctx.plot(px, py, pz, ctx.hash(iu * 31 + iv * 17 + base, S) > 0.4 ? roofC : roofD);
+
+          // 落叶：低频噪声成团 + 檐口/屋脊加密
+          const cov = ctx.noise((u + 1) * 2.6 + (sg > 0 ? 0 : 11), v * 2.2 + 3.7);
+          const boost = 0.22 * (1 - v) + 0.12 * v * v * v;
+          if (cov + boost > 0.95 - P.leaves * 0.7) {
+            const g = ctx.hash(iu * 73 + iv * 149 + base, S + 3);
+            if (g > 0.12) {
+              const lc = g > 0.78 ? leafA : g > 0.42 ? leafB : leafC;
+              ctx.plot(px, py, pz + 0.05, lc);   // 抬高一点，压过屋面底色
+            }
+          }
+        }
+      }
+    }
+
+    // 6. 檐口垂下的叶串（两坡各一排）
+    for (let sg = 1; sg >= -1; sg -= 2) {
+      for (let iu = 0; iu <= nU * 2; iu++) {
+        const u = -1 + iu / nU;
+        const g = ctx.hash(iu * 97 + 23 + (sg > 0 ? 0 : 313), S + 21);
+        if (g < P.leaves * 0.85) {
+          const px = X + u * halfX;
+          const py = Y + sg * (D + OV + 0.02);
+          const pz = Z + H - 0.03 - g * 0.18;
+          ctx.plot(px, py, pz, g > 0.45 ? leafB : leafC);
+          ctx.plot(px, py, pz - 0.08, leafC);
+        }
+      }
+    }
+
+    // 7. 石烟囱（从屋面穿出）+ 顶部落叶
+    const chX = X - W * 0.46, chY = Y + D * 0.08;
+    const roofAt = Z + H + (RIDGE - H) * (1 - Math.abs(chY - Y) / (D + OV));
+    ctx.box(chX - 0.21, chY - 0.21, roofAt - 0.4, chX + 0.21, chY + 0.21, roofAt + 0.52, CHIM, S + 7);
+    for (let i = 0; i < 7; i++) {
+      const g = ctx.hash(i * 37 + 9, S + 33);
+      ctx.plot(chX - 0.18 + g * 0.36, chY - 0.18 + ctx.hash(i * 53 + 3, S) * 0.36,
+               roofAt + 0.54, g > 0.5 ? leafA : leafB);
+    }
+
+    // 8. 地面阴影
+    ctx.shadow(W + 0.5, 1, 0.5);
+  }
+});
+```

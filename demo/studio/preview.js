@@ -24,12 +24,9 @@ const PV = {
 
 const PV_GROUND_TONES = [[44, 46, 54], [50, 52, 60], [56, 58, 66], [62, 64, 72]];
 
-function PV_fit() {
-  const dpr = window.devicePixelRatio || 1;
-  const scale = Math.max(1, Math.floor(Math.min(innerWidth / W, innerHeight / H) * dpr)) / dpr;
-  canvas.style.width = Math.round(W * scale) + 'px';
-  canvas.style.height = Math.round(H * scale) + 'px';
-}
+/* 画布由 CSS 铺满 iframe（object-fit: contain 保持比例），
+   这里只保留 hook 供 resize 时重绘 */
+function PV_fit() { PV_render(); }
 
 function PV_drawGround() {
   zb.fill(-1e9);
@@ -123,12 +120,11 @@ function PV_makeCtx(p) {
 
   return {
     x: 0, y: 0, z: 0, params: p, seed: 7, rot, scale: sc,
+    /* ★ 只保留带缩放的版本：重复定义会被后者覆盖，
+       导致 PV.scale（预览缩放）完全失效 —— 曾经的 bug */
     sphere: (x, y, z, r, c, mode) => { const q = unScaled(x, y); sphere(q[0], q[1], z * sc, r * sc, c, mode); },
     capsule: (a, b, r0, r1, f, mode) => capsule(wrapPScaled(a), wrapPScaled(b), r0 * sc, r1 * sc, f, mode),
     plot: (x, y, z, c) => { const q = unScaled(x, y); plot(q[0], q[1], z * sc, c); },
-    sphere: (x, y, z, r, c, mode) => { const q = un(x, y); sphere(q[0], q[1], z, r, c, mode); },
-    capsule: (a, b, r0, r1, f, mode) => capsule(wrapP(a), wrapP(b), r0, r1, f, mode),
-    plot: (x, y, z, c) => { const q = un(x, y); plot(q[0], q[1], z, c); },
     box: (x0, y0, z0, x1, y1, z1, c, sd = 0) => {
       if (!rot) { box(x0, y0, z0, x1, y1, z1, c, sd); return; }
       const ramp = rampOf(c);

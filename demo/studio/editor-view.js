@@ -131,7 +131,7 @@ function ED_fit() {
 function ED_applyView() {
   const stage = document.getElementById('stage');
   const cw = (stage && stage.clientWidth) ? stage.clientWidth - 40 : innerWidth - 40;
-  const ch = (stage && stage.clientHeight) ? stage.clientHeight - 90 : innerHeight - 90;
+  const ch = (stage && stage.clientHeight) ? stage.clientHeight - 40 : innerHeight - 40;
   const v = ED.view;
   /* 基础适配倍数（整数，保像素锐利），再乘用户视图缩放 */
   const dpr = window.devicePixelRatio || 1;

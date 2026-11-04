@@ -49,10 +49,15 @@ function sendToPreview(component) {
   };
 
   if (!frame.getAttribute('src')) {
-    frame.onload = postCode;
+    frame.onload = () => {
+      postCode();
+      /* 兜底：沙箱消息偶发丢失时不让"正在载入"卡住 */
+      el('preview-empty').style.display = 'none';
+    };
     frame.src = 'preview.html';
   } else {
     postCode();
+    el('preview-empty').style.display = 'none';
   }
 }
 
@@ -448,5 +453,6 @@ for (const b of document.querySelectorAll('.ex')) {
 
 /* ---------------- 启动 ---------------- */
 
+initRefImages();
 loadKitLibrary();
 

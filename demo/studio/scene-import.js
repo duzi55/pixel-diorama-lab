@@ -113,11 +113,16 @@ const SCENE_IMPORT = {
  * meta = { url, W, H, pix[], z[]|null, ground[]|null, groundZ[]|null }
  */
 function ED_setBaseMap(meta) {
-  if (!meta || meta.W !== W || meta.H !== H) {
-    if (meta && (meta.W !== W || meta.H !== H)) {
-      studioStatus(`底图尺寸 ${meta.W}×${meta.H} 与编辑器 ${W}×${H} 不符，已忽略`, 'err');
+  /* 底图尺寸与当前画布不符时：按场景尺寸重建画布（engine 的 PP_setSize
+     会重建全部缓冲），这样 300×520 的竖幅场景也能进编辑器 */
+  if (meta && (meta.W !== W || meta.H !== H)) {
+    if (meta.W < 80 || meta.H < 60 || meta.W > 2048 || meta.H > 2048) {
+      studioStatus(`底图尺寸 ${meta.W}×${meta.H} 超出支持范围`, 'err');
       return;
     }
+    PP_setSize(meta.W, meta.H);
+    ED_fit();
+    studioStatus(`画布已切换为 ${meta.W}×${meta.H}（跟随场景）`);
   }
   if (!meta) {
     ED.baseMap = null;

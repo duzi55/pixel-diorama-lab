@@ -51,5 +51,5 @@ function initRefImages() {
   });
 }
 
-initRefImages();
+/* 初始化时机由 gen.js 的启动段负责（el()/GEN 在 gen.js 里定义） */
 

@@ -29,6 +29,7 @@
 | **赛车场测试** | `node tools/racetrack-test.mjs`（烘焙/无裁切留白/3 车/50 观众/车在赛道内/欢呼联动，导出 `docs/racetrack-screenshot.png`） |
 | **锥树构件预览** | `node tools/cone-preview.mjs [out.png]`（沙箱实画 cone-mast/cone-spire 组合，导出 PNG 目检形态） |
 | **构件库 Gallery** | 浏览器打开 `demo/kit/gallery.html`（全部构件带实时预览、参数滑块、随机种子、可复制用法代码） |
+| **构件工坊（统一工作台）** | `node demo/studio/server.mjs 5320` → `http://127.0.0.1:5320/studio/app.html`（构件库 + AI 编辑 + 生成 + 场景三合一） |
 | **并排对比** | `node tools/compare.mjs <ref.png> <mine.png> <out.png>` |
 | **参考图实测** | `node tools/measure-haze.mjs <png>`（色相/饱和度梯度）· `measure-road.mjs`（公路斜率）· `solve-road.mjs`（反解坐标） |
 
@@ -75,6 +76,7 @@
 | **构件库 Gallery** | `demo/kit/gallery.html` | **构件陈列页（Bootstrap 风格）**：按分类列出全部构件，实时预览 + 参数滑块 + seed 换形 + 一键复制调用代码；数据来自运行时注册表，新构件自动出现 | `docs/kit/README.md` |
 | 构件库·锥状树 | `demo/kit/conifers.js` | `cone-mast` / `cone-spire`：**叶簇团块**锥冠（plot 逐像素填充，规避球体深描边）+ 粗直干根爪；`density` 控密度 | `docs/kit/trees.md §5.7-5.8` |
 | 构件库·地面 | `demo/kit/ground.js` | 5 种地面材质（草地/泥土/沙地/石板/水面） | `docs/kit/scene.md` |
+| **构件工坊 App** | `demo/studio/app.html` · `app.js` · `app.css` | **统一工作台**：左构件列表 / 中动画预览(iframe 沙箱)+参数+代码 / 右 AI 编辑（改当前构件或新建）；「生成」「场景」两个 tab 内嵌既有页面；地址 hash 可直达 `#gen` / `#scene` | `docs/modules/studio.md` |
 | **Studio 生成页** | `demo/studio/index.html` | 描述需求 → AI 按规范写代码 → 进度条 → 预览调参 → 确认保存；顶部可切换模型 | `docs/modules/studio.md` |
 | Studio AI 配置 | `demo/studio/config.mjs` · `studio.config.json` | 模型 / 思考强度 / 预算 / 超时；环境变量可覆盖 | `docs/modules/studio.md §2.2` |
 | Studio 地形生成 | `demo/studio/terrain-shapes.js` | 程序化地形原语：island / rect / path / hill，供 AI 预设与编辑器共用 | `docs/modules/studio.md §4.2b` |
