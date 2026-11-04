@@ -17,21 +17,20 @@
 const fallingLeaves = [];
 let leafSources = [];        // 树的落点列表，由 foliage.js 填
 
-/* ★ 落叶色必须和**树冠色拉开对比**（实测教训）：
- *   树冠基色是 [250,198,38]（亮金黄）。
- *   原来的落叶色 [226,150,40] 只比它暗 70 亮度 → 画在树海上完全融进去。
- *   参考图里地面/落叶与树冠的亮度差是 **224** —— 必须有这么大才读得出来。
- *   → 落叶用**亮橙**（比树冠更红更亮）+ **深褐描边**，两头都拉开。 */
+/* ★ 落叶的定位：**一点点意思意思**，不是具象的树叶
+ *
+ *   教训：做过 6×6 带描边的叶形 → 太具象，抢了树冠的戏。
+ *   但颜色若和树冠一样（[250,198,38]），又会完全融进去 → "没有落叶"。
+ *   → 取中间：1~2 像素的小点，颜色比树冠**暗一档**（约 45 亮度）。
+ *   静态时隐约可见，飘落时靠运动被感知。
+ */
 const LEAF_FALL_COLORS = [
-  [248, 146, 44], [255, 168, 56], [232, 118, 34],
-  [255, 190, 74], [220, 100, 28], [242, 134, 40],
+  [206, 142, 34], [216, 156, 40], [196, 128, 30],
+  [210, 148, 36], [200, 136, 32],
 ];
 
-/* 落叶描边：深褐，勾出叶形轮廓 —— 在亮树冠上分离的关键 */
-const LEAF_FALL_EDGE = [122, 52, 14];
-
-/* 默认落叶总数 */
-const LEAF_FALL_COUNT = 90;
+/* 默认落叶总数 —— 少而含蓄 */
+const LEAF_FALL_COUNT = 30;
 
 function setupFallingLeaves(sources, count) {
   leafSources = sources;
@@ -85,54 +84,17 @@ function updateLeaves(t, dt) {
 }
 
 function drawFallingLeaves(t) {
-  const ec = rgb(...LEAF_FALL_EDGE);
   for (const m of fallingLeaves) {
     const p = project(m.x, m.y, m.z);
-    const ix = Math.round(p.sx), iy = Math.round(p.sy);
-    /* 叶子 6×6，留出描边空间 */
-    if (ix < 4 || iy < 4 || ix >= W - 8 || iy >= H - 8) continue;
+    const ix = p.sx | 0, iy = p.sy | 0;
+    if (ix < 0 || iy < 0 || ix >= W - 2 || iy >= H - 1) continue;
     const c = rgb(...m.c);
     const i = iy * W + ix;
-    /* ★ 6×6 的叶形 + 深褐描边（不是方块，也不是小点）
-     *
-     *      ..# # # .      ← 叶尖
-     *      .# # # # #     ← 叶片上缘
-     *      # # # # # #    ← 叶片最宽
-     *      .# # # # #     ← 叶片下缘
-     *      ..# # # .      ← 收窄
-     *      ...# # .       ← 叶柄
-     *
-     *   描边用深褐 [122,52,14]，主体用亮橙 —— 在亮树冠/暗树冠上都分离。
-     *   自转时宽窄变化（正面 / 侧面），读作"叶子在翻面"。
-     */
-    const face = Math.sin(m.spin) > 0;
-    if (face) {
-      /* 正面：5 行叶形 */
-      const rows = [
-        [2, 3],       /* 叶尖：2 像素宽 */
-        [1, 5],       /* 上缘：4 像素 */
-        [0, 6],       /* 最宽：6 像素 */
-        [1, 5],
-        [2, 3],
-      ];
-      for (let r = 0; r < rows.length; r++) {
-        const [a, b] = rows[r];
-        for (let x = a; x < b; x++) {
-          const idx = i + r * W + x;
-          /* 描边：每行两端 */
-          pix[idx] = (x === a || x === b - 1) ? ec : c;
-        }
-      }
-      /* 上下缘描边 */
-      for (let x = 2; x < 4; x++) pix[i - W + x] = ec;
-      for (let x = 2; x < 4; x++) pix[i + W * 5 + x] = ec;
-    } else {
-      /* 侧面：2 列 × 5 行的窄叶 */
-      for (let r = 0; r < 5; r++) {
-        pix[i + r * W] = ec;
-        pix[i + r * W + 1] = c;
-        pix[i + r * W + 2] = ec;
-      }
-    }
+    /* ★ 1~2 像素，就是"一点点意思"。
+     *   不描边、不加亮、不放大 —— 靠飘落的运动被感知。
+     *   参考：demo/autumn.js 的 drawMotes()。 */
+    pix[i] = c;
+    /* 翻面时偶尔带第二个像素，像叶子侧过来了 */
+    if (((ix + iy) & 1) === 0) pix[i + 1] = c;
   }
 }

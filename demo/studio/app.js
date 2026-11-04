@@ -29,6 +29,9 @@ const state = {
   paramDefs: {},          // 参数定义（来自 preview-ok）
   aiMode: 'edit',
   aiComponent: null,      // AI 返回的构造结果 { id, name, category, desc, code }
+  code: '',               // 当前正在预览/编辑的构件代码（AI 结果或属性补丁都写这里）
+  meta: null,             // { name, id, category, desc, collision }
+  refImages: [],          // 参考图 dataURL（最多 3 张，随 /api/generate 一起发送）
   ready: false,           // 预览 iframe 是否就绪
 };
 
@@ -91,6 +94,9 @@ $('#search').addEventListener('input', () => {
 function select(item) {
   state.current = item;
   state.params = {};
+  /* 参考图属于"这一次生成"，切构件即清空 */
+  state.refImages = [];
+  renderThumbs();
   state.paramDefs = {};
   state.aiComponent = null;
   $('#ai-code').value = '';
@@ -103,6 +109,10 @@ function select(item) {
   $('#cur-desc').textContent = item.desc || '（无描述）';
   $('#cur-id').textContent = item.id;
   $('#cur-cat').textContent = CAT_NAME[item.category] || item.category;
+  state.code = item.code;
+  state.meta = parseMeta(item.code, item);
+  if (window.histSetComponent) histSetComponent(item.id);
+  fillProps(state.meta);
   $('#code').textContent = item.code;
   $('#params').innerHTML = '<div class="param"><label>预览加载中…</label></div>';
 
@@ -140,13 +150,57 @@ pv.addEventListener('load', () => {
 });
 
 function sendCode(item) {
-  pv.contentWindow.postMessage({ type: 'code', code: item.code, id: item.id, params: {} }, '*');
+  const code = (item && item.code) || state.code;
+  state.code = code;
+  const id = (item && item.id) || (state.meta && state.meta.id);
+  pv.contentWindow.postMessage({ type: 'code', code, id, params: {} }, '*');
   pv.contentWindow.postMessage({ type: 'scale', scale: 2.1 }, '*');
+  pv.contentWindow.postMessage({ type: 'box', on: $('#pv-box').checked }, '*');
 }
 
+/* ---------------- 预览环境控制 ---------------- */
+/* 自动旋转 / 手动旋转条 / 背景 / 光源开关与色系 */
+
+const pvSpin = $('#pv-spin');
+const pvRot = $('#pv-rot');
+const pvRotVal = $('#pv-rot-val');
+
+pvSpin.addEventListener('change', () => {
+  pv.contentWindow.postMessage({ type: 'spin', on: pvSpin.checked }, '*');
+  pvRot.disabled = pvSpin.checked;
+});
+pvRot.disabled = pvSpin.checked;
+
+pvRot.addEventListener('input', () => {
+  const deg = Number(pvRot.value);
+  pvRotVal.textContent = deg + '°';
+  if (pvSpin.checked) { pvSpin.checked = false; pvRot.disabled = false; }
+  pv.contentWindow.postMessage({ type: 'spin', on: false }, '*');
+  pv.contentWindow.postMessage({ type: 'rot', rot: deg * Math.PI / 180 }, '*');
+});
+
+$('#pv-bg').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  for (const b of document.querySelectorAll('#pv-bg button')) b.classList.toggle('on', b === btn);
+  pv.contentWindow.postMessage({ type: 'bg', tone: btn.dataset.tone }, '*');
+});
+
+$('#pv-box').addEventListener('change', () => {
+  pv.contentWindow.postMessage({ type: 'box', on: $('#pv-box').checked }, '*');
+});
+$('#pv-light').addEventListener('change', () => {
+  pv.contentWindow.postMessage({ type: 'light', on: $('#pv-light').checked }, '*');
+});
+$('#pv-tone').addEventListener('change', () => {
+  pv.contentWindow.postMessage({ type: 'light', tone: $('#pv-tone').value }, '*');
+});
+
 /* 悬停暂停旋转（方便观察静态形态） */
+/* 悬停临时停转；移出时**按复选框状态**恢复 —— 无条件恢复会让
+   "取消勾选自动旋转"失效（鼠标一移开又转起来） */
 pv.addEventListener('mouseenter', () => pv.contentWindow.postMessage({ type: 'spin', on: false }, '*'));
-pv.addEventListener('mouseleave', () => pv.contentWindow.postMessage({ type: 'spin', on: true }, '*'));
+pv.addEventListener('mouseleave', () => pv.contentWindow.postMessage({ type: 'spin', on: pvSpin.checked }, '*'));
 
 /* ---------------- 参数滑块 ---------------- */
 
@@ -158,8 +212,10 @@ function buildParams() {
   for (const key of keys) {
     const p = state.paramDefs[key];
     const row = el('div', 'param');
-    const lab = el('label', '', key);
-    lab.title = p.desc || key;
+    /* 中英对照：height · 树高 */
+    const cn = (p.desc || '').replace(/[（(].*?[)）]/g, '').trim();
+    const lab = el('label', '', cn && cn !== key ? `${key} · ${cn}` : key);
+    lab.title = `${key}${p.desc ? ' · ' + p.desc : ''}`;
     const input = document.createElement('input');
     input.type = 'range';
     input.min = p.min; input.max = p.max; input.step = p.step;
@@ -190,120 +246,6 @@ $('#btn-copy').addEventListener('click', async () => {
   catch { setStatus('复制失败（浏览器权限）'); }
 });
 
-/* ---------------- AI 编辑 ---------------- */
-
-$('#ai-mode').addEventListener('click', e => {
-  const btn = e.target.closest('button');
-  if (btn) setAiMode(btn.dataset.mode);
-});
-
-function setAiMode(mode) {
-  state.aiMode = mode;
-  for (const b of document.querySelectorAll('#ai-mode button')) {
-    b.classList.toggle('on', b.dataset.mode === mode);
-  }
-  $('#ai-tip').textContent = mode === 'edit'
-    ? '说明你想怎么改这个构件，AI 会按项目规范重写代码（id 保持不变）。'
-    : '描述一个全新的构件，AI 会按 docs/kit 规范生成并注册。';
-  $('#btn-ai').textContent = mode === 'edit' ? '让 AI 修改' : '让 AI 生成';
-}
-
-$('#btn-ai').addEventListener('click', runAi);
-
-async function runAi() {
-  const instruction = $('#ai-prompt').value.trim();
-  if (!instruction) { $('#ai-status').textContent = '先写一句需求'; return; }
-  if (state.aiMode === 'edit' && !state.current) return;
-
-  const btn = $('#btn-ai');
-  btn.disabled = true;
-  $('#ai-status').textContent = 'AI 生成中…（可能需要 1~3 分钟）';
-
-  let prompt;
-  let category = '';
-  if (state.aiMode === 'edit') {
-    const cur = state.current;
-    category = cur.category;
-    const code = state.aiComponent ? $('#ai-code').value : cur.code;
-    prompt = `请**修改**现有构件「${cur.name}」（id: ${cur.id}，分类 ${cur.category}）。\n`
-           + `修改要求：${instruction}\n\n`
-           + `现有代码：\n\`\`\`js\n${code}\n\`\`\`\n\n`
-           + `请返回修改后的**完整**构件（id 保持 "${cur.id}" 不变，仍按 KIT.register 规范）。`;
-  } else {
-    prompt = instruction;
-  }
-
-  try {
-    const res = await fetch('/api/generate', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ prompt, category: category || undefined }),
-    });
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || '生成失败');
-    const c = data.component;
-    state.aiComponent = c;
-    $('#ai-code').value = c.code || '';
-    $('#ai-metaline').textContent = `${c.name} · ${c.id} · ${CAT_NAME[c.category] || c.category}`;
-    $('#ai-status').textContent = '生成完成，可先「应用预览」再保存';
-    if (state.aiMode === 'new') {
-      $('#cur-name').textContent = c.name;
-      $('#cur-desc').textContent = c.desc || '（AI 新构件，未保存）';
-      $('#cur-id').textContent = c.id;
-      $('#cur-cat').textContent = CAT_NAME[c.category] || c.category;
-      $('#code').textContent = c.code;
-    }
-  } catch (e) {
-    $('#ai-status').textContent = '失败：' + e.message;
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-$('#btn-apply').addEventListener('click', () => {
-  const code = $('#ai-code').value.trim();
-  if (!code) return;
-  const id = state.aiComponent ? state.aiComponent.id : (state.current && state.current.id);
-  state.params = {};
-  pv.contentWindow.postMessage({ type: 'code', code, id, params: {} }, '*');
-  $('#ai-status').textContent = '已推送到预览';
-});
-
-$('#btn-save').addEventListener('click', async () => {
-  const code = $('#ai-code').value.trim();
-  if (!code || !state.aiComponent) { $('#ai-status').textContent = '还没有可保存的 AI 结果'; return; }
-  const btn = $('#btn-save');
-  btn.disabled = true;
-  $('#ai-status').textContent = '保存中…';
-  try {
-    const c = Object.assign({}, state.aiComponent, { code });
-    const res = await fetch('/api/save', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ component: c, overwrite: true }),
-    });
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || '保存失败');
-    $('#ai-status').textContent = `已保存（${data.files.length} 个文件）`;
-    await refreshKit();
-    select(state.byId.get(c.id) || state.current);
-  } catch (e) {
-    $('#ai-status').textContent = '保存失败：' + e.message;
-  } finally {
-    btn.disabled = false;
-  }
-});
-
-async function refreshKit() {
-  const res = await fetch('/api/kit');
-  const data = await res.json();
-  if (!data.ok) return;
-  state.items = data.items;
-  state.byId = new Map(state.items.map(i => [i.id, i]));
-  renderList();
-  setStatus(`${state.items.length} 个构件`);
-}
-
 /* ---------------- Tab 切换（hash 同步：#gen / #scene） ---------------- */
 
 function switchView(view) {
@@ -311,7 +253,6 @@ function switchView(view) {
     b.classList.toggle('on', b.dataset.view === view);
   }
   $('#view-kit').classList.toggle('on', view === 'kit');
-  $('#view-gen').classList.toggle('on', view === 'gen');
   $('#view-scene').classList.toggle('on', view === 'scene');
   if (location.hash !== (view === 'kit' ? '' : '#' + view)) {
     location.hash = view === 'kit' ? '' : view;
@@ -325,8 +266,8 @@ $('#tabs').addEventListener('click', e => {
 
 addEventListener('hashchange', () => {
   const v = location.hash.replace('#', '') || 'kit';
-  if (['kit', 'gen', 'scene'].includes(v)) switchView(v);
+  if (['kit', 'scene'].includes(v)) switchView(v);
 });
 
 const initialView = location.hash.replace('#', '');
-if (['gen', 'scene'].includes(initialView)) switchView(initialView);
+if (initialView === 'scene') switchView(initialView);

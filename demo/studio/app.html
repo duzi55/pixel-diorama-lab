@@ -12,7 +12,6 @@
   <h1>构件工坊 <span>Studio</span></h1>
   <nav class="tabs" id="tabs">
     <button data-view="kit" class="on">构件库</button>
-    <button data-view="gen">生成</button>
     <button data-view="scene">场景</button>
   </nav>
   <span class="status" id="status">加载中…</span>
@@ -38,19 +37,75 @@
       </div>
     </div>
 
+    <div class="pv-toolbar">
+      <label class="chk"><input type="checkbox" id="pv-spin" checked> 自动旋转</label>
+      <input type="range" id="pv-rot" min="0" max="360" step="1" value="23" title="旋转角度">
+      <span class="pv-rot-val" id="pv-rot-val">23°</span>
+      <span class="sep"></span>
+      <span class="lbl">背景</span>
+      <div class="seg small" id="pv-bg">
+        <button data-tone="dark" class="on">深灰</button>
+        <button data-tone="paper">纸色</button>
+      </div>
+      <span class="sep"></span>
+      <label class="chk"><input type="checkbox" id="pv-light" checked> 光源</label>
+      <label class="chk"><input type="checkbox" id="pv-box"> 碰撞体</label>
+      <select id="pv-tone" class="mini-select">
+        <option value="warm">暖白</option>
+        <option value="cool">冷白</option>
+        <option value="neutral">中性</option>
+      </select>
+    </div>
+
     <div class="preview-wrap">
       <iframe id="pv" src="preview.html" title="构件动画预览"></iframe>
-      <div class="preview-hint" id="pv-hint">把鼠标移上去可暂停/继续旋转</div>
     </div>
 
     <div class="block">
-      <div class="block-head"><span>参数</span><button class="mini" id="btn-reset">重置</button></div>
+      <div class="block-head">
+        <span>属性</span>
+        <span><button class="mini" id="btn-props-apply">应用并预览</button></span>
+      </div>
+      <div class="props">
+        <label>名称<input id="p-name" type="text"></label>
+        <label>ID<input id="p-id" type="text"></label>
+        <label>分类
+          <select id="p-cat">
+            <option value="tree">树 tree</option>
+            <option value="building">建筑 building</option>
+            <option value="plant">草木 plant</option>
+            <option value="prop">道具 prop</option>
+            <option value="figure">人物 figure</option>
+          </select>
+        </label>
+        <label class="wide">描述<input id="p-desc" type="text"></label>
+        <label>碰撞体
+          <select id="p-col-type">
+            <option value="box">box 盒</option>
+            <option value="cylinder">cylinder 柱</option>
+            <option value="none">无</option>
+          </select>
+        </label>
+        <label id="p-col-w-wrap">宽 W<input id="p-col-w" type="number" step=".1" min="0"></label>
+        <label id="p-col-d-wrap">深 D<input id="p-col-d" type="number" step=".1" min="0"></label>
+        <label id="p-col-r-wrap">半径 R<input id="p-col-r" type="number" step=".1" min="0"></label>
+        <label id="p-col-h-wrap">高 H<input id="p-col-h" type="number" step=".1" min="0"></label>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="block-head"><span>参数</span><span><button class="mini" id="btn-save-defaults">当前值存为默认</button> <button class="mini" id="btn-reset">重置</button></span></div>
       <div class="params" id="params"></div>
     </div>
 
     <div class="block">
       <div class="block-head"><span>代码</span><button class="mini" id="btn-copy">复制</button></div>
       <pre class="code" id="code"></pre>
+    </div>
+
+    <div class="block">
+      <div class="block-head"><span>修改记录</span><span class="mini" id="hist-count">0</span></div>
+      <div class="hist" id="hist"></div>
     </div>
   </main>
 
@@ -63,10 +118,35 @@
       </div>
     </div>
     <p class="ai-tip" id="ai-tip">说明你想怎么改这个构件，AI 会按项目规范重写代码。</p>
-    <textarea id="ai-prompt" rows="4" placeholder="例如：把树冠改窄一点，树干更粗，颜色偏橙"></textarea>
+    <textarea id="ai-prompt" rows="4" placeholder="例如：把树冠改窄一点，树干更粗，颜色偏橙（可直接粘贴 / 拖入参考图）"></textarea>
+
+    <div class="ai-images">
+      <div class="ai-images-head">
+        <span>参考图（可选）</span>
+        <span class="count" id="ai-img-count">0 / 3</span>
+      </div>
+      <div class="thumbs" id="ai-thumbs"></div>
+      <label class="upload">
+        <input type="file" id="ai-file" accept="image/png,image/jpeg,image/webp" multiple hidden>
+        <span>＋ 添加图片</span>
+      </label>
+    </div>
+
     <div class="ai-actions">
       <button class="primary" id="btn-ai">让 AI 生成</button>
       <span class="ai-status" id="ai-status"></span>
+    </div>
+
+    <div class="ai-progress"><div class="ai-progress-bar" id="ai-progress-bar"></div></div>
+
+    <div class="ai-think">
+      <div class="ai-think-head">
+        <span>思考 / 进度</span>
+        <button class="mini" id="ai-think-clear">清空</button>
+      </div>
+      <div class="ai-think-body" id="ai-think-body">
+        <div class="think-empty">AI 生成时，这里实时显示推理过程与进度。</div>
+      </div>
     </div>
 
     <div class="block grow">
@@ -81,10 +161,12 @@
   </aside>
 </div>
 
-<!-- ============ 生成 / 场景：复用现有页面 ============ -->
-<section class="embed" id="view-gen"><iframe src="index.html" title="AI 生成构件"></iframe></section>
+<!-- ============ 场景：复用既有编辑器 ============ -->
 <section class="embed" id="view-scene"><iframe src="editor.html" title="场景编辑器"></iframe></section>
 
 <script src="app.js"></script>
+<script src="app-history.js"></script>
+<script src="app-props.js"></script>
+<script src="app-ai.js"></script>
 </body>
 </html>

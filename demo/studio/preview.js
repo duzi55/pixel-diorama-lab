@@ -20,6 +20,23 @@ const PV = {
   spin: true, showBox: true, rot: 0.4, lastStep: -1,
   scale: 1,
   drawFn: null, error: null,
+  /* 预览环境：背景色调 / 光源开关 / 光源色系 */
+  bgTone: 'dark',        // dark | paper
+  lightOn: true,
+  lightTone: 'warm',     // warm | cool | neutral
+};
+
+/* 背景两套（地面圆盘色阶跟着背景走） */
+const PV_BG = {
+  dark: { base: rgb(28, 28, 34), ground: [[44, 46, 54], [50, 52, 60], [56, 58, 66], [62, 64, 72]] },
+  paper: { base: rgb(252, 245, 218), ground: [[212, 200, 180], [222, 212, 192], [232, 222, 202], [242, 232, 212]] },
+};
+
+/* 光源色系 → RGB 乘数 */
+const PV_LIGHT_TONES = {
+  warm: [1.06, 1.00, .90],
+  cool: [0.92, 0.99, 1.10],
+  neutral: [1, 1, 1],
 };
 
 const PV_GROUND_TONES = [[44, 46, 54], [50, 52, 60], [56, 58, 66], [62, 64, 72]];
@@ -29,8 +46,9 @@ const PV_GROUND_TONES = [[44, 46, 54], [50, 52, 60], [56, 58, 66], [62, 64, 72]]
 function PV_fit() { PV_render(); }
 
 function PV_drawGround() {
+  const BG = PV_BG[PV.bgTone] || PV_BG.dark;
   zb.fill(-1e9);
-  pix.fill(rgb(22, 22, 27));
+  pix.fill(BG.base);
   ground.fill(0);
   kinds.fill(KIND_NONE);
   shadowMask.fill(0);
@@ -43,7 +61,7 @@ function PV_drawGround() {
     const i = iy * W + ix;
     const v = .5 + noise(g.x * .9, g.y * .9) * .3 + (hash(ix, iy) - .5) * .2;
     const idx = clamp(Math.floor(v * 3.999 + (bayerAt(ix, iy) - .5) * .6), 0, 3);
-    pix[i] = rgb(...PV_GROUND_TONES[idx]);
+    pix[i] = rgb(...BG.ground[idx]);
     ground[i] = 1;
     zb[i] = (g.x + g.y) / Math.SQRT2 * (Math.sqrt(3) / 2);
   }
@@ -126,11 +144,13 @@ function PV_makeCtx(p) {
     capsule: (a, b, r0, r1, f, mode) => capsule(wrapPScaled(a), wrapPScaled(b), r0 * sc, r1 * sc, f, mode),
     plot: (x, y, z, c) => { const q = unScaled(x, y); plot(q[0], q[1], z * sc, c); },
     box: (x0, y0, z0, x1, y1, z1, c, sd = 0) => {
-      if (!rot) { box(x0, y0, z0, x1, y1, z1, c, sd); return; }
+      /* ★ 缩放必须作用到 box：否则 sphere/plot 放大了、墙体还是原尺寸，
+         建筑看起来"镂空/半透明"（组件参数 scale 只是预览缩放） */
+      if (!rot) { box(x0 * sc, y0 * sc, z0 * sc, x1 * sc, y1 * sc, z1 * sc, c, sd); return; }
       const ramp = rampOf(c);
       const paint = (lx, ly, lz, base, grain) => {
-        const q = un(lx, ly);
-        const pr = project(q[0], q[1], lz), ix = pr.sx | 0, iy = pr.sy | 0;
+        const q = unScaled(lx, ly);
+        const pr = project(q[0], q[1], lz * sc), ix = pr.sx | 0, iy = pr.sy | 0;
         if (ix < 0 || iy < 0 || ix >= W || iy >= H) return;
         const i = iy * W + ix;
         if (pr.d <= zb[i]) return;
@@ -150,8 +170,8 @@ function PV_makeCtx(p) {
       }
     },
     rampOf, rgb, hash, noise, lerp, clamp,
-    shadow: (r, s, d) => castShadow(0, 0, .01, r, s == null ? 1 : s, d),
-    shadowAt: (x, y, z, r, s, d) => { const q = un(x, y); castShadow(q[0], q[1], z, r, s, d); },
+    shadow: (r, s, d) => castShadow(0, 0, .01, r * sc, s == null ? 1 : s, d),
+    shadowAt: (x, y, z, r, s, d) => { const q = unScaled(x, y); castShadow(q[0], q[1], z * sc, r * sc, s, d); },
   };
 }
 
@@ -178,7 +198,29 @@ function PV_render() {
   applyShadows(groundZ);
   shadeEdges();
   if (PV.showBox && PV.collision) PV_drawCollision();
+  PV_applyLight();
   ctx.putImageData(image, 0, 0);
+}
+
+/* 光源开关 + 色系：开关只改光的方向（关 → 顶光，明暗更平）；
+   色系是整幅画面的 RGB 乘数（暖白/冷白/中性） */
+function PV_applyLight() {
+  const dir = PV.lightOn
+    ? { x: -.55, y: -.6, z: .58 }
+    : { x: 0, y: 0, z: 1 };
+  if (typeof LIGHT !== 'undefined' && LIGHT.dir) {
+    LIGHT.dir.x = dir.x; LIGHT.dir.y = dir.y; LIGHT.dir.z = dir.z;
+  }
+  const t = PV_LIGHT_TONES[PV.lightTone] || PV_LIGHT_TONES.neutral;
+  const gain = PV.lightOn ? 1 : 1.08;              // 关灯时整体提亮一点，弥补失去的方向光
+  if (t[0] === 1 && t[1] === 1 && t[2] === 1 && gain === 1) return;
+  for (let i = 0; i < pix.length; i++) {
+    const c = pix[i];
+    const r = (c & 255) * t[0] * gain;
+    const g = ((c >> 8) & 255) * t[1] * gain;
+    const b = ((c >> 16) & 255) * t[2] * gain;
+    pix[i] = rgb(r, g, b);
+  }
 }
 
 /* ---------------- 注入构件代码 ---------------- */
@@ -236,6 +278,7 @@ window.addEventListener('message', e => {
       applyShadows(groundZ);
       shadeEdges();
       if (PV.showBox && PV.collision) PV_drawCollision();
+      PV_applyLight();
       ctx.putImageData(image, 0, 0);
     } catch (err2) {
       PV.drawFn = null;
@@ -275,6 +318,23 @@ window.addEventListener('message', e => {
     return;
   }
   if (msg.type === 'spin') { PV.spin = !!msg.on; return; }
+  if (msg.type === 'rot') {
+    const v = Number(msg.rot);
+    PV.rot = Number.isFinite(v) ? v : 0;
+    PV_render();
+    return;
+  }
+  if (msg.type === 'bg') {
+    PV.bgTone = msg.tone === 'paper' ? 'paper' : 'dark';
+    PV_render();
+    return;
+  }
+  if (msg.type === 'light') {
+    if (typeof msg.on === 'boolean') PV.lightOn = msg.on;
+    if (msg.tone) PV.lightTone = msg.tone;
+    PV_render();
+    return;
+  }
   if (msg.type === 'box') { PV.showBox = !!msg.on; PV_render(); return; }
 });
 

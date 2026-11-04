@@ -5,9 +5,30 @@
 > - **构件库** tab：左侧分类列表；中间 = 动画预览（preview.html 沙箱，持续旋转 + 悬停暂停）
 >   + 参数滑块 + 构件代码；右侧 = **AI 编辑框**（「修改当前」把现有代码一起发给 AI，
 >   返回完整新代码 → 应用预览 → 保存三件套；「新建构件」等价素材生成器）
-> - **生成 / 场景** tab：内嵌 `index.html` / `editor.html`
+> - **场景** tab：内嵌 `editor.html`（独立的 `index.html` 生成页保留，但工坊里用「新建构件」代替，避免功能重复）
 > - 数据接口：`GET /api/kit`（含代码）、`POST /api/generate`、`POST /api/save`
-> - 地址 hash：`#gen` / `#scene` 直达对应 tab
+> - 地址 hash：`#scene` 直达场景编辑器
+> - 视觉：与 `studio.css` 同一套深色令牌（`--bg/--bg-2/--accent`），
+>   内嵌的生成页/编辑器也是深色 —— 整个 Studio 风格统一
+> - 预览沙箱的缩放（`scale`）必须作用到 `box/shadow`：只缩放 sphere/plot
+>   会让墙体停在原尺寸，建筑看起来"镂空/半透明"（已修）
+> - 预览环境控制（postMessage）：`{type:'bg', tone:'dark'|'paper'}` 背景、
+>   `{type:'light', on, tone:'warm'|'cool'|'neutral'}` 光源开关与色系、
+>   `{type:'rot', rot}` 手动旋转、`{type:'spin', on}` 自动旋转
+> - 参数标签中英对照：`height · 树高`（英文键 + 中文 desc）
+> - **属性面板**（可视化配置代码里的字段）：名称 / ID / 分类 / 描述 /
+>   碰撞体（box 的 w·d·h 或 cylinder 的 radius·height / 无）→「应用并预览」
+>   直接把字段补丁写回代码；参数块的「当前值存为默认」把滑块值写回 `def`
+> - 预览工具条可开关**碰撞体显示**（默认关）
+> - **AI 思考与进度**：生成走 SSE（`Accept: text/event-stream`），
+>   `open/progress/thinking/done/error` 事件实时显示推理、工具调用、token 数与进度条
+> - **修改记录**（`app-history.js`）：属性应用 / 参数存默认 / AI 结果 / 应用代码
+>   之前自动存快照（localStorage 按构件隔离，最多 30 条），可一键还原到任一版本
+> - **参考图输入**：AI 面板支持三种方式 —— 「＋添加图片」按钮、**Ctrl/⌘+V 直接粘贴**到需求框、
+>   **拖拽图片**到 AI 面板（最多 3 张，长边压到 900px 后以 dataURL 随 `images` 发送，
+>   服务端落盘到 `.ref-images/` 并由 AI 用 Read 工具读图）
+> - 旋转开关交互修正：悬停暂停后，鼠标移出**按复选框状态**恢复（此前无条件恢复，
+>   导致取消勾选仍在转）
 
 
 路径：`demo/studio/`
