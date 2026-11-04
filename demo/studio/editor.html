@@ -57,7 +57,7 @@
         <input type="range" id="blend-jitter" min="0" max="1" step="0.05" value="0.55">
       </div>
       <label class="chk" style="margin-bottom:8px">
-        <input type="checkbox" id="blend-slope"> 高度坡面混合（实验性，可能露洞）
+        <input type="checkbox" id="blend-slope" checked> 高度坡面混合（光线步进）
       </label>
       <div class="hint" style="margin:0;font-size:11px;opacity:.75">
         主体=格底色 · 过渡=噪声抖动混合带 · 子项=苔藓/石子/沙纹/石缝/水波
@@ -155,7 +155,9 @@
 <script src="../kit/figures.js"></script>
 <script src="../kit/crowd.js"></script>
 <script src="terrain.js"></script>
+<script src="terrain-common.js"></script>
 <script src="terrain-render.js"></script>
+<script src="terrain-march.js"></script>
 <script src="terrain-shapes.js"></script>
 <script src="editor-view.js"></script>
 <script src="editor-panels.js"></script>

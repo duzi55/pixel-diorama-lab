@@ -13,15 +13,13 @@
  *
  * 所以"远"不是画得小，而是画得**淡、画得灰**。
  *
- * ★ 树海的树是**锥状树构件**（demo/kit/conifers.js）：
- *   远景 = 深橙 cone-spire 尖锥填缝，中近景 = 金黄 cone-mast 巨层塔当主角
- *   （参考图上半部是一棵棵独立的锥形塔，不是团块）。
- *   golden 参数随排的淡度变化：远排偏深橙（1-pale*.85），近排浓金黄。
- *   雾（applySceneHaze）负责"远排发白"的空气透视。
+ * ★ 树是**锥状树构件**（demo/kit/conifers.js）：
+ *   中景金黄 cone-mast 巨塔是主体，远排向背景色晕开（fade 参数）。
  *
- * 本模块负责两件事：
- *   1. 远景树海：把画面上半部填满层层退远的锥塔
- *   2. 空气透视：近浓远淡，色相收进橙红
+ * ★ 构图是「岛式留白」（用户明确要求）：
+ *   · 画布背景 = 纯色（SKY 米色），没有元素的地方直接留白
+ *   · 树排只保留村子背后一圈，向上淡出晕开到背景 —— 不铺满画布
+ *   · fade 高的远排塔色 ≈ 纸色，水墨式过渡；不存在整片林底色板
  * ------------------------------------------------------------------ */
 
 /* 远景树海：每一"排"是一层树，越远越小越淡
@@ -32,27 +30,19 @@
  *   所以每一排用一个"屏幕高度"来定义，再反解成 x+y。
  */
 const SEA_ROWS = [
-  /* [屏幕y(树基), 树数, sizeK, 淡度, 巨塔比例]
-   *   sizeK：height/crownR 的排缩放（远排塔小）。
-   *   巨塔比例：hash < 比例 → cone-mast，否则 cone-spire。
-   *   ★ 树数必须少（塔比旧团块大 3~4 倍，5~9 棵/排）：
-   *   排密塔密会读作"列队贴图"，参考图的塔是错落的，
-   *   塔间要露出深色的林底缝隙。 */
-  [30, 4, .78, .74, .60],
-  [58, 4, .80, .62, .62],
-  [88, 4, .82, .50, .62],
-  [120, 4, .84, .38, .65],
-  [154, 4, .86, .26, .70],
-  [190, 4, .90, .14, .70],
-  [228, 4, .94, .05, .75],
-  [268, 4, 1.0, 0, .80],
-  [310, 4, 1.0, 0, .80],
-  [355, 4, 1.0, 0, .75],
-  [402, 4, 1.0, 0, .75],
-  [452, 3, 1.0, 0, .70],
-  [505, 3, 1.0, 0, .70],
-  [560, 3, 1.0, 0, .70],
-  [615, 3, 1.0, 0, .70],
+  /* [屏幕y(树基), 树数, sizeK, 晕开量fade, 巨塔比例]
+   *   ★ 构图是「岛式留白」：村子+背后一圈塔林是主体，
+   *     塔向上（远排）淡出晕开到纯色背景 —— 不是铺满画布的裁剪式树海。
+   *   fade：塔色向背景 SKY 混合的比例（0 浓 / .55 ≈ 化进纸色）。
+   *   y < 118 的区域完全留白。 */
+  [184, 4, .84, .10, .7],
+  [220, 4, .90, 0, .75],
+  [258, 4, .95, 0, .80],
+  [296, 4, 1.0, 0, .80],
+  [340, 3, 1.0, 0, .75],
+  [382, 3, 1.0, 0, .70],
+  [426, 3, 1.0, 0, .70],
+  [470, 3, 1.0, 0, .65],
 ];
 
 /* 前景树海的起始屏幕高度：从这一排开始，树画在房子**前面** */
@@ -163,7 +153,7 @@ function drawTreeSeaRange(from, to, fore) {
   for (let ri = 0; ri < SEA_ROWS.length; ri++) {
     const row = SEA_ROWS[ri];
     if (row[0] < from || row[0] > to) continue;
-    const [rowY, count, sizeK, pale, mast] = row;
+    const [rowY, count, sizeK, fade, mast] = row;
     for (let k = 0; k < count; k++) {
       const seed = ri * 1000 + k;
       /* ★ 直接按**屏幕横坐标**布点：定住 (x-y) 横向位置就定了，
@@ -173,6 +163,15 @@ function drawTreeSeaRange(from, to, fore) {
       const dxy = (sx - OX) * R2 / S;          /* x - y */
       const sum = seaSumFor(rowY + (hash(seed, 302) - .5) * 22, 0);  /* x + y */
       const x = (sum + dxy) / 2, y = (sum - dxy) / 2;
+      /* ★ 岛式群包络：塔群整体是"上窄下宽"的有机轮廓（林冠剪影），
+         排两端按噪声碎开 —— 不是每排从左铺到右的矩形。
+         包络外直接跳过 → 群外缘自然碎落成留白。 */
+      {
+        const gx = Math.abs(sx - W / 2) / (W * .5);           // 0 中心 → 1 画布缘
+        const gy = clamp((rowY - 184) / (470 - 184), 0, 1);   // 0 群顶 → 1 群底
+        const env = 1.18 - .55 * (1 - gy) * (1 - gy);         // 顶 .63 底 1.18
+        if (gx > env * (.82 + hash(seed, 375) * .36)) continue;
+      }
       /* 远景树：完整避开村庄带（房子要露出来）
          近景树：只避开路面（可以压住房子一角 —— 参考图的关键手法） */
       if (fore ? !seaClearsRoadOnly(x, y) : !seaClearsVillage(x, y)) continue;
@@ -198,25 +197,25 @@ function drawTreeSeaRange(from, to, fore) {
       /* ---- 组装锥树实例（demo/kit/conifers.js） ---- */
       const sJ = .85 + hash(seed, 303) * .3;
       /* golden 随排淡度：远排深橙（雾再把它们漂白），近排浓金黄 */
-      const gK = clamp(1 - pale * .72 + (hash(seed, 305) - .5) * .16, 0, 1);
+      const gK = clamp(.55 + (1 - fade) * .45 + (hash(seed, 305) - .5) * .16, 0, 1);
       let kind, p;
       if (small) {
         kind = 'cone-spire';
         p = { height: 4.5 + hash(seed, 306) * 1.5, crownR: 1.2 + hash(seed, 307) * .4,
-              rows: 6, golden: .85 };
+              rows: 6, golden: .85, fade: .12 };
       } else if (hash(seed, 304) < mast) {
         kind = 'cone-mast';
         p = { height: 22 * sizeK * sJ,
               crownR: 5.2 * sizeK * (.9 + hash(seed, 308) * .2),
               layers: 5 + (hash(seed, 309) * 3 | 0),
-              golden: gK,
+              golden: gK, fade,
               trunkV: .13 + hash(seed, 310) * .05 };
       } else {
         kind = 'cone-spire';
         p = { height: 10.5 * sizeK * sJ,
               crownR: 2.4 * sizeK * (.9 + hash(seed, 308) * .2),
               rows: 7 + (hash(seed, 309) * 4 | 0),
-              golden: gK };
+              golden: gK, fade };
       }
       /* 近景排（fore）的巨塔给路让通道：冠心 (x, y, h*.55) 屏幕投影 */
       if (fore && !small && !seaClearsRoadCorridor(x, y, p.crownR, p.height)) continue;
@@ -234,7 +233,7 @@ function drawTreeSeaRange(from, to, fore) {
  *   用深橙 cone-mast（golden .1~.35），沿屏幕横坐标排开。
  */
 function drawBottomCanopy() {
-  const cols = 15;
+  const cols = 7;
   for (let k = 0; k < cols; k++) {
     const seed = 9000 + k;
     const sx = -20 + (k + .5) / cols * 340 + (hash(seed, 331) - .5) * 22;
@@ -250,13 +249,6 @@ function drawBottomCanopy() {
       params: { height: h, crownR: cr, layers: 5 + (hash(seed, 335) * 2 | 0),
                 golden: .1 + hash(seed, 336) * .25, trunkV: .12 }, seed };
     KIT.get('cone-mast').draw(KIT_RENDER.makeCtx(o), o);
-    /* 塔间补一个暗橙冠球，堵住露背景的缝 */
-    if (k < cols - 1) {
-      const sx2 = -20 + (k + 1) / cols * 340 + (hash(seed, 337) - .5) * 22;
-      const sum2 = seaSumFor(sy + 14, 0);
-      const x2 = (sum2 + (sx2 - OX) * R2 / S) / 2, y2 = (sum2 - (sx2 - OX) * R2 / S) / 2;
-      if (seaClearsRoadCorridor(x2, y2, 3, h)) sphere(x2, y2, h * .5, 3.4, [188, 118, 32], 'flat');
-    }
   }
 }
 
@@ -281,33 +273,42 @@ function drawLandmarkTower() {
   KIT.get('cone-mast').draw(KIT_RENDER.makeCtx(o), o);
 }
 
-/* 林底色板：上半屏没有地形也没有塔的地方刷成"无尽远方的林"
- * —— 参考图从无背景露出，塔缝里永远是深浅不一的远处林色。
- * 在 drawTreeSea 开头调用：只刷 zb 仍为背景的像素，
- * 深度设 -1e7（比一切物体远，不挡任何东西）。
- * 色：顶部淡金（接近雾色，衔接空气透视）→ 底部浓金橙。 */
-function paintForestFloor() {
-  /* 排线暗化带：塔根附近的林底加深（树根阴影），塔底不悬空 */
-  const rows = SEA_ROWS.map(r => r[0]).filter(y => y < SEA_SPLIT);
-  for (let iy = 0; iy < SEA_SPLIT + 40; iy++) {
-    const v = clamp(iy / SEA_SPLIT, 0, 1);
-    let dark = 0;
-    for (const ry of rows) {
-      const d = Math.abs(iy - ry);
-      if (d < 9) dark = Math.max(dark, (1 - d / 9) * .14);
-    }
-    const c = rgb(Math.round(lerp(246, 226, v) * (1 - dark)),
-                  Math.round(lerp(208, 162, v) * (1 - dark)),
-                  Math.round(lerp(80, 50, v) * (1 - dark)));
-    for (let ix = 0; ix < W; ix++) {
-      const i = iy * W + ix;
-      if (zb[i] < -1e8) { pix[i] = c; zb[i] = -1e7; }
+/* 远景塔影：水墨式晕开的"消散层"。
+ * 主塔林上方散布 3 层淡色团斑（无完整轮廓 → 读作"晕开的林影"不是漂浮塔），
+ * 色一层比一层接近纸色，最后化进留白。画在主塔林**之前**（被盖住下缘）。
+ * 色：mix=0 浓金黄影 → 1 = SKY 纸色。 */
+function drawSeaHaze() {
+  /* 水墨式消散：沿主塔林的上缘向外撒 4 层碎散点带——
+     离塔群越远：点越少、越小、越接近纸色。
+     ★ 小碎点直接单球（水墨边缘本就是碎块），大团才需要多球融合。 */
+  const BANDS = [
+    /* [sy 中心, 横向半宽, 点数, 混背景量, rMin, rMax] */
+    [172, 118, 12, .42, .9, 1.5],
+    [146, 100, 9, .60, .7, 1.2],
+    [120, 82, 6, .76, .5, .9],
+    [97, 62, 4, .88, .4, .7],
+  ];
+  for (const [sy0, halfW, n, mix, r0, r1] of BANDS) {
+    for (let k = 0; k < n; k++) {
+      const seed = 6000 + sy0 * 10 + k;
+      const sx = W / 2 + (hash(seed, 371) - .5) * 2 * halfW;
+      const sy = sy0 + (hash(seed, 372) - .5) * 16;
+      const dxy = (sx - OX) * R2 / S;
+      const sum = seaSumFor(sy, 0);
+      const x = (sum + dxy) / 2, y = (sum - dxy) / 2;
+      const r = r0 + hash(seed, 373) * (r1 - r0);
+      const z = 5 + hash(seed, 374) * 3;
+      const c = [Math.round(lerp(238, 252, mix)),
+                 Math.round(lerp(194, 236, mix)),
+                 Math.round(lerp(72, 186, mix))];
+      sphere(x, y, z, r, c, 'flat');
+      if (hash(seed, 376) > .5) sphere(x + r * .9, y - r * .4, z + r * .8, r * .6, c, 'flat');
     }
   }
 }
 
 /* 远景树海（房子之前）—— 只画 SEA_SPLIT 以上的排 */
-function drawTreeSea() { paintForestFloor(); drawTreeSeaRange(0, SEA_SPLIT, false); drawLandmarkTower(); }
+function drawTreeSea() { drawSeaHaze(); drawTreeSeaRange(0, SEA_SPLIT, false); drawLandmarkTower(); }
 
 /* 近景树海（房子之后，压住房子一角） */
 function drawTreeSeaFore() { drawTreeSeaRange(SEA_SPLIT, 9999, true); }

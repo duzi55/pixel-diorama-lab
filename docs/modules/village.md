@@ -27,7 +27,7 @@ cd demo && python3 -m http.server 5310
 |------|------|------|-----------|
 | `palette.js` | 86 | 全局配色（橙红色相域） | `SKY` `HAZE` `LITTER` `LEAF` `NEEDLE` `WOOD` `ASPHALT` … |
 | `terrain.js` | 252 | 地面 + 公路 + 台地边界 + 落叶 | **`ROAD` `RX` `RY`**（唯一真相源） |
-| `sea.js` | 345 | 远景树海（锥树构件布场）+ 林底色板 + 空气透视 | `SEA_ROWS` `HAZE` 相关函数 |
+| `sea.js` | 371 | 岛式留白树海（锥树构件 + 碎点晕开层）+ 空气透视 | `SEA_ROWS` `HAZE` 相关函数 |
 | `houses.js` | 248 | 7 栋木屋（沿路参数定位） | **`HOUSES`** |
 | `foliage.js` | 253 | 主树丛（阔叶/针叶/灌木） | **`trees`** `FOL_LEAF_SOURCES` |
 | `villagers.js` | 249 | 7 个村民（走停 + 拾取接口） | **`villagers`** |
@@ -115,10 +115,11 @@ node tools/measure-haze.mjs /tmp/ref.png
 
 **等距投影里"远"= `x+y` 小**，不是 `y` 小。这是布点时最容易错的地方。
 
-**树海的树是锥树构件**（`demo/kit/conifers.js`，配方卡 trees.md §5.7-5.8）：
-远景排深橙 `cone-spire` 填缝、中近景金黄 `cone-mast` 巨塔当主角，
-`golden` 参数随排淡度渐变；塔要**大而少**（3~4 棵/排），
-塔间缝隙由 `paintForestFloor()` 的林底渐变补底——细节与坑见
+**构图是「岛式留白」**（用户明确要求）：画布背景 = 纯色（SKY），
+树排只保留村子背后一圈、塔色经 `fade` 参数 + 碎点晕开层
+（`drawSeaHaze`）向上消散到纸色 —— 水墨式过渡，不是铺满画布的裁剪树海。
+树是锥树构件（`demo/kit/conifers.js`，配方卡 trees.md §5.7-5.8），
+金黄 `cone-mast` 巨塔为主角，塔要**大而少**（3~4 棵/排）——细节与坑见
 [depth-and-haze.md §4](../kit/depth-and-haze.md#4-远景树海)。
 
 ---

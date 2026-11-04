@@ -19,13 +19,21 @@
  * 配色不增殖 ID：golden 参数组（1 = 浓金黄 ↔ 0 = 深橙）。
  * ------------------------------------------------------------------ */
 
-/* 秋日锥树的五档色：dark(塔底) · base(塔面) · lit(塔顶) · seam(层缝线) */
-function coneTones(golden) {
+/* 秋日锥树的五档色：dark(塔底) · base(塔面) · lit(塔顶) · seam(层缝线)
+ * fade：向背景色晕开的过渡量（0 浓 / 1 ≈ 化进纸色）——
+ * 远排树用高 fade，颜色淡出成米金剪影，与留白背景无缝过渡（水墨晕染感）。
+ * 背景色 = village/palette.js 的 SKY rgb(252,236,186)，此处写字面量保持构件无依赖。 */
+const CONE_FADE_SKY = [252, 236, 186];
+function coneTones(golden, fade) {
   const base = [
     Math.round(lerp(230, 250, golden)),
     Math.round(lerp(142, 198, golden)),
     Math.round(lerp(36, 38, golden)),
   ];
+  if (fade > 0) {
+    const f = Math.min(1, fade);
+    for (let i = 0; i < 3; i++) base[i] = Math.round(lerp(base[i], CONE_FADE_SKY[i], f));
+  }
   return {
     dark: [Math.round(base[0] * .80), Math.round(base[1] * .78), Math.round(base[2] * .76)],
     base,
@@ -121,12 +129,13 @@ KIT.register({
     layers: { def: 6, min: 4, max: 9, step: 1, desc: '层缝数（塔面分层感）' },
     golden: { def: 1, min: 0, max: 1, step: .05, desc: '叶色：1 浓金黄 / 0 深橙' },
     trunkV: { def: .16, min: .05, max: .4, step: .01, desc: '树干可见高度（占树高比）' },
+    fade: { def: 0, min: 0, max: .85, step: .05, desc: '向背景色晕开（远景过渡）' },
   },
   collision: { type: 'cylinder', radius: .6, height: 16 },
   draw(ctx, inst) {
     const h = ctx.params.height, cr = ctx.params.crownR;
     const layers = Math.max(3, ctx.params.layers | 0);
-    const T = coneTones(ctx.params.golden);
+    const T = coneTones(ctx.params.golden, ctx.params.fade);
     const bark = [96, 60, 36];
     const barkLit = [118, 76, 44];
 
@@ -160,12 +169,13 @@ KIT.register({
     crownR: { def: 2.2, min: .8, max: 6, step: .1, desc: '锥底半径' },
     rows: { def: 9, min: 5, max: 14, step: 1, desc: '层缝数（锥面分层感）' },
     golden: { def: .75, min: 0, max: 1, step: .05, desc: '叶色：1 浓金黄 / 0 深橙' },
+    fade: { def: 0, min: 0, max: .85, step: .05, desc: '向背景色晕开（远景过渡）' },
   },
   collision: { type: 'cylinder', radius: .4, height: 9 },
   draw(ctx, inst) {
     const h = ctx.params.height, cr = ctx.params.crownR;
     const rows = Math.max(4, ctx.params.rows | 0);
-    const T = coneTones(ctx.params.golden);
+    const T = coneTones(ctx.params.golden, ctx.params.fade);
     const bark = [88, 56, 34];
 
     ctx.capsule([ctx.x, ctx.y, 0], [ctx.x, ctx.y, h * .14], Math.max(.16, cr * .1),

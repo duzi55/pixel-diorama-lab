@@ -414,7 +414,7 @@ function ED_render(t = 0) {
   shadowMask.fill(0);
   pendingShadows.length = 0;
 
-  terrainRender();
+  terrainRender(!!ED.painting && (ED.tool === 'paint' || ED.tool === 'erase' || ED.tool === 'raise' || ED.tool === 'lower'));
 
   /* 静态物体：按 y 从大到小（画家算法） */
   const objs = [...ED.objects].sort((a, b) => b.y - a.y);

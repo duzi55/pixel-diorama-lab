@@ -34,7 +34,7 @@ const TERRAIN = {
   blend: {
     width: 0.42,     /* 过渡带宽度（格）：0.2 窄而硬 · 0.7 宽而柔 */
     jitter: 0.55,    /* 边界抖动：0 平滑渐变 · 1 碎片化锯齿 */
-    slope: false,    /* 高度坡面混合（实验性）：只改深度不改几何，高差处会露洞，默认关 */
+    slope: true,     /* 高度坡面混合：光线步进渲染，高差自动成缓坡 */
   },
 
   /* 材质表：id → { name, base, kind, blend, detail } */

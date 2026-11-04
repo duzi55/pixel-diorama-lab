@@ -19,183 +19,6 @@
  * 画家算法：按 (gx+gy) 从大到小画。
  * ------------------------------------------------------------------ */
 
-/* 地面深度：与 engine 的约定一致 —— zb[i] = (x+y)/R2 * COS */
-function terrainGroundDepth(x, y) {
-  return (x + y) / Math.SQRT2 * (Math.sqrt(3) / 2);
-}
-
-/* 屏幕空间凸四边形包含测试（叉积同侧）。
-   用它做像素归属，而不是"世界坐标落在 [gx,gx+1)" ——
-   后者在格边界处会因浮点误差把像素判给"谁也不认"，留下一圈网格状细缝。 */
-function terrainInQuad(px, py, quad) {
-  let sign = 0;
-  for (let i = 0; i < 4; i++) {
-    const a = quad[i], b = quad[(i + 1) & 3];
-    const cross = (b[0] - a[0]) * (py - a[1]) - (b[1] - a[1]) * (px - a[0]);
-    if (sign === 0) {
-      if (Math.abs(cross) > 1e-6) sign = cross > 0 ? 1 : -1;
-      continue;
-    }
-    /* 容差：边界像素恰好压在边上时，浮点抖动会让相邻两格都判"外"，
-       留下 1px 网格状细缝。允许半像素越界 —— 相邻格会重叠，
-       深度相同的情况下颜色相近，肉眼不可见。 */
-    if (cross * sign < -0.5) return false;
-  }
-  return true;
-}
-
-/* 按高度反投影：屏幕点 → 平面 z 上的世界坐标。
-   engine 的 unproject 只解 z=0；抬高的格子必须用它，
-   否则"屏幕包围盒"和"像素归属判定"会错位，高台顶面整片漏画。 */
-function terrainUnprojectZ(sx, sy, z) {
-  const u = (sx - OX) / S;
-  const v = ((sy - OY) / S + z * COS) / SIN;
-  return { x: (u + v) / Math.SQRT2, y: (v - u) / Math.SQRT2 };
-}
-
-/* 一个格的世界坐标角点（逆时针：SW, SE, NE, NW） */
-function terrainCorners(gx, gy) {
-  return [
-    [gx, gy],           /* SW */
-    [gx + 1, gy],       /* SE */
-    [gx + 1, gy + 1],   /* NE */
-    [gx, gy + 1],       /* NW */
-  ];
-}
-
-/* ---------------- 过渡：抖动混合 ---------------- */
-
-/**
- * 求某像素的过渡结果。
- * @returns {{ mat:object, w:number }} w = 过渡强度（0 纯主体，1 完全是邻格）
- */
-function terrainBlend(gx, gy, wx, wy, ix, iy, cell, mat) {
-  const B = TERRAIN.blend;
-  const bwBase = B.width * (mat.blend ? mat.blend.width / 0.45 : 1);
-  if (bwBase <= 0.01) return { mat, matId: cell.mat, w: 0 };
-
-  /* 局部带宽：低频噪声调制 0.45~1.5 倍 —— 有的地方咬得深、有的地方浅，
-     边界因此长出不规则毛刺，而不是均匀的一圈描边 */
-  const bw = bwBase * (0.45 + noise(wx * 1.9 + 31, wy * 1.9 + 17) * 1.05);
-
-  /* 到四条边的距离（0 = 边界，0.5 = 格心） */
-  const dl = wx - gx, dr = gx + 1 - wx;
-  const dt = wy - gy, db = gy + 1 - wy;
-  const dEdge = Math.min(dl, dr, dt, db);
-  if (dEdge > bw) return { mat, matId: cell.mat, w: 0 };
-
-  /* 四条边各自对应的邻格 */
-  const sides = [
-    { d: dl, gx: gx - 1, gy, ix: -1, iy: 0 },
-    { d: dr, gx: gx + 1, gy, ix: 1, iy: 0 },
-    { d: dt, gx, gy: gy - 1, ix: 0, iy: -1 },
-    { d: db, gx, gy: gy + 1, ix: 0, iy: 1 },
-  ];
-
-  let best = null, bestId = null, bestW = 0;
-  for (const s of sides) {
-    if (s.d > bw) continue;
-    const nc = TERRAIN.get(s.gx, s.gy);
-    if (!nc || nc.mat === cell.mat) continue;
-    const nm = TERRAIN.mats[nc.mat];
-    if (!nm) continue;
-
-    /* 基础权重：越贴边越强 */
-    let w = 1 - s.d / bw;
-
-    /* 抖动：两条低频噪声叠加，把直线边界咬成不规则形状 */
-    const j = B.jitter * ((mat.blend ? mat.blend.jitter : 0.6) + (nm.blend ? nm.blend.jitter : 0.6)) / 2;
-    const n = noise(wx * 5.6, wy * 5.6) * 0.65 + noise(wx * 15.3, wy * 15.3) * 0.35;
-
-    /* 像素风的"渐变"：Bayer + 噪声阈值。
-       w≈1 时 t = 0.35~1.45 —— 噪声小处不命中（留缺口），
-       噪声大处命中，边界因此是碎片化咬合而非实心环 */
-    const t = w * (0.35 + n * 1.1) + (bayerAt(ix, iy) - 0.5) * j * 0.85;
-    if (t > 0.5 && w > bestW) { bestW = w; best = nm; bestId = nc.mat; }
-  }
-
-  return { mat: best || mat, matId: bestId || cell.mat, w: best ? bestW : 0 };
-}
-
-/**
- * 坡度混合：本格边缘向更高的邻格高度靠拢，断崖变缓坡。
- * 只向更高的邻格抬升（向下会与侧壁打架）。
- */
-function terrainSlopeHeight(gx, gy, wx, wy, z, mat) {
-  if (!TERRAIN.blend.slope) return z;
-  const bw = TERRAIN.blend.width * (mat.blend ? mat.blend.width / 0.45 : 1);
-  if (bw <= 0.01) return z;
-
-  const dl = wx - gx, dr = gx + 1 - wx;
-  const dt = wy - gy, db = gy + 1 - wy;
-  const dEdge = Math.min(dl, dr, dt, db);
-  if (dEdge > bw) return z;
-
-  const sides = [
-    { d: dl, gx: gx - 1, gy },
-    { d: dr, gx: gx + 1, gy },
-    { d: dt, gx, gy: gy - 1 },
-    { d: db, gx, gy: gy + 1 },
-  ];
-
-  let bestZ = z, bestGain = 0;
-  for (const s of sides) {
-    if (s.d > bw) continue;
-    const nc = TERRAIN.get(s.gx, s.gy);
-    if (!nc) continue;
-    const dz = (nc.z || 0) - z;
-    if (dz <= 0.02) continue;                    /* 只向更高处抬 */
-    const w = 1 - s.d / bw;
-    const e = w * w * (3 - 2 * w);               /* smoothstep */
-    const gain = dz * e * 0.9;
-    if (gain > bestGain) { bestGain = gain; bestZ = z + gain; }
-  }
-  return bestZ;
-}
-
-/* ---------------- 子项：材质自带的装饰 ---------------- */
-
-function terrainDetail(matId, mat, wx, wy, ix, iy, ramp, baseLevel) {
-  const d = mat.detail || {};
-  let lv = baseLevel;
-
-  if (matId === 'grass') {
-    /* 苔藓斑块：低频选区 + 高频打散（docs/kit/scene.md §5.3） */
-    if (d.clump && noise(wx * 0.55, wy * 0.55) > 0.72 && hash(ix, iy) > 0.55) {
-      return ramp[0];
-    }
-    if (d.speckle && hash(ix * 1.7 + 3, iy * 2.3 + 7) > 0.985) lv = Math.min(4, lv + 1);
-  } else if (matId === 'soil') {
-    /* 石子：亮点 + 偏移一格的暗点，避免成簇 */
-    if (d.pebble && hash(ix, iy) > 0.975) return ramp[4];
-    if (d.pebble && hash(ix - 1, iy - 1) > 0.978) return ramp[1];
-    if (d.speckle && hash(ix * 2.1, iy * 1.3) > 0.99) lv = Math.max(0, lv - 1);
-  } else if (matId === 'sand') {
-    /* 风纹：两条不同频率的正弦叠加 */
-    if (d.ripple) {
-      const r = Math.sin(wx * 2.2 + wy * 0.7) * 0.5 + Math.sin(wx * 0.9 - wy * 3.1) * 0.5;
-      if (r > 0.55) lv = Math.min(4, lv + 1);
-      else if (r < -0.6) lv = Math.max(0, lv - 1);
-    }
-  } else if (matId === 'stone') {
-    /* 石板缝：格内 2×2 分块，缝处压暗一档 */
-    if (d.seam) {
-      const sx = (wx - Math.floor(wx)) * 2, sy = (wy - Math.floor(wy)) * 2;
-      if (Math.abs(sx - 0.5) < 0.045 || Math.abs(sy - 0.5) < 0.045) return ramp[0];
-    }
-  } else if (matId === 'water') {
-    /* 波纹 + 波峰高光 */
-    if (d.wave) {
-      const w = Math.sin(wx * 1.4 + wy * 0.6) * 0.5 + Math.sin(wx * 0.5 - wy * 1.9) * 0.5;
-      if (w > 0.62) return ramp[4];
-      if (w > 0.3) lv = Math.min(4, lv + 1);
-      else if (w < -0.55) lv = Math.max(0, lv - 1);
-    }
-  }
-
-  return ramp[lv];
-}
-
 /* ---------------- 顶面 ---------------- */
 
 function terrainDrawTop(gx, gy) {
@@ -308,47 +131,23 @@ function terrainDrawWalls(gx, gy) {
   }
 }
 
-/* ---------------- 收边补洞 ----------------
- *
- * 等距投影下，高低相邻格的顶面四边形在屏幕上会错位 1~2px，
- * 严格的像素归属会留下一圈网格状细缝（相邻两格都判"外"）。
- * 像素艺术里的标准收边做法：渲染后扫一遍，被地形包围的背景像素
- * 用邻域众数色填上，并把深度设为邻域最大（保证后续物体遮挡关系正确）。
- */
-function terrainPatchSeams() {
-  const BG = rgb(250, 246, 232);
-  const N8 = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
+/* ---------------- 分发 ---------------- */
 
-  for (let iy = 1; iy < H - 1; iy++) for (let ix = 1; ix < W - 1; ix++) {
-    const i = iy * W + ix;
-    if (pix[i] !== BG) continue;
-
-    let n = 0, orth = 0, bestColor = 0, bestCount = 0, bestZ = -1e9;
-    const seen = new Map();
-    for (const [dx, dy] of N8) {
-      const j = (iy + dy) * W + ix + dx;
-      if (pix[j] === BG) continue;
-      n++;
-      if (dx === 0 || dy === 0) orth++;
-      const c = pix[j];
-      const cnt = (seen.get(c) || 0) + 1;
-      seen.set(c, cnt);
-      if (cnt > bestCount) { bestCount = cnt; bestColor = c; }
-      if (zb[j] > bestZ) bestZ = zb[j];
-    }
-
-    /* 4 邻中至少 3 个是地形才补 —— 内部洞必补，岛屿外缘的锯齿不会被糊 */
-    if (orth < 3) continue;
-    pix[i] = bestColor;
-    zb[i] = bestZ;
-    ground[i] = 1;
-    groundZ[i] = bestZ;
+/* slope=false 走台阶渲染（quad + 侧壁）；
+   slope=true 走坡面渲染（高度场光线步进，见 terrain-march.js）。 */
+function terrainRender(fast) {
+  /* fast=true（拖动笔刷期间）强制走台阶渲染：march 要几百毫秒，
+     拖动时每帧都跑会卡死；松手后再跑一次完整坡面渲染。 */
+  if (!fast && TERRAIN.blend.slope && typeof terrainRenderMarch === 'function') {
+    terrainRenderMarch();
+    return;
   }
+  terrainRenderQuad();
 }
 
-/* ---------------- 总渲染 ---------------- */
+/* ---------------- 台阶渲染（quad + 侧壁） ---------------- */
 
-function terrainRender() {
+function terrainRenderQuad() {
   const cells = [...TERRAIN.cells.values()].sort((a, b) => (b.gx + b.gy) - (a.gx + a.gy));
   for (const c of cells) terrainDrawWalls(c.gx, c.gy);
   for (const c of cells) terrainDrawTop(c.gx, c.gy);
