@@ -369,3 +369,128 @@ KIT.register({
     ctx.shadow(0.42, 1, 0.5);
   },
 });
+
+/* ---- 苹果手推车 · wheelbarrow ---- */
+KIT.register({
+  id: 'wheelbarrow',
+  name: '苹果手推车',
+  category: 'prop',
+  desc: '木斗单轮手推车：五层板叠出梯形斗身、辐条木轮、双把手双支腿，斗里堆满红苹果',
+  params: {
+    apples: { def: 10, min: 0, max: 16, step: 1, desc: '斗里的苹果数量（0 = 空车）' },
+    length: { def: 1, min: 0.8, max: 1.35, step: 0.05, desc: '车斗前后长度倍率' },
+    wheel: { def: 1, min: 0.7, max: 1.3, step: 0.05, desc: '前轮直径倍率' },
+  },
+  collision: { type: 'cylinder', radius: 0.9, height: 1.2 },
+
+  draw(ctx, inst) {
+    const p = ctx.params;
+    const L = p.length, WH = p.wheel;
+    const X = ctx.x, Y = ctx.y, Z = ctx.z;
+    const S = ctx.seed, hash = ctx.hash, lerp = ctx.lerp;
+
+    // 木材：板面 / 板侧 / 深木 / 斗沿高光
+    const PLANK = [156, 110, 66];
+    const PLANK_M = [138, 96, 56];
+    const PLANK_D = [118, 80, 46];
+    const RIM = [172, 126, 80];
+    const WOOD_D = [100, 72, 46];
+    const GRIP = [72, 64, 60];
+    // 苹果
+    const AP = [182, 50, 44];
+    const AP_HI = [202, 74, 58];
+    const LEAF_P = ctx.rgb(92, 132, 62);
+    // 铁件与轮胎
+    const IRON = [104, 108, 116];
+    const IRON_D = [78, 82, 90];
+    const RUBBER = [58, 56, 60];
+
+    // 斗口：底窄顶宽
+    const xb = 0.34, xt = 0.46;
+    const yb = 0.60 * L, yt = 0.70 * L;
+    const zB = Z + 0.34, zT = Z + 0.88;
+
+    // 前轮：轮心在前壁之外，半径 = 轮心高度（自动触地）
+    const wy = Y + yt + 0.17;
+    const wr = 0.30 * WH;
+    const wz = Z + wr;
+
+    // ---- 车架：左右大梁（后段上翘当把手）、支腿、握把 ----
+    for (let s = -1; s <= 1; s += 2) {
+      const bx = X + s * 0.42;
+      ctx.capsule([bx, wy + 0.04, Z + 0.36], [bx, Y - 0.52, Z + 0.44],
+        0.046, 0.05, () => PLANK_M, 'rough');
+      ctx.capsule([bx, Y - 0.52, Z + 0.44], [bx, Y - 1.02, Z + 0.80],
+        0.046, 0.04, () => PLANK_M, 'rough');
+      ctx.capsule([bx, Y - 0.96, Z + 0.76], [bx, Y - 1.10, Z + 0.84],
+        0.058, 0.05, () => GRIP, 'solid');
+      ctx.capsule([bx, Y - 0.48, Z + 0.40], [bx, Y - 0.56, Z + 0.05],
+        0.05, 0.042, () => PLANK_D, 'rough');
+      ctx.capsule([bx, Y - 0.50, Z + 0.43], [bx, Y - 0.57, Z + 0.47],
+        0.056, 0.056, () => IRON_D, 'solid');
+    }
+
+    // ---- 前轮：铁轴 + 像素轮盘（胎环 / 木辋 / 四根镂空辐条 / 轮毂）----
+    ctx.capsule([X - 0.48, wy, wz], [X + 0.48, wy, wz],
+      0.032, 0.032, () => IRON_D, 'solid');
+    const step = 0.026;
+    for (let sy = -wr; sy <= wr; sy += step) {
+      for (let sz = -wr; sz <= wr; sz += step) {
+        const d = Math.sqrt(sy * sy + sz * sz) / wr;
+        if (d > 1) continue;
+        let c = null;
+        if (d > 0.84) c = RUBBER;
+        else if (d > 0.68) c = PLANK_M;
+        else if (d < 0.18) c = IRON_D;
+        else if (Math.abs(Math.sin(Math.atan2(sz, sy) * 2)) > 0.45) c = PLANK_D;
+        if (!c) continue;
+        ctx.plot(X, wy + sy, wz + sz, ctx.rgb(c[0], c[1], c[2]));
+      }
+    }
+    ctx.sphere(X, wy, wz, wr * 0.17, IRON, 'solid');
+
+    // ---- 斗身：五层薄板逐层外扩，叠出梯形斜壁 ----
+    const N = 5;
+    for (let i = 0; i < N; i++) {
+      const t0 = i / N, t1 = (i + 1) / N, tm = (t0 + t1) * 0.5;
+      const hx = lerp(xb, xt, tm);
+      const hy = lerp(yb, yt, tm);
+      const z0 = lerp(zB, zT, t0);
+      const z1 = lerp(zB, zT, t1) + (i < N - 1 ? 0.012 : 0);
+      ctx.box(X - hx, Y - hy, z0, X + hx, Y + hy, z1,
+        i % 2 ? PLANK_M : PLANK, S + i * 13);
+    }
+
+    // ---- 斗沿：四面围出一圈加厚的口（降 0.02 避开共面闪烁）----
+    const rx = xt + 0.03, ry = yt + 0.03;
+    const rt = 0.055, rh = 0.055, zR = zT - 0.02;
+    ctx.box(X - rx, Y - ry, zR, X + rx, Y - ry + rt, zR + rh, RIM, S + 71);
+    ctx.box(X - rx, Y + ry - rt, zR, X + rx, Y + ry, zR + rh, RIM, S + 72);
+    ctx.box(X - rx, Y - ry + rt, zR, X - rx + rt, Y + ry - rt, zR + rh, RIM, S + 73);
+    ctx.box(X + rx - rt, Y - ry + rt, zR, X + rx, Y + ry - rt, zR + rh, RIM, S + 74);
+
+    // ---- 苹果：3×4 底层 + 2×2 顶层，网格抖动避免整齐 ----
+    const n = Math.round(p.apples);
+    for (let i = 0; i < n; i++) {
+      const top = i >= 12;
+      const k = top ? i - 12 : i;
+      const cols = top ? 2 : 3;
+      const rows = top ? 2 : 4;
+      const gx = (k % cols) / (cols - 1) - 0.5;
+      const gy = (Math.floor(k / cols) % rows) / (rows - 1) - 0.5;
+      const jx = (hash(i * 3 + 1, S) - 0.5) * 0.24;
+      const jy = (hash(i * 3 + 2, S) - 0.5) * 0.24;
+      const ax = X + (gx * 0.92 + jx) * xt;
+      const ay = Y + (gy * 0.94 + jy) * yt;
+      const az = zT + (top ? 0.21 : 0.07) + hash(i * 3 + 3, S) * 0.03;
+      const r = 0.10 + hash(i * 7 + 5, S) * 0.035;
+      ctx.sphere(ax, ay, az, r, hash(i * 11 + 9, S) > 0.55 ? AP_HI : AP, 'gloss');
+      ctx.capsule([ax, ay, az + r * 0.82], [ax + 0.015, ay, az + r * 1.12],
+        0.011, 0.007, () => WOOD_D, 'solid');
+      ctx.plot(ax + 0.065, ay - 0.005, az + r * 1.0, LEAF_P);
+      ctx.plot(ax + 0.095, ay + 0.005, az + r * 1.04, LEAF_P);
+    }
+
+    ctx.shadow(1.05 * L, 1, 0.5);
+  },
+});

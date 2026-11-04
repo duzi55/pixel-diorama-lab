@@ -149,91 +149,6 @@ KIT.register({
   },
 });
 
-/* ---- 棚屋 · shed ---- */
-function shedRoofDeck(ctx, xa, xb, ya, yb, zAt, ramp) {
-  const sx = 0.06, sy = 0.055;
-  for (let y = ya; y <= yb + 1e-6; y += sy) {
-    const z = zAt(y);
-    const front = (y - ya) < 0.14 ? 1 : 0;
-    for (let x = xa; x <= xb + 1e-6; x += sx) {
-      const band = Math.floor((x - xa) / 0.26) & 1;
-      const rust = ctx.hash((x * 31 + y * 17) | 0, ctx.seed) > 0.965 ? 1 : 0;
-      ctx.plot(x, y, z, ramp[(band ? 3 : 2) - front - rust]);
-    }
-  }
-}
-
-function shedRoofRim(ctx, xa, xb, ya, yb, zAt, drop, ramp) {
-  const s = 0.05;
-  const zA = zAt(ya), zB = zAt(yb);
-  for (let x = xa; x <= xb + 1e-6; x += s) {
-    for (let z = zA - drop; z <= zA + 1e-6; z += s) ctx.plot(x, ya, z, ramp[0]);
-    for (let z = zB - drop; z <= zB + 1e-6; z += s) ctx.plot(x, yb, z, ramp[0]);
-  }
-  for (let y = ya; y <= yb + 1e-6; y += s) {
-    const zT = zAt(y);
-    for (let z = zT - drop; z <= zT + 1e-6; z += s) {
-      ctx.plot(xa, y, z, ramp[1]);
-      ctx.plot(xb, y, z, ramp[1]);
-    }
-  }
-}
-
-KIT.register({
-  id: 'shed',
-  name: '棚屋',
-  category: 'building',
-  desc: '四根木柱撑起的单坡顶敞棚，不封墙',
-  params: {
-    width:     { def: 2.6,  min: 1.4, max: 4.5,  step: 0.1,  desc: '棚屋宽度（x 跨度）' },
-    depth:     { def: 2.0,  min: 1.2, max: 4.0,  step: 0.1,  desc: '棚屋进深（y 跨度，坡向沿此轴）' },
-    frontH:    { def: 1.5,  min: 0.8, max: 3.0,  step: 0.1,  desc: '前檐柱高（低边）' },
-    backH:     { def: 2.3,  min: 1.0, max: 4.0,  step: 0.1,  desc: '后檐柱高（高边）' },
-    postR:     { def: 0.11, min: 0.06, max: 0.24, step: 0.01, desc: '立柱半径' },
-    thickness: { def: 0.13, min: 0.07, max: 0.3,  step: 0.01, desc: '屋面板厚度' },
-    overhang:  { def: 0.2,  min: 0,   max: 0.5,  step: 0.02, desc: '屋檐四周挑出' },
-  },
-  collision: { type: 'box', w: 2.6, d: 2.0, h: 2.3 },
-  draw(ctx, inst) {
-    const p = ctx.params;
-    const z0 = ctx.z || 0;
-    const W = p.width, D = p.depth;
-    const hw = W / 2, hd = D / 2;
-    const hF = p.frontH;
-    const hB = Math.max(p.backH, hF + 0.2);
-    const t = p.thickness, oh = p.overhang;
-    const OX = ctx.x, OY = ctx.y;
-    const slope = (hB - hF) / D;
-
-    const BARK = [118, 86, 56], BARK_HI = [136, 102, 68], BARK_LO = [96, 70, 46];
-    const ramp = ctx.rampOf([98, 106, 112]);
-
-    const zAt = (wy) => {
-      const ly = wy - OY;
-      return z0 + Math.max(0.08, hF + (ly + hd) * slope);
-    };
-
-    const xa = OX - hw - oh, xb = OX + hw + oh;
-    const ya = OY - hd - oh, yb = OY + hd + oh;
-
-    const px = [-hw, hw, -hw, hw];
-    const py = [-hd, -hd, hd, hd];
-    for (let i = 0; i < 4; i++) {
-      const cx = OX + px[i], cy = OY + py[i];
-      const top = Math.max(z0 + 0.15, zAt(cy) - t + 0.03);
-      ctx.capsule([cx, cy, z0], [cx, cy, top], p.postR * 1.15, p.postR * 0.88,
-        z => (z - z0) > (top - z0) * 0.78 ? BARK_HI
-           : (z - z0) > (top - z0) * 0.22 ? BARK : BARK_LO,
-        'rough');
-    }
-
-    shedRoofDeck(ctx, xa, xb, ya, yb, zAt, ramp);
-    shedRoofRim(ctx, xa, xb, ya, yb, zAt, t, ramp);
-
-    ctx.shadow(Math.max(W, D) * 0.58, 1, 0.5);
-  },
-});
-
 /* ---- 水井 · well-house ---- */
 KIT.register({
   id: 'well-house',
@@ -473,4 +388,67 @@ KIT.register({
     // 8. 地面阴影
     ctx.shadow(W + 0.5, 1, 0.5);
   }
+});
+
+/* ---- 棚屋 · shed ---- */
+KIT.register({
+  id: 'shed',
+  name: '棚屋',
+  category: 'building',
+  desc: '四根木柱撑起的单坡顶木棚：屋顶由一叠水平薄板叠成阶梯斜面，板板有厚度，斜看也不透光',
+  params: {
+    width:     { def: 2.6,  min: 1.4, max: 4.5,  step: 0.1,  desc: '棚屋宽度（x 跨度）' },
+    depth:     { def: 2.0,  min: 1.2, max: 4.0,  step: 0.1,  desc: '棚屋进深（y 跨度，坡向沿此轴）' },
+    frontH:    { def: 1.5,  min: 0.8, max: 3.0,  step: 0.1,  desc: '前檐柱高（低边）' },
+    backH:     { def: 2.3,  min: 1.0, max: 4.0,  step: 0.1,  desc: '后檐柱高（高边）' },
+    postR:     { def: 0.11, min: 0.06, max: 0.24, step: 0.01, desc: '立柱半径' },
+    thickness: { def: 0.13, min: 0.07, max: 0.3,  step: 0.01, desc: '屋面板厚度' },
+    overhang:  { def: 0.2,  min: 0,   max: 0.5,  step: 0.02, desc: '屋檐四周挑出' },
+  },
+  collision: { type: 'box', w: 2.6, d: 2.0, h: 2.3 },
+  draw(ctx, inst) {
+    const p = ctx.params;
+    const OX = ctx.x, OY = ctx.y, z0 = ctx.z || 0;
+    const W = p.width, D = p.depth;
+    const hw = W / 2, hd = D / 2;
+    const hF = p.frontH;
+    const hB = Math.max(p.backH, hF + 0.25);
+    const t = p.thickness, oh = p.overhang;
+    const slope = (hB - hF) / D;
+
+    const BARK = [116, 84, 54], BARK_HI = [138, 104, 70], BARK_LO = [92, 66, 42];
+
+    // 高度场：y = OY-hd 处为前檐 hF，y = OY+hd 处为后脊 hB，挑出段顺着坡继续延伸
+    const zAt = (wy) => z0 + Math.max(0.06, hF + (wy - OY + hd) * slope);
+
+    // 四根立柱：顶端插进屋顶板底 0.02，不再穿出屋面
+    const px = [-hw, hw, -hw, hw];
+    const py = [-hd, -hd, hd, hd];
+    for (let i = 0; i < 4; i++) {
+      const cx = OX + px[i], cy = OY + py[i];
+      const top = Math.max(z0 + 0.2, zAt(cy) - t + 0.02);
+      ctx.capsule([cx, cy, z0], [cx, cy, top], p.postR * 1.15, p.postR * 0.88,
+        z => (z - z0) > (top - z0) * 0.78 ? BARK_HI
+           : (z - z0) > (top - z0) * 0.22 ? BARK : BARK_LO,
+        'rough');
+    }
+
+    // 屋顶：一叠水平薄板箱体叠出斜面。
+    // 斜的单层面片在等距下会被压成一条带（就是"透明"的来源）；
+    // 水平顶面法线朝上，永远不会与视线平行，每段 box 还自带厚度与竖直前立面。
+    const xa = OX - hw - oh, xb = OX + hw + oh;
+    const ya = OY - hd - oh, yb = OY + hd + oh;
+    const seg = Math.max(8, Math.min(60, Math.round(D / 0.08)));
+    for (let i = 0; i < seg; i++) {
+      const y0 = ya + (yb - ya) * (i / seg);
+      const y1 = ya + (yb - ya) * ((i + 1) / seg);
+      const f = (i + 0.5) / seg;                  // 0 = 前檐，1 = 后脊
+      const zt = zAt((y0 + y1) / 2);
+      const zb = Math.max(z0 + 0.04, zt - t);
+      const g = Math.round(84 + 36 * f);          // 近脊受光更亮
+      ctx.box(xa, y0, zb, xb, y1, zt, [g, g + 5, g + 9], ctx.seed + i);
+    }
+
+    ctx.shadow(Math.max(W, D) * 0.58, 1, 0.5);
+  },
 });

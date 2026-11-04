@@ -20,6 +20,8 @@
 >   碰撞体（box 的 w·d·h 或 cylinder 的 radius·height / 无）→「应用并预览」
 >   直接把字段补丁写回代码；参数块的「当前值存为默认」把滑块值写回 `def`
 > - 预览工具条可开关**碰撞体显示**（默认关）
+> - **画布缩放**：工具栏 −/＋/适应 + 预览框内滚轮，档位 50%~400%（整数倍 CSS 放大，
+>   `image-rendering: pixelated` 保持锐利）；放大后视口自动对准画布中心、可滚动查看
 > - **AI 思考与进度**：生成走 SSE（`Accept: text/event-stream`），
 >   `open/progress/thinking/done/error` 事件实时显示推理、工具调用、token 数与进度条
 > - **修改记录**（`app-history.js`）：属性应用 / 参数存默认 / AI 结果 / 应用代码

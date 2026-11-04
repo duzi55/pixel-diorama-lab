@@ -324,6 +324,11 @@ window.addEventListener('message', e => {
     PV_render();
     return;
   }
+  if (msg.type === 'zoom') {
+    const k = Number(msg.k);
+    PV_applyZoom(Number.isFinite(k) ? k : 1);
+    return;
+  }
   if (msg.type === 'bg') {
     PV.bgTone = msg.tone === 'paper' ? 'paper' : 'dark';
     PV_render();
@@ -337,6 +342,13 @@ window.addEventListener('message', e => {
   }
   if (msg.type === 'box') { PV.showBox = !!msg.on; PV_render(); return; }
 });
+
+/* 画布缩放：改 canvas 的 CSS 尺寸（image-rendering: pixelated 保持锐利） */
+function PV_applyZoom(k) {
+  const z = Math.max(.5, Math.min(4, k));
+  canvas.style.width = Math.round(W * z) + 'px';
+  canvas.style.height = Math.round(H * z) + 'px';
+}
 
 addEventListener('resize', PV_fit);
 PV_fit();

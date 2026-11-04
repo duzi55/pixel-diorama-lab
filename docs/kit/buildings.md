@@ -737,20 +737,14 @@ KIT.register({
 |---|---|
 | **ID** | `shed` |
 | **来源** | `demo/kit/buildings.js` · `KIT.register` · studio 生成 |
-| **形态** | 四根木柱撑起的单坡顶敞棚，不封墙 |
+| **形态** | 四根木柱撑起的单坡顶木棚：屋顶由一叠水平薄板叠成阶梯斜面，板板有厚度，斜看也不透光 |
 | **分类** | 建筑 |
 
 ### 参数
 
 | 参数 | 默认 | 区间 | 步进 | 说明 |
 |------|------|------|------|------|
-| `width` | 2.6 | 1.4 ~ 4.5 | 0.1 | 棚屋宽度（x 跨度） |
-| `depth` | 2 | 1.2 ~ 4 | 0.1 | 棚屋进深（y 跨度，坡向沿此轴） |
-| `frontH` | 1.5 | 0.8 ~ 3 | 0.1 | 前檐柱高（低边） |
-| `backH` | 2.3 | 1 ~ 4 | 0.1 | 后檐柱高（高边） |
-| `postR` | 0.11 | 0.06 ~ 0.24 | 0.01 | 立柱半径 |
-| `thickness` | 0.13 | 0.07 ~ 0.3 | 0.01 | 屋面板厚度 |
-| `overhang` | 0.2 | 0 ~ 0.5 | 0.02 | 屋檐四周挑出 |
+| — | — | — | — | 无可调参数 |
 
 ### 碰撞体
 
@@ -764,59 +758,16 @@ KIT.register({
 
 ### 实现说明
 
-【与规格的一致性】严格按配方卡：4 根 capsule 立柱 + 1 块单坡顶板，四边全敞不封墙——这正是它与 house 的骨架差异（house 是 box 围合 + 双坡顶），值得独立 ID。未添加横梁、斜撑、柱础等规格外特征。
-
-【斜顶如何真的斜】ctx.box() 是轴对齐盒子（签名只有 x0..z1，无旋转），无法直接表达坡面。用「叠薄盒」只能做出台阶。因此顶面改用 ctx.plot() 在世界空间参数化采样一个真实斜平面：z = z0 + hF + (y - yFront) * slope，坡度由 (backH - frontH) / depth 决定。采样步长 0.06 / 0.055 世界单位，保证投影后无孔洞。
-
-【坑 1 · 柱头不能露】柱子顶端取 zAt(cy) - thickness + 0.03，即插进板厚内部而不是顶到板面之上；否则 4 根柱头会从屋顶戳出小凸起。柱子的 y 位置在 ±hd，而屋面挑出到 ±hd∓overhang，所以柱顶被顶面完全遮住。
-
-【坑 2 · 挑檐要沿坡延伸】挑出的部分不能让檐口高度保持不变，否则檐口会被拉平成翘边。zAt() 对任意 y 都沿同一条坡线求值，前檐自然比 hF 低 oh*slope。同时对极端参数（大 backH + 小 depth + 大 overhang）做了地表下限夹紧 Math.max(0.08, ...)，避免屋面插进地里。
-
-【坑 3 · 边缘轮廓】顶面采样时对靠近前檐的 0.14 带降一档色阶，配合前檐断面用 ramp[0]、侧沿用 ramp[1]，形成清晰的像素描边感；再用 ctx.hash 以 3.5% 概率打 ramp[-1] 的锈斑，避免大面积纯色。
-
-【配色】屋面板基色 [98,106,112] 冷灰蓝铁皮，与木屋的暖棕茅草/木板顶拉开区分；木柱 [118,86,56]，受光段 [136,102,68]（通道差 16~18，在 10~25 内），根部 [96,70,46] 压暗接地。所有颜色都是 [r,g,b] 数组；只有 plot 用 rampOf 的打包值。
-
-【性能】单实例屋面约 50×43 ≈ 2100 次 plot，加上四周断面约 700 次，总计约 2800 次。plot 是纯数组写 + 深度比较，量级安全；若将来一屏放几十个棚屋仍偏重，可把 shedRoofDeck 的 sx/sy 随 width 自适应放大。
-
-【坐标】所有绘制坐标都经 ctx.x / ctx.y / z0 偏移，无裸原点，放置到 (4,2) 也不会跑位。
+（待补充）
 
 ### 实现
 
 ```js
-function shedRoofDeck(ctx, xa, xb, ya, yb, zAt, ramp) {
-  const sx = 0.06, sy = 0.055;
-  for (let y = ya; y <= yb + 1e-6; y += sy) {
-    const z = zAt(y);
-    const front = (y - ya) < 0.14 ? 1 : 0;
-    for (let x = xa; x <= xb + 1e-6; x += sx) {
-      const band = Math.floor((x - xa) / 0.26) & 1;
-      const rust = ctx.hash((x * 31 + y * 17) | 0, ctx.seed) > 0.965 ? 1 : 0;
-      ctx.plot(x, y, z, ramp[(band ? 3 : 2) - front - rust]);
-    }
-  }
-}
-
-function shedRoofRim(ctx, xa, xb, ya, yb, zAt, drop, ramp) {
-  const s = 0.05;
-  const zA = zAt(ya), zB = zAt(yb);
-  for (let x = xa; x <= xb + 1e-6; x += s) {
-    for (let z = zA - drop; z <= zA + 1e-6; z += s) ctx.plot(x, ya, z, ramp[0]);
-    for (let z = zB - drop; z <= zB + 1e-6; z += s) ctx.plot(x, yb, z, ramp[0]);
-  }
-  for (let y = ya; y <= yb + 1e-6; y += s) {
-    const zT = zAt(y);
-    for (let z = zT - drop; z <= zT + 1e-6; z += s) {
-      ctx.plot(xa, y, z, ramp[1]);
-      ctx.plot(xb, y, z, ramp[1]);
-    }
-  }
-}
-
 KIT.register({
   id: 'shed',
   name: '棚屋',
   category: 'building',
-  desc: '四根木柱撑起的单坡顶敞棚，不封墙',
+  desc: '四根木柱撑起的单坡顶木棚：屋顶由一叠水平薄板叠成阶梯斜面，板板有厚度，斜看也不透光',
   params: {
     width:     { def: 2.6,  min: 1.4, max: 4.5,  step: 0.1,  desc: '棚屋宽度（x 跨度）' },
     depth:     { def: 2.0,  min: 1.2, max: 4.0,  step: 0.1,  desc: '棚屋进深（y 跨度，坡向沿此轴）' },
@@ -829,41 +780,46 @@ KIT.register({
   collision: { type: 'box', w: 2.6, d: 2.0, h: 2.3 },
   draw(ctx, inst) {
     const p = ctx.params;
-    const z0 = ctx.z || 0;
+    const OX = ctx.x, OY = ctx.y, z0 = ctx.z || 0;
     const W = p.width, D = p.depth;
     const hw = W / 2, hd = D / 2;
     const hF = p.frontH;
-    const hB = Math.max(p.backH, hF + 0.2);
+    const hB = Math.max(p.backH, hF + 0.25);
     const t = p.thickness, oh = p.overhang;
-    const OX = ctx.x, OY = ctx.y;
     const slope = (hB - hF) / D;
 
-    const BARK = [118, 86, 56];
-    const BARK_HI = [136, 102, 68];
-    const BARK_LO = [96, 70, 46];
-    const ramp = ctx.rampOf([98, 106, 112]);
+    const BARK = [116, 84, 54], BARK_HI = [138, 104, 70], BARK_LO = [92, 66, 42];
 
-    const zAt = (wy) => {
-      const ly = wy - OY;
-      return z0 + Math.max(0.08, hF + (ly + hd) * slope);
-    };
+    // 高度场：y = OY-hd 处为前檐 hF，y = OY+hd 处为后脊 hB，挑出段顺着坡继续延伸
+    const zAt = (wy) => z0 + Math.max(0.06, hF + (wy - OY + hd) * slope);
 
-    const xa = OX - hw - oh, xb = OX + hw + oh;
-    const ya = OY - hd - oh, yb = OY + hd + oh;
-
+    // 四根立柱：顶端插进屋顶板底 0.02，不再穿出屋面
     const px = [-hw, hw, -hw, hw];
     const py = [-hd, -hd, hd, hd];
     for (let i = 0; i < 4; i++) {
       const cx = OX + px[i], cy = OY + py[i];
-      const top = Math.max(z0 + 0.15, zAt(cy) - t + 0.03);
+      const top = Math.max(z0 + 0.2, zAt(cy) - t + 0.02);
       ctx.capsule([cx, cy, z0], [cx, cy, top], p.postR * 1.15, p.postR * 0.88,
         z => (z - z0) > (top - z0) * 0.78 ? BARK_HI
            : (z - z0) > (top - z0) * 0.22 ? BARK : BARK_LO,
         'rough');
     }
 
-    shedRoofDeck(ctx, xa, xb, ya, yb, zAt, ramp);
-    shedRoofRim(ctx, xa, xb, ya, yb, zAt, t, ramp);
+    // 屋顶：一叠水平薄板箱体叠出斜面。
+    // 斜的单层面片在等距下会被压成一条带（就是"透明"的来源）；
+    // 水平顶面法线朝上，永远不会与视线平行，每段 box 还自带厚度与竖直前立面。
+    const xa = OX - hw - oh, xb = OX + hw + oh;
+    const ya = OY - hd - oh, yb = OY + hd + oh;
+    const seg = Math.max(8, Math.min(60, Math.round(D / 0.08)));
+    for (let i = 0; i < seg; i++) {
+      const y0 = ya + (yb - ya) * (i / seg);
+      const y1 = ya + (yb - ya) * ((i + 1) / seg);
+      const f = (i + 0.5) / seg;                  // 0 = 前檐，1 = 后脊
+      const zt = zAt((y0 + y1) / 2);
+      const zb = Math.max(z0 + 0.04, zt - t);
+      const g = Math.round(84 + 36 * f);          // 近脊受光更亮
+      ctx.box(xa, y0, zb, xb, y1, zt, [g, g + 5, g + 9], ctx.seed + i);
+    }
 
     ctx.shadow(Math.max(W, D) * 0.58, 1, 0.5);
   },

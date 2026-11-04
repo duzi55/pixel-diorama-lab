@@ -202,6 +202,48 @@ $('#pv-tone').addEventListener('change', () => {
 pv.addEventListener('mouseenter', () => pv.contentWindow.postMessage({ type: 'spin', on: false }, '*'));
 pv.addEventListener('mouseleave', () => pv.contentWindow.postMessage({ type: 'spin', on: pvSpin.checked }, '*'));
 
+/* ---------------- 画布缩放（预览视图，不改网页） ---------------- */
+
+const ZOOM_STEPS = [.5, .75, 1, 1.5, 2, 3, 4];
+state.zoom = 1;
+
+function applyZoom(k) {
+  const z = Math.max(ZOOM_STEPS[0], Math.min(ZOOM_STEPS[ZOOM_STEPS.length - 1], k));
+  state.zoom = z;
+  const pvEl = $('#pv');
+  pvEl.style.width = Math.round(420 * z) + 'px';
+  pvEl.style.height = Math.round(340 * z) + 'px';
+  $('#pv-zoom-val').textContent = Math.round(z * 100) + '%';
+  pv.contentWindow.postMessage({ type: 'zoom', k: z }, '*');
+  /* 缩放后把视口对准画布中心（模型大致在中心），而不是停在左上角 */
+  const wrap = document.querySelector('.preview-wrap');
+  requestAnimationFrame(() => {
+    wrap.scrollLeft = Math.max(0, (wrap.scrollWidth - wrap.clientWidth) / 2);
+    wrap.scrollTop = Math.max(0, (wrap.scrollHeight - wrap.clientHeight) / 2);
+  });
+}
+
+function zoomStep(dir) {
+  const i = ZOOM_STEPS.findIndex(v => Math.abs(v - state.zoom) < .01);
+  const next = ZOOM_STEPS[Math.max(0, Math.min(ZOOM_STEPS.length - 1, (i < 0 ? 2 : i) + dir))];
+  applyZoom(next);
+}
+
+$('#pv-zoom-in').addEventListener('click', () => zoomStep(1));
+$('#pv-zoom-out').addEventListener('click', () => zoomStep(-1));
+$('#pv-zoom-fit').addEventListener('click', () => applyZoom(1));
+
+/* 滚轮缩放（在预览框内直接滚，不改网页缩放） */
+document.querySelector('.preview-wrap').addEventListener('wheel', e => {
+  e.preventDefault();
+  zoomStep(e.deltaY < 0 ? 1 : -1);
+}, { passive: false });
+
+/* iframe 重载后补发当前缩放 */
+pv.addEventListener('load', () => {
+  pv.contentWindow.postMessage({ type: 'zoom', k: state.zoom }, '*');
+});
+
 /* ---------------- 参数滑块 ---------------- */
 
 function buildParams() {

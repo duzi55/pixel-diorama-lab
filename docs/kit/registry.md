@@ -78,7 +78,7 @@
 | [`stairs`](structures.md#44-stairs-梯子) | 梯子 | 横档 + 侧杆 | `ref` `mini-ramp:183` | — | ✅ |
 | [`balcony`](buildings.md#well-house--水井) | 阳台 | **= `wood-house` 参数组**（不建独立 ID）：挑出平台 + 栏杆 | `demo` `kit/buildings.js` | `balconyDepth/balconyRail` | ✅ |
 | [`arch`](buildings.md#arch--拱门) | 拱门 | 方石墙开半椭圆门洞，券石环按极角分缝沿弧排列 | `demo` `kit/buildings.js` | `width`/`rise` | ✅ |
-| [`shed`](buildings.md#shed--棚屋) | 棚屋 | 四根木柱撑起的单坡顶敞棚，不封墙 | `demo` `kit/buildings.js` | `width`/`depth`/`frontH`/`backH`/`postR`/`thickness`/`overhang` | ✅ |
+| [`shed`](buildings.md#shed--棚屋) | 棚屋 | 四根木柱撑起的单坡顶木棚：屋顶由一叠水平薄板叠成阶梯斜面，板板有厚度，斜看也不透光 | `demo` `kit/buildings.js` | — | ✅ |
 | [`stone-mill`](buildings.md#stone-mill--石磨坊) | 石磨坊 | 石砌磨坊小屋，屋旁石台上立着可绕轴转动的石磨盘与十字木推杆 | `demo` `kit/buildings.js` | `width`/`depth`/`height`/`roofPitch`/`millRadius`/`grindAngle`/`tone` | ✅ |
 | [`well-house`](buildings.md#well-house--水井) | 水井 | 圆环石砌井台，两根木柱撑起横梁，麻绳吊着木桶 | `demo` `kit/buildings.js` | `radius`/`height`/`frameHeight` | ✅ |
 | [`forest-cabin`](buildings.md#forest-cabin--落叶小屋) | 落叶小屋 | 林中木屋：石基木板墙 + 陡坡屋顶覆满金黄落叶，檐口垂下叶串 | `demo` `kit/buildings.js` | `width`/`depth`/`height`/`pitch`/`leaves`/`warm`/`lamp` | ✅ |
@@ -128,7 +128,7 @@
 | [`fence`](props.md#sign--路牌) | 木栅栏 | 一排等距木桩 + 双横杆 | `demo` `kit/props.js` | `length/height/spacing` | ✅ |
 | [`stone-lantern`](props.md#sign--路牌) | 石灯 | 方柱承灯室，夜里亮着 | `demo` `kit/props.js` | `height/lit` | ✅ |
 | [`well`](props.md#sign--路牌) | 圆石井 | 圆环石砌井口 + 暗井水 | `demo` `kit/props.js` | `radius/height` | ✅ |
-| [`wheelbarrow`](props.md#wheelbarrow--苹果手推车) | 苹果手推车 | 木斗单轮手推车：梯形斗身、木轮、双把手双支腿，斗里堆满红苹果 | `demo` `kit/props.js` | `apples`/`length`/`wheel` | ✅ |
+| [`wheelbarrow`](props.md#wheelbarrow--苹果手推车) | 苹果手推车 | 木斗单轮手推车：五层板叠出梯形斗身、辐条木轮、双把手双支腿，斗里堆满红苹果 | `demo` `kit/props.js` | — | ✅ |
 | [`semi-truck`](props.md#semi-truck--经典卡车) | 经典卡车 | 红蓝经典涂装的平头半挂卡车：红色驾驶室 + 银色格栅与双排气管 + 蓝色条纹集装箱 | `demo` `kit/props.js` | `trailer`/`boxHeight`/`stripes` | ✅ |
 
 ---

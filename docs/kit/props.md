@@ -1060,16 +1060,14 @@ KIT.register({
 |---|---|
 | **ID** | `wheelbarrow` |
 | **来源** | `demo/kit/props.js` · `KIT.register` · studio 生成 |
-| **形态** | 木斗单轮手推车：梯形斗身、木轮、双把手双支腿，斗里堆满红苹果 |
+| **形态** | 木斗单轮手推车：五层板叠出梯形斗身、辐条木轮、双把手双支腿，斗里堆满红苹果 |
 | **分类** | 道具 |
 
 ### 参数
 
 | 参数 | 默认 | 区间 | 步进 | 说明 |
 |------|------|------|------|------|
-| `apples` | 10 | 0 ~ 16 | 1 | 斗里的苹果数量（0 = 空车） |
-| `length` | 1 | 0.8 ~ 1.35 | 0.05 | 车斗前后长度倍率 |
-| `wheel` | 1 | 0.7 ~ 1.3 | 0.05 | 前轮直径倍率 |
+| — | — | — | — | 无可调参数 |
 
 ### 碰撞体
 
@@ -1083,21 +1081,7 @@ KIT.register({
 
 ### 实现说明
 
-骨架与 crate（木箱）完全不同：crate 是封闭方箱，本件有梯形敞口斗、单前轮、双后把手、双支腿，属于新骨架，不是参数变体。
-
-实现要点
-1. 梯形斗身：用 5 层逐层外扩的薄 box 堆叠（每层高度 0.104、半宽只差 0.022），阶梯小于 1 像素，视觉上读作连续斜壁；每层颜色由 ctx.hash 在 PLANK / PLANK_MID 间取值，自然形成横向拼板感。
-2. 斗沿：四根外扩 0.03 的薄 box 围成方框，中间留口，既强化「斗」的轮廓，也把苹果框在里面。
-3. 苹果：12 个铺底（3 列 × 4 行）+ 4 个压顶。铺底用 idx = (i*5)%12 做完整置换，这样只放 4~6 个时也均匀散布而不是全挤在车尾；半径 0.137×(0.9~1.12) 随机，三种红按 hash 分配。苹果球心定在斗沿上方 0.095，球底刚好落在斗内暗底上，露出大半。
-4. 轮子：capsule 轴沿 x，做出厚圆盘；再叠一个沿 +x 偏移的小 capsule（半径 0.70×）从盘面凸出，形成「铁箍 + 木轮心」的同心圆。故意不做轮辐——capsule 端盖是半球，贴在端面上的辐条会被完全埋进盘体里看不见。
-5. 手推车的三点支撑（前轮 + 两条后支腿）保证停放时斗口水平，符合真实形态。
-
-坑
-- capsule 的端盖是半球：轮的可见总半宽是 ww + wR（不是 ww），轮叉必须放到 x > ww + wR 才不会被轮子吞掉。
-- 苹果网格的 y 间距必须乘 length，否则把 length 拉到 1.35 时斗尾会露出大片空底。
-- 斗沿四根 box 在四角互相重叠，靠引擎深度测试兜住，不要试图让它们严丝合缝——留重叠更安全。
-- 苹果最外圈会轻微压到斗沿上（球心在斗沿之上），这是刻意的「冒尖」效果，不是穿模错误。
-- 全部坐标基于 ctx.x / ctx.y / ctx.z；随机只用 ctx.hash，无 Math.random。
+（待补充）
 
 ### 实现
 
@@ -1106,7 +1090,7 @@ KIT.register({
   id: 'wheelbarrow',
   name: '苹果手推车',
   category: 'prop',
-  desc: '木斗单轮手推车：梯形斗身、木轮、双把手双支腿，斗里堆满红苹果',
+  desc: '木斗单轮手推车：五层板叠出梯形斗身、辐条木轮、双把手双支腿，斗里堆满红苹果',
   params: {
     apples: { def: 10, min: 0, max: 16, step: 1, desc: '斗里的苹果数量（0 = 空车）' },
     length: { def: 1, min: 0.8, max: 1.35, step: 0.05, desc: '车斗前后长度倍率' },
@@ -1116,112 +1100,116 @@ KIT.register({
 
   draw(ctx, inst) {
     const p = ctx.params;
-    const L = p.length;
-    const WH = p.wheel;
+    const L = p.length, WH = p.wheel;
     const X = ctx.x, Y = ctx.y, Z = ctx.z;
+    const S = ctx.seed, hash = ctx.hash, lerp = ctx.lerp;
 
-    // 木材三档 + 斗沿高光（同类色通道差 ≤ 25）
+    // 木材：板面 / 板侧 / 深木 / 斗沿高光
     const PLANK = [156, 110, 66];
-    const PLANK_MID = [138, 96, 56];
-    const PLANK_DK = [116, 78, 44];
+    const PLANK_M = [138, 96, 56];
+    const PLANK_D = [118, 80, 46];
     const RIM = [172, 126, 80];
-    const WOOD_DK = [104, 76, 50];
-    const WOOD_LT = [128, 96, 60];
+    const WOOD_D = [100, 72, 46];
+    const GRIP = [72, 64, 60];
+    // 苹果
+    const AP = [182, 50, 44];
+    const AP_HI = [202, 74, 58];
+    const LEAF_P = ctx.rgb(92, 132, 62);
+    // 铁件与轮胎
+    const IRON = [104, 108, 116];
+    const IRON_D = [78, 82, 90];
+    const RUBBER = [58, 56, 60];
 
-    // 苹果三档
-    const APPLE = [182, 50, 44];
-    const APPLE_HI = [204, 72, 56];
-    const APPLE_DK = [160, 36, 34];
+    // 斗口：底窄顶宽
+    const xb = 0.34, xt = 0.46;
+    const yb = 0.60 * L, yt = 0.70 * L;
+    const zB = Z + 0.34, zT = Z + 0.88;
 
-    const hx0 = 0.36, hy0 = 0.63 * L;   // 斗底半宽 / 半长
-    const hx1 = 0.47, hy1 = 0.70 * L;   // 斗顶半宽 / 半长
-    const zBot = Z + 0.36, zTop = Z + 0.88;
+    // 前轮：轮心在前壁之外，半径 = 轮心高度（自动触地）
+    const wy = Y + yt + 0.17;
+    const wr = 0.30 * WH;
+    const wz = Z + wr;
 
-    // 1) 斗身：五层逐层外扩的板条，堆出上宽下窄的梯形斗
-    for (let i = 0; i < 5; i++) {
-      const t = (i + 1) / 5;
-      const hx = ctx.lerp(hx0, hx1, t);
-      const hy = ctx.lerp(hy0, hy1, t);
-      const z0 = ctx.lerp(zBot, zTop, i / 5);
-      const z1 = ctx.lerp(zBot, zTop, (i + 1) / 5);
-      const col = ctx.hash(i * 7 + 3, ctx.seed) > 0.45 ? PLANK : PLANK_MID;
-      ctx.box(X - hx, Y - hy, z0, X + hx, Y + hy, z1, col, i + 11);
+    // ---- 车架：左右大梁（后段上翘当把手）、支腿、握把 ----
+    for (let s = -1; s <= 1; s += 2) {
+      const bx = X + s * 0.42;
+      ctx.capsule([bx, wy + 0.04, Z + 0.36], [bx, Y - 0.52, Z + 0.44],
+        0.046, 0.05, () => PLANK_M, 'rough');
+      ctx.capsule([bx, Y - 0.52, Z + 0.44], [bx, Y - 1.02, Z + 0.80],
+        0.046, 0.04, () => PLANK_M, 'rough');
+      ctx.capsule([bx, Y - 0.96, Z + 0.76], [bx, Y - 1.10, Z + 0.84],
+        0.058, 0.05, () => GRIP, 'solid');
+      ctx.capsule([bx, Y - 0.48, Z + 0.40], [bx, Y - 0.56, Z + 0.05],
+        0.05, 0.042, () => PLANK_D, 'rough');
+      ctx.capsule([bx, Y - 0.50, Z + 0.43], [bx, Y - 0.57, Z + 0.47],
+        0.056, 0.056, () => IRON_D, 'solid');
     }
 
-    // 2) 斗内暗底：比斗沿低一点，苹果的落脚面
-    ctx.box(X - hx1 + 0.06, Y - hy1 + 0.06, zTop - 0.03,
-            X + hx1 - 0.06, Y + hy1 - 0.06, zTop + 0.02, PLANK_DK, 7);
+    // ---- 前轮：铁轴 + 像素轮盘（胎环 / 木辋 / 四根镂空辐条 / 轮毂）----
+    ctx.capsule([X - 0.48, wy, wz], [X + 0.48, wy, wz],
+      0.032, 0.032, () => IRON_D, 'solid');
+    const step = 0.026;
+    for (let sy = -wr; sy <= wr; sy += step) {
+      for (let sz = -wr; sz <= wr; sz += step) {
+        const d = Math.sqrt(sy * sy + sz * sz) / wr;
+        if (d > 1) continue;
+        let c = null;
+        if (d > 0.84) c = RUBBER;
+        else if (d > 0.68) c = PLANK_M;
+        else if (d < 0.18) c = IRON_D;
+        else if (Math.abs(Math.sin(Math.atan2(sz, sy) * 2)) > 0.45) c = PLANK_D;
+        if (!c) continue;
+        ctx.plot(X, wy + sy, wz + sz, ctx.rgb(c[0], c[1], c[2]));
+      }
+    }
+    ctx.sphere(X, wy, wz, wr * 0.17, IRON, 'solid');
 
-    // 3) 斗沿：四根外扩压条围出斗口
-    const rg0 = zTop + 0.01, rg1 = zTop + 0.075;
-    const ox = hx1 + 0.03, oy = hy1 + 0.03;
-    ctx.box(X - ox, Y + hy1 - 0.11, rg0, X + ox, Y + oy, rg1, RIM, 21);
-    ctx.box(X - ox, Y - oy, rg0, X + ox, Y - hy1 + 0.11, rg1, RIM, 22);
-    ctx.box(X - ox, Y - hy1 + 0.11, rg0, X - hx1 + 0.11, Y + hy1 - 0.11, rg1, RIM, 23);
-    ctx.box(X + hx1 - 0.11, Y - hy1 + 0.11, rg0, X + ox, Y + hy1 - 0.11, rg1, RIM, 24);
+    // ---- 斗身：五层薄板逐层外扩，叠出梯形斜壁 ----
+    const N = 5;
+    for (let i = 0; i < N; i++) {
+      const t0 = i / N, t1 = (i + 1) / N, tm = (t0 + t1) * 0.5;
+      const hx = lerp(xb, xt, tm);
+      const hy = lerp(yb, yt, tm);
+      const z0 = lerp(zB, zT, t0);
+      const z1 = lerp(zB, zT, t1) + (i < N - 1 ? 0.012 : 0);
+      ctx.box(X - hx, Y - hy, z0, X + hx, Y + hy, z1,
+        i % 2 ? PLANK_M : PLANK, S + i * 13);
+    }
 
-    // 4) 苹果：12 个铺底 + 4 个压顶，i*5%12 置换让少量也散得开
+    // ---- 斗沿：四面围出一圈加厚的口（降 0.02 避开共面闪烁）----
+    const rx = xt + 0.03, ry = yt + 0.03;
+    const rt = 0.055, rh = 0.055, zR = zT - 0.02;
+    ctx.box(X - rx, Y - ry, zR, X + rx, Y - ry + rt, zR + rh, RIM, S + 71);
+    ctx.box(X - rx, Y + ry - rt, zR, X + rx, Y + ry, zR + rh, RIM, S + 72);
+    ctx.box(X - rx, Y - ry + rt, zR, X - rx + rt, Y + ry - rt, zR + rh, RIM, S + 73);
+    ctx.box(X + rx - rt, Y - ry + rt, zR, X + rx, Y + ry - rt, zR + rh, RIM, S + 74);
+
+    // ---- 苹果：3×4 底层 + 2×2 顶层，网格抖动避免整齐 ----
     const n = Math.round(p.apples);
     for (let i = 0; i < n; i++) {
-      let ax, ay, az;
-      if (i < 12) {
-        const idx = (i * 5) % 12;
-        const c = idx % 3, r = (idx / 3) | 0;
-        ax = (c - 1) * 0.25 + (ctx.hash(i * 5 + 1, ctx.seed) - 0.5) * 0.05;
-        ay = (r - 1.5) * 0.32 * L + (ctx.hash(i * 5 + 2, ctx.seed) - 0.5) * 0.05;
-        az = zTop + 0.17;
-      } else {
-        const k = i - 12;
-        ax = (k % 2 === 0 ? -0.13 : 0.13);
-        ay = (k < 2 ? -0.17 : 0.17) * L;
-        az = zTop + 0.33;
-      }
-      const rr = 0.137 * (0.9 + ctx.hash(i + 70, ctx.seed) * 0.22);
-      const tone = ctx.hash(i + 90, ctx.seed);
-      ctx.sphere(X + ax, Y + ay, az, rr,
-                 tone > 0.68 ? APPLE_HI : (tone > 0.22 ? APPLE : APPLE_DK), 'gloss');
+      const top = i >= 12;
+      const k = top ? i - 12 : i;
+      const cols = top ? 2 : 3;
+      const rows = top ? 2 : 4;
+      const gx = (k % cols) / (cols - 1) - 0.5;
+      const gy = (Math.floor(k / cols) % rows) / (rows - 1) - 0.5;
+      const jx = (hash(i * 3 + 1, S) - 0.5) * 0.24;
+      const jy = (hash(i * 3 + 2, S) - 0.5) * 0.24;
+      const ax = X + (gx * 0.92 + jx) * xt;
+      const ay = Y + (gy * 0.94 + jy) * yt;
+      const az = zT + (top ? 0.21 : 0.07) + hash(i * 3 + 3, S) * 0.03;
+      const r = 0.10 + hash(i * 7 + 5, S) * 0.035;
+      ctx.sphere(ax, ay, az, r, hash(i * 11 + 9, S) > 0.55 ? AP_HI : AP, 'gloss');
+      ctx.capsule([ax, ay, az + r * 0.82], [ax + 0.015, ay, az + r * 1.12],
+        0.011, 0.007, () => WOOD_D, 'solid');
+      ctx.plot(ax + 0.065, ay - 0.005, az + r * 1.0, LEAF_P);
+      ctx.plot(ax + 0.095, ay + 0.005, az + r * 1.04, LEAF_P);
     }
 
-    // 5) 两条后支腿
-    for (let side = -1; side <= 1; side += 2) {
-      ctx.capsule([X + side * 0.27, Y - 0.46 * L, Z + 0.42],
-                  [X + side * 0.32, Y - 0.60 * L, Z + 0.02],
-                  0.042, 0.036, () => PLANK_MID, 'solid');
-    }
-
-    // 6) 轮叉：从斗底两侧向下夹住前轮
-    for (let side = -1; side <= 1; side += 2) {
-      ctx.capsule([X + side * 0.17, Y + 0.40 * L, Z + 0.46],
-                  [X + side * 0.36, Y + 0.58 * L, Z + 0.30 * WH],
-                  0.036, 0.030, () => PLANK_MID, 'solid');
-    }
-
-    // 7) 前轮：深木圆盘 + 偏右凸出的亮木轮心，读作同心圆
-    const wR = 0.30 * WH;
-    const ww = 0.05 * WH;
-    const wy = Y + 0.58 * L;
-    const wz = Z + wR;
-    ctx.capsule([X - ww, wy, wz], [X + ww, wy, wz], wR, wR,
-                () => WOOD_DK, 'solid');
-    const hub = ww + wR * 0.28 + 0.02;
-    ctx.capsule([X + hub - 0.02, wy, wz], [X + hub + 0.02, wy, wz],
-                wR * 0.70, wR * 0.70, () => WOOD_LT, 'solid');
-
-    // 8) 双把手 + 深色握把
-    for (let side = -1; side <= 1; side += 2) {
-      ctx.capsule([X + side * 0.45, Y - 0.58 * L, Z + 0.81],
-                  [X + side * 0.49, Y - 1.20 * L, Z + 0.56],
-                  0.048, 0.042, () => PLANK, 'rough');
-      ctx.capsule([X + side * 0.49, Y - 1.20 * L, Z + 0.56],
-                  [X + side * 0.49, Y - 1.33 * L, Z + 0.54],
-                  0.056, 0.052, () => PLANK_DK, 'solid');
-    }
-
-    ctx.shadow(0.9 * L, 1, 0.5);
+    ctx.shadow(1.05 * L, 1, 0.5);
   },
 });
 ```
-
 ## semi-truck — 经典卡车
 
 | 项 | 内容 |
