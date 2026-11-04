@@ -264,11 +264,19 @@ function ED_refreshObjects() {
 /* ---------------- 场景存取 ---------------- */
 
 function ED_sceneJSON() {
-  return {
-    version: 1,
+  const json = {
+    version: 2,
     terrain: TERRAIN.toJSON(),
     objects: ED.objects,
   };
+  /* 底图模式：把底图以 PNG 存进 JSON，载入时还原 */
+  if (ED.baseMap && typeof SCENE_IMPORT !== 'undefined') {
+    try {
+      const png = SCENE_IMPORT.toDataURL();
+      if (png) json.baseMap = { png, W: ED.baseMap.W, H: ED.baseMap.H, url: ED.baseMap.url };
+    } catch (e) { /* 无 canvas 的环境（测试/异常）跳过底图存档 */ }
+  }
+  return json;
 }
 
 function ED_bindPanels() {
@@ -347,6 +355,14 @@ async function ED_loadSceneList() {
 function ED_applyScene(scene) {
   if (!scene) return;
   TERRAIN.fromJSON(scene.terrain);
+  /* 底图还原（异步，完成后 ED.dirty 自动置位） */
+  if (scene.baseMap && scene.baseMap.png && typeof SCENE_IMPORT !== 'undefined') {
+    SCENE_IMPORT.fromDataURL(scene.baseMap.png, scene.baseMap.W, scene.baseMap.H)
+      .then(() => studioStatus(`底图已还原（${scene.baseMap.url}）`, 'ok'))
+      .catch(e => studioStatus('底图还原失败：' + (e && e.message || e), 'err'));
+  } else if (ED.baseMap) {
+    ED_setBaseMap(null);
+  }
   ED.objects = (scene.objects || []).map(o => ({ ...o }));
   /* nextId 续上，避免 id 撞车 */
   let max = 0;

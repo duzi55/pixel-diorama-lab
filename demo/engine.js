@@ -11,33 +11,45 @@
  *   bakeOcclusion()   —— 屏幕空间 AO，物体脚下落地感
  * ------------------------------------------------------------------ */
 
-/* 画布尺寸：默认 360×280，可用 PP_W / PP_H 覆盖（竖构图场景需要） */
-const W = window.PP_W || 360, H = window.PP_H || 280;
+/* 画布尺寸：默认 360×280，可用 PP_W / PP_H 覆盖（竖构图场景需要）。
+ * PP_FULLSCREEN=true 时画布铺满浏览器窗口（像素数 = 窗口 / PP_SCALE）。
+ * 尺寸变化走 PP_setSize() 重建全部缓冲，并回调 window.PP_ONRESIZE
+ * （场景在里面重跑 bake）。 */
+let W = window.PP_W || 360, H = window.PP_H || 280;
 const S = window.PP_SCALE || 14;
 const SIN = 0.5, COS = Math.sqrt(3) / 2, R2 = Math.SQRT2;
-const OX = W / 2 + (window.PP_ORIGIN_X || 0);
-const OY = H / 2 + (window.PP_ORIGIN_Y == null ? 18 : window.PP_ORIGIN_Y);
+let OX = W / 2 + (window.PP_ORIGIN_X || 0);
+let OY = H / 2 + (window.PP_ORIGIN_Y == null ? 18 : window.PP_ORIGIN_Y);
 const SHADOW_X = 1.3, SHADOW_Y = -0.12;
 
 const canvas = document.getElementById('c');
-canvas.width = W;
-canvas.height = H;
 const ctx = canvas.getContext('2d');
-const image = ctx.createImageData(W, H);
-const pix = new Uint32Array(image.data.buffer);
-
-const zb = new Float32Array(W * H);
-const bakedPix = new Uint32Array(W * H);
-const bakedZ = new Float32Array(W * H);
-const ground = new Uint8Array(W * H);
-const groundZ = new Float32Array(W * H);
-const shadowMask = new Uint8Array(W * H);
-/* 静态阴影掩码：bake 完成后留存，动态元素（草/叶/水）读它决定明暗 */
-const staticShadow = new Uint8Array(W * H);
 
 /* 地面材质标记：KIND_GRASS 的像素才长草，球场/屋顶上自动没有草 */
 const KIND_NONE = 0, KIND_GRASS = 3;
-const kinds = new Uint8Array(W * H);
+
+let image, pix, zb, bakedPix, bakedZ, ground, groundZ, shadowMask, staticShadow, kinds;
+function PP_setSize(w, h) {
+  W = Math.max(80, w | 0); H = Math.max(60, h | 0);
+  OX = W / 2 + (window.PP_ORIGIN_X || 0);
+  OY = H / 2 + (window.PP_ORIGIN_Y == null ? 18 : window.PP_ORIGIN_Y);
+  canvas.width = W;
+  canvas.height = H;
+  image = ctx.createImageData(W, H);
+  pix = new Uint32Array(image.data.buffer);
+  zb = new Float32Array(W * H);
+  bakedPix = new Uint32Array(W * H);
+  bakedZ = new Float32Array(W * H);
+  ground = new Uint8Array(W * H);
+  groundZ = new Float32Array(W * H);
+  shadowMask = new Uint8Array(W * H);
+  /* 静态阴影掩码：bake 完成后留存，动态元素（草/叶/水）读它决定明暗 */
+  staticShadow = new Uint8Array(W * H);
+  kinds = new Uint8Array(W * H);
+  if (window.PP_ONRESIZE) window.PP_ONRESIZE();
+}
+PP_setSize(W, H);
+if (window.PP_FULLSCREEN) PP_setSize(Math.ceil(innerWidth / S), Math.ceil(innerHeight / S));
 
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + .5) / 16);
 const COOL = [46, 38, 84], WARM = [255, 232, 180];
@@ -442,6 +454,11 @@ function drawArrow(sx, sy, time) {
 }
 
 function fit() {
+  if (window.PP_FULLSCREEN) {
+    canvas.style.width = '100vw';
+    canvas.style.height = '100vh';
+    return;
+  }
   const dpr = window.devicePixelRatio || 1;
   const scale = Math.max(1, Math.floor(Math.min(innerWidth / W, (innerHeight - 80) / H) * dpr)) / dpr;
   canvas.style.width = W * scale + 'px';

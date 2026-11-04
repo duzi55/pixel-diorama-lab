@@ -27,6 +27,7 @@ const ED = {
   showGrid: false,
   showBox: true,
   crowdMode: '',
+  baseMap: null,          /* 底图模式：{ url, W, H, pix, z, ground, groundZ } */
   painting: false,
   ghost: null,
   dirty: true,
@@ -37,8 +38,9 @@ const ED = {
 
 function ED_fit() {
   const stage = document.getElementById('stage');
-  const cw = (stage && stage.clientWidth) ? stage.clientWidth - 24 : innerWidth - 540;
-  const ch = (stage && stage.clientHeight) ? stage.clientHeight - 24 : innerHeight - 100;
+  /* 全屏画布：两侧留出浮动面板的宽度（各 ~270px），底部留状态条 */
+  const cw = (stage && stage.clientWidth) ? stage.clientWidth - 40 : innerWidth - 40;
+  const ch = (stage && stage.clientHeight) ? stage.clientHeight - 90 : innerHeight - 90;
   const dpr = window.devicePixelRatio || 1;
   const scale = Math.max(1, Math.floor(Math.min(cw / W, ch / H) * dpr)) / dpr;
   canvas.style.width = Math.round(W * scale) + 'px';
@@ -59,6 +61,15 @@ function ED_init() {
   ED_seedDemo();
   ED_fit();
   addEventListener('resize', ED_fit);
+
+  /* 浮动面板折叠 */
+  for (const [tg, panel] of [['tg-left', 'fp-left'], ['tg-right', 'fp-right']]) {
+    const b = document.getElementById(tg);
+    if (b) b.addEventListener('click', () => {
+      document.getElementById(panel).classList.toggle('fp-collapsed');
+      b.textContent = document.getElementById(panel).classList.contains('fp-collapsed') ? '+' : '–';
+    });
+  }
 
   ED_loop();
 }
@@ -131,6 +142,10 @@ function ED_buildCats() {
 }
 
 function ED_setTool(t) {
+  if (ED_toolLocked(t)) {
+    studioStatus('底图模式下该工具不可用', 'err');
+    return;
+  }
   ED.tool = t;
   for (const b of document.getElementById('tools').children)
     b.classList.toggle('on', b.dataset.tool === t);
@@ -220,6 +235,10 @@ function ED_bindCanvas() {
   canvas.addEventListener('pointerdown', e => {
     canvas.setPointerCapture(e.pointerId);
     const w = toWorld(e);
+    if (ED_toolLocked(ED.tool)) {
+      studioStatus('底图模式下地形工具不可用（场景地面是烘焙产物）—— 构件放置/选择不受限', 'err');
+      return;
+    }
     ED.painting = true;
 
     if (ED.tool === 'place' && ED.placing) {
@@ -243,7 +262,7 @@ function ED_bindCanvas() {
     if (ED.draggingObj && ED.selected && ED.tool === 'select') {
       ED.selected.x = Math.round(w.x * 4) / 4;
       ED.selected.y = Math.round(w.y * 4) / 4;
-      ED.selected.z = TERRAIN.heightAt(ED.selected.x, ED.selected.y);
+      ED.selected.z = ED.baseMap ? 0 : TERRAIN.heightAt(ED.selected.x, ED.selected.y);
       ED_refreshSel();
       ED_refreshObjects();
       ED.dirty = true;
@@ -251,6 +270,7 @@ function ED_bindCanvas() {
     }
 
     if (ED.painting && ED.tool !== 'select' && ED.tool !== 'place') {
+      if (ED_toolLocked(ED.tool)) return;
       ED_applyTool(w);
     }
     if (ED.tool === 'place' && ED.placing) {
@@ -265,6 +285,8 @@ function ED_bindCanvas() {
     stopDrag();
     if (ED.ghost) { ED.ghost = null; ED.dirty = true; }
   });
+
+  ED_bindKeys();
 
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
@@ -296,33 +318,7 @@ function ED_bindCanvas() {
     }
   }, { passive: false });
 
-  addEventListener('keydown', e => {
-    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
-    if (e.key === 'Escape') {
-      ED.placing = null;
-      ED.ghost = null;
-      ED_setTool('select');
-      ED_select(null);
-      if (ED.refreshComponents) ED.refreshComponents();
-      studioStatus('已取消');
-    }
-    if (e.key === 'Delete' || e.key === 'Backspace') {
-      if (ED.selected) { ED_deleteSelected(); e.preventDefault(); }
-    }
-    if (ED.selected && e.key.startsWith('Arrow')) {
-      const step = e.shiftKey ? .5 : .15;
-      const s = ED.selected;
-      if (e.key === 'ArrowLeft') s.x -= step;
-      if (e.key === 'ArrowRight') s.x += step;
-      if (e.key === 'ArrowUp') s.y -= step;
-      if (e.key === 'ArrowDown') s.y += step;
-      s.z = TERRAIN.heightAt(s.x, s.y);
-      ED.dirty = true;
-      ED_refreshSel();
-      ED_refreshObjects();
-      e.preventDefault();
-    }
-  });
+
 }
 
 function ED_applyTool(w) {
@@ -357,7 +353,7 @@ function ED_placeObject(kind, x, y) {
     kind,
     x: rx,
     y: ry,
-    z: TERRAIN.heightAt(rx, ry),
+    z: ED.baseMap ? 0 : TERRAIN.heightAt(rx, ry),
     rot: ED.rot || 0,
     scale: ED.scale || 1,
     params: KIT.defaults(kind),
@@ -431,7 +427,15 @@ function ED_render(t = 0) {
   shadowMask.fill(0);
   pendingShadows.length = 0;
 
-  terrainRender(!!ED.painting && (ED.tool === 'paint' || ED.tool === 'erase' || ED.tool === 'raise' || ED.tool === 'lower'));
+  if (ED.baseMap) {
+    /* 底图模式：直接拷贝场景烘焙结果，物体画在其上 */
+    pix.set(ED.baseMap.pix);
+    zb.set(ED.baseMap.z);
+    ground.set(ED.baseMap.ground);
+    groundZ.set(ED.baseMap.groundZ);
+  } else {
+    terrainRender(!!ED.painting && (ED.tool === 'paint' || ED.tool === 'erase' || ED.tool === 'raise' || ED.tool === 'lower'));
+  }
 
   /* 静态物体：按 y 从大到小（画家算法） */
   const objs = [...ED.objects].sort((a, b) => b.y - a.y);

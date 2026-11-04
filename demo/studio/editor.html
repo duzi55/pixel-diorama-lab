@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <title>Studio · 场景与地形编辑器</title>
 <link rel="stylesheet" href="studio.css">
+<style>body{overflow:hidden}</style>
 </head>
 <body>
 <header class="bar">
@@ -14,133 +15,158 @@
   <div class="bar-note" id="status">就绪</div>
 </header>
 
-<main class="ed">
-  <!-- ============ 左侧：工具与构件库 ============ -->
-  <aside class="ed-left">
-    <div class="sec">
-      <h3>编辑工具</h3>
-      <div class="pill-row" id="tools">
-        <button class="pill on" data-tool="paint">画地形</button>
-        <button class="pill" data-tool="erase">擦除</button>
-        <button class="pill" data-tool="raise">抬高</button>
-        <button class="pill" data-tool="lower">降低</button>
-        <button class="pill" data-tool="place">放置</button>
-        <button class="pill" data-tool="select">选择/拖拽</button>
-      </div>
-    </div>
+<main class="ed-full">
+  <div class="ed-stage" id="stage">
+    <canvas id="c"></canvas>
+  </div>
 
-    <div class="sec">
-      <h3>地形材质与笔刷</h3>
-      <div class="pill-row" id="mats"></div>
-      <div class="slider" style="margin-top:10px">
-        <label>笔刷半径 <b id="v-brush">2.0</b></label>
-        <input type="range" id="brush" min="0.5" max="6" step="0.5" value="2">
-      </div>
-      <div class="slider">
-        <label>绘制高度 <b id="v-height">0.00</b></label>
-        <input type="range" id="height" min="0" max="3" step="0.25" value="0">
-      </div>
-      <div class="pill-row" style="margin-top:6px">
-        <button class="pill" id="preset-village" title="生成默认山坡石路村落">预设:山坡村落</button>
-        <button class="pill" id="preset-flat" title="生成平坦草地岛">预设:平坦草岛</button>
-      </div>
+  <!-- 浮动：左侧工具箱 -->
+  <aside class="float-panel fp-left" id="fp-left">
+    <div class="fp-head">
+      <span>工具箱</span>
+      <button class="fp-collapse" id="tg-left">–</button>
     </div>
-
-    <div class="sec">
-      <h3>地形过渡（主体 / 过渡 / 子项）</h3>
-      <div class="slider">
-        <label>过渡带宽 <b id="v-blend-width">0.42</b></label>
-        <input type="range" id="blend-width" min="0.1" max="0.8" step="0.02" value="0.42">
-      </div>
-      <div class="slider">
-        <label>边界抖动 <b id="v-blend-jitter">0.55</b></label>
-        <input type="range" id="blend-jitter" min="0" max="1" step="0.05" value="0.55">
-      </div>
-      <label class="chk" style="margin-bottom:8px">
-        <input type="checkbox" id="blend-slope" checked> 高度坡面混合（光线步进）
-      </label>
-      <div class="hint" style="margin:0;font-size:11px;opacity:.75">
-        主体=格底色 · 过渡=噪声抖动混合带 · 子项=苔藓/石子/沙纹/石缝/水波
-      </div>
-    </div>
-
-    <div class="sec">
-      <h3>AI 生成地形</h3>
-      <input type="text" id="terrain-prompt" placeholder="例：带石阶小路的草坡村落">
-      <button id="btn-terrain-ai" class="primary" style="width:100%;margin-top:6px">✨ 生成地形</button>
-      <div class="terrain-progress" id="terrain-progress"></div>
-      <div class="thinking-panel tp" id="terrain-thinking" style="display:none"></div>
-    </div>
-
-    <div class="sec">
-      <h3>构件库（点选放置）</h3>
-      <div class="pill-row" id="cats" style="margin-bottom:8px"></div>
-      <div id="comp-list"></div>
-    </div>
-  </aside>
-
-  <!-- ============ 中间：画布 ============ -->
-  <section class="ed-main">
-    <div class="ed-stage" id="stage">
-      <canvas id="c"></canvas>
-    </div>
-    <div class="ed-foot">
-      <span id="pos">—</span>
-      <span id="sel">未选中</span>
-      <span style="margin-left:auto;display:flex;align-items:center;gap:12px">
-        <label class="chk">人群 AI:
-          <select id="crowd-mode" style="width:auto;padding:2px 6px;font-size:11.5px">
-            <option value="">关闭</option>
-            <option value="wanderer">漫游村民 (wanderer)</option>
-            <option value="spectator">围观人群 (spectator)</option>
-            <option value="crowd">固定观众 (crowd)</option>
+    <div class="fp-body">
+      <div class="sec">
+        <h3>场景底图</h3>
+        <div class="row">
+          <select id="scene-import-sel" style="flex:1">
+            <option value="">— 导入已有场景 —</option>
+            <option value="../village/index.html">秋日山村</option>
+            <option value="../autumn.html">秋日野餐</option>
+            <option value="../forest.html">翠绿树林</option>
+            <option value="../index.html">最小演示</option>
           </select>
+          <button id="btn-scene-import" class="primary">导入</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button id="btn-exit-basemap" class="ghost" style="display:none;flex:1">退出底图模式</button>
+        </div>
+      </div>
+
+      <div class="sec" id="sec-tools">
+        <h3>编辑工具</h3>
+        <div class="pill-row" id="tools">
+          <button class="pill on" data-tool="paint">画地形</button>
+          <button class="pill" data-tool="erase">擦除</button>
+          <button class="pill" data-tool="raise">抬高</button>
+          <button class="pill" data-tool="lower">降低</button>
+          <button class="pill" data-tool="place">放置</button>
+          <button class="pill" data-tool="select">选择/拖拽</button>
+        </div>
+      </div>
+
+      <div class="sec" id="sec-mats">
+        <h3>地形材质与笔刷</h3>
+        <div class="pill-row" id="mats"></div>
+        <div class="slider" style="margin-top:10px">
+          <label>笔刷半径 <b id="v-brush">2.0</b></label>
+          <input type="range" id="brush" min="0.5" max="6" step="0.5" value="2">
+        </div>
+        <div class="slider">
+          <label>绘制高度 <b id="v-height">0.00</b></label>
+          <input type="range" id="height" min="0" max="3" step="0.25" value="0">
+        </div>
+        <div class="pill-row" style="margin-top:6px">
+          <button class="pill" id="preset-village" title="生成默认山坡石路村落">预设:山坡村落</button>
+          <button class="pill" id="preset-flat" title="生成平坦草地岛">预设:平坦草岛</button>
+        </div>
+      </div>
+
+      <div class="sec">
+        <h3>地形过渡（主体/过渡/子项）</h3>
+        <div class="slider">
+          <label>过渡带宽 <b id="v-blend-width">0.42</b></label>
+          <input type="range" id="blend-width" min="0.1" max="0.8" step="0.02" value="0.42">
+        </div>
+        <div class="slider">
+          <label>边界抖动 <b id="v-blend-jitter">0.55</b></label>
+          <input type="range" id="blend-jitter" min="0" max="1" step="0.05" value="0.55">
+        </div>
+        <label class="chk" style="margin-bottom:8px">
+          <input type="checkbox" id="blend-slope" checked> 高度坡面混合（光线步进）
         </label>
-        <label class="chk"><input type="checkbox" id="showgrid"> 网格</label>
-        <label class="chk"><input type="checkbox" id="showbox" checked> 碰撞体</label>
-      </span>
-    </div>
-  </section>
-
-  <!-- ============ 右侧：属性与场景 ============ -->
-  <aside class="ed-right">
-    <div class="sec">
-      <h3>场景存取</h3>
-      <div class="stack">
-        <div class="row">
-          <input type="text" id="scene-name" placeholder="场景名" value="my-scene">
-          <button id="btn-save-scene" class="primary">保存</button>
-        </div>
-        <div class="row">
-          <select id="scene-list"><option value="">— 载入场景 —</option></select>
-          <button id="btn-load-scene">载入</button>
-        </div>
-        <div class="row">
-          <button id="btn-export" class="ghost">导出 JSON</button>
-          <button id="btn-clear" class="ghost">清空场景</button>
-        </div>
       </div>
-    </div>
 
-    <div class="sec" id="sel-sec">
-      <h3>选中对象属性</h3>
-      <div id="sel-info"><div class="empty-note">用「选择/拖拽」工具点选物体（可按住拖动位置、滚轮旋转）</div></div>
-    </div>
-
-    <div class="sec" id="col-sec" style="display:none">
-      <h3>碰撞体积（手动 / AI）</h3>
-      <div id="col-info"></div>
-      <div class="row" style="margin-top:8px">
-        <button id="btn-col-ai">✨ AI 推断</button>
-        <button id="btn-col-reset" class="ghost">重置默认</button>
+      <div class="sec">
+        <h3>AI 生成地形</h3>
+        <input type="text" id="terrain-prompt" placeholder="例：带石阶小路的草坡村落">
+        <button id="btn-terrain-ai" class="primary" style="width:100%;margin-top:6px">✨ 生成地形</button>
+        <div class="terrain-progress" id="terrain-progress"></div>
+        <div class="thinking-panel tp" id="terrain-thinking" style="display:none"></div>
       </div>
-    </div>
 
-    <div class="sec">
-      <h3>场景物体列表 <span id="obj-count" style="opacity:.6"></span></h3>
-      <div id="obj-list"></div>
+      <div class="sec">
+        <h3>构件库（点选放置）</h3>
+        <div class="pill-row" id="cats" style="margin-bottom:8px"></div>
+        <div id="comp-list" style="max-height:200px;overflow-y:auto"></div>
+      </div>
     </div>
   </aside>
+
+  <!-- 浮动：右侧属性 -->
+  <aside class="float-panel fp-right" id="fp-right">
+    <div class="fp-head">
+      <span>属性</span>
+      <button class="fp-collapse" id="tg-right">–</button>
+    </div>
+    <div class="fp-body">
+      <div class="sec">
+        <h3>场景存取</h3>
+        <div class="stack">
+          <div class="row">
+            <input type="text" id="scene-name" placeholder="场景名" value="my-scene">
+            <button id="btn-save-scene" class="primary">保存</button>
+          </div>
+          <div class="row">
+            <select id="scene-list"><option value="">— 载入场景 —</option></select>
+            <button id="btn-load-scene">载入</button>
+          </div>
+          <div class="row">
+            <button id="btn-export" class="ghost">导出 JSON</button>
+            <button id="btn-clear" class="ghost">清空场景</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec" id="sel-sec">
+        <h3>选中对象属性</h3>
+        <div id="sel-info"><div class="empty-note">用「选择/拖拽」工具点选物体</div></div>
+      </div>
+
+      <div class="sec" id="col-sec" style="display:none">
+        <h3>碰撞体积（手动 / AI）</h3>
+        <div id="col-info"></div>
+        <div class="row" style="margin-top:8px">
+          <button id="btn-col-ai">✨ AI 推断</button>
+          <button id="btn-col-reset" class="ghost">重置默认</button>
+        </div>
+      </div>
+
+      <div class="sec">
+        <h3>场景物体列表 <span id="obj-count" style="opacity:.6"></span></h3>
+        <div id="obj-list" style="max-height:180px;overflow-y:auto"></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 浮动：底部状态条 -->
+  <div class="float-status">
+    <span id="pos">—</span>
+    <span id="sel">未选中</span>
+    <span style="margin-left:auto;display:flex;align-items:center;gap:12px">
+      <label class="chk">人群 AI:
+        <select id="crowd-mode" style="width:auto;padding:2px 6px;font-size:11.5px">
+          <option value="">关闭</option>
+          <option value="wanderer">漫游村民</option>
+          <option value="spectator">围观人群</option>
+          <option value="crowd">固定观众</option>
+        </select>
+      </label>
+      <label class="chk"><input type="checkbox" id="showgrid"> 网格</label>
+      <label class="chk"><input type="checkbox" id="showbox" checked> 碰撞体</label>
+    </span>
+  </div>
 </main>
 
 <script src="studio.js"></script>
@@ -166,5 +192,6 @@
 <script src="editor.js"></script>
 <script src="thinking-panel.js"></script>
 <script src="terrain-ui.js"></script>
+<script src="scene-import.js"></script>
 </body>
 </html>

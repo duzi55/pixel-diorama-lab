@@ -81,7 +81,7 @@ function makeSandbox() {
   const rafQueue = [];
   const sb = {
     console, document,
-    innerWidth: 1200, innerHeight: 900, devicePixelRatio: 1,
+    PP_HEADLESS: true, innerWidth: 1200, innerHeight: 900, devicePixelRatio: 1,
     addEventListener: (t, fn) => { (listeners[t] ||= []).push(fn); },
     removeEventListener: noop,
     requestAnimationFrame: fn => { rafQueue.push(fn); return rafQueue.length; },

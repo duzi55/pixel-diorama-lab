@@ -56,7 +56,7 @@ function ED_drawCollision(o, isSelected) {
 
 function ED_drawAllCollisions() {
   for (const o of ED.objects) {
-    if (o !== ED.selected) ED_drawCollision(o, false);
+  if (o !== ED.selected) ED_drawCollision(o, false);
   }
   if (ED.selected) ED_drawCollision(ED.selected, true);
 }
@@ -74,10 +74,10 @@ function ED_drawGhost() {
 function ED_line(x0, y0, x1, y1, color, dash) {
   const n = Math.max(2, Math.ceil(Math.hypot(x1 - x0, y1 - y0)));
   for (let i = 0; i <= n; i++) {
-    if (dash && (i & 1)) continue;
+  if (dash && (i & 1)) continue;
     const x = Math.round(x0 + (x1 - x0) * i / n);
     const y = Math.round(y0 + (y1 - y0) * i / n);
-    if (x < 0 || y < 0 || x >= W || y >= H) continue;
+  if (x < 0 || y < 0 || x >= W || y >= H) continue;
     pix[y * W + x] = color;
   }
 }
@@ -87,3 +87,33 @@ function ED_esc(s) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+/* ---------------- 键盘快捷键（从 editor.js 拆出） ---------------- */
+
+function ED_bindKeys() {  addEventListener('keydown', e => {
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+    if (e.key === 'Escape') {
+      ED.placing = null;
+      ED.ghost = null;
+      ED_setTool('select');
+      ED_select(null);
+      if (ED.refreshComponents) ED.refreshComponents();
+      studioStatus('已取消');
+    }
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (ED.selected) { ED_deleteSelected(); e.preventDefault(); }
+    }
+  if (ED.selected && e.key.startsWith('Arrow')) {
+      const step = e.shiftKey ? .5 : .15;
+      const s = ED.selected;
+      if (e.key === 'ArrowLeft') s.x -= step;
+      if (e.key === 'ArrowRight') s.x += step;
+      if (e.key === 'ArrowUp') s.y -= step;
+      if (e.key === 'ArrowDown') s.y += step;
+      s.z = ED.baseMap ? 0 : TERRAIN.heightAt(s.x, s.y);
+      ED.dirty = true;
+      ED_refreshSel();
+      ED_refreshObjects();
+      e.preventDefault();
+    }
+  });
+}

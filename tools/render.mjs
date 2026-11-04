@@ -123,7 +123,7 @@ function makeContext() {
   const sb = {
     console,
     document,
-    innerWidth: 1200, innerHeight: 900, devicePixelRatio: 1,
+    PP_HEADLESS: true, innerWidth: 1200, innerHeight: 900, devicePixelRatio: 1,
     /* 测试用：SKIP=模块名，逗号分隔（roadtest 等排除法实验用） */
     __SKIP: process.env.SKIP || '',
     addEventListener: (t, fn) => { (listeners[t] ||= []).push(fn); },

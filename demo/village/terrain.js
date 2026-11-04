@@ -42,7 +42,11 @@ const LITTER_COUNT = 2000;                /* 落叶碎屑目标数量 */
      露出一条米白背景带（参考图整幅没有背景，全是树和地面）。 */
 const HILL_HALF_LEN = 110;                    /* 沿路半长 —— 必须覆盖塔群（塔群在路
    远端之外 s≈-40，k≈-80）：否则塔脚下没有地形，树悬空在纯色背景上 */
-const HILL_HALF_HW = 30;                      /* 垂直于路的半宽 */
+const HILL_HALF_HW = 34;                      /* 垂直于路的半宽（村子区）。
+   ★ 远端按 taper 放宽到 ~×1.85（≈62）：画面上部（屏幕 y 184~300）
+   画布横向的世界点法向距离 d ∈ [33,54]（等距几何决定）——那边必须宽，
+   否则树悬空在纯色背景上。村子区保持窄 → 路两侧干净、公路可见。
+   （前提：roadCoords 的 s 语义正确——见该函数注释的 4 倍 bug。） */
 const HILL_POW = 2.6;                         /* 超椭圆指数（越小越接近椭圆） */
 
 /* 路面配件的**局部**色。palette.js 的 CURB(178,172,158) / WALK(190,184,170)
@@ -78,17 +82,21 @@ function distToRoad(x, y) {
   let t = ((x - RD.ax) * dx + (y - RD.ay) * dy) / len2;
   t = clamp(t, 0, 1);
   const px = RD.ax + dx * t, py = RD.ay + dy * t;
-  return { d: Math.hypot(x - px, y - py), t, s: t * RD.len };
+  return { d: Math.hypot(x - px, y - py), t, s: t * Math.hypot(dx, dy) };
 }
 
 /* ==================== 地面材质 ==================== */
 
-/* 把点换算到"以路为轴"的局部坐标：s = 沿路弧长，d = 垂直于路的偏移 */
+/* 把点换算到"以路为轴"的局部坐标：s = 沿路弧长，d = 垂直于路的偏移。
+ * ★ s 必须是**弧长（世界单位）**：t 是相对 ROAD 段长度的倍数，
+ *   乘错基准（曾错写成 t * RD.len，放大 ~4 倍）会让台地的实际世界
+ *   覆盖只有标称的 1/4 —— 树群因此整体悬空，且怎么加宽台地都无效。 */
 function roadCoords(x, y) {
   const dx = RD.bx - RD.ax, dy = RD.by - RD.ay;
   const t = ((x - RD.ax) * dx + (y - RD.ay) * dy) / (dx * dx + dy * dy);
   const px = RD.ax + dx * t, py = RD.ay + dy * t;
-  return { s: t * RD.len, d: (x - px) * RD.nx + (y - py) * RD.ny };
+  const el = Math.hypot(dx, dy);
+  return { s: t * el, d: (x - px) * RD.nx + (y - py) * RD.ny };
 }
 
 function hillE(x, y) {
@@ -96,8 +104,11 @@ function hillE(x, y) {
   const k = c.s - RD.sMid;
   /* 两侧不等宽：法线正向一侧宽，另一侧窄（参考图的山村偏在一侧） */
   const side = c.d >= 0 ? 1.0 : .76;
+  /* ★ 远端放宽（taper）：画面上部需要 ≥55 的半宽（树要落地形），
+     村子区保持窄 —— 公路不被深色地形带淹没 */
+  const widen = 1 + Math.min(1, Math.max(0, (-20 - k) / 70)) * .85;
   /* 沿路缓慢起伏（低频正弦，避免宽窄突变成台阶） */
-  const hw = HILL_HALF_HW * side
+  const hw = HILL_HALF_HW * side * widen
     * (1 + .20 * Math.sin(k * .062 + .6) + .09 * Math.sin(k * .038 - 1.3));
   const ds = k / HILL_HALF_LEN;
   const dd = c.d / hw;

@@ -11,7 +11,7 @@
 
 /* 地面椭圆（CONTRACT §1）；公路几何直接引用 terrain.js 的 ROAD（唯一真相源） */
 const FOL_RX = 26, FOL_RY = 30;
-const FOL_RHALF = ROAD.halfW, FOL_RCLEAR = 2.6; /* 路半宽 + 冠半径余量 */
+const FOL_RHALF = ROAD.halfW, FOL_RCLEAR = 4.0; /* 路半宽 + 冠半径余量（保证公路全程可见） */
 /* 团心：用**路的参数坐标**钉死，天然跟着路走（台地就是沿路的一条斜带）。
    每项 = [t 沿路(0远→1近), lat 横向(正=屏幕右上侧), 世界半径, 针叶倾向]。
    lat 必须明显大于路半宽+余量(~4)，否则树会长在路上；两侧的团在 t 上错开

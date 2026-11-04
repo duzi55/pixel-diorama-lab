@@ -9,7 +9,7 @@
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; background: var(--paper); color: var(--ink); }
   body { font: 13px/1.4 ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace; overflow: hidden; }
-  #stage { position: fixed; inset: 0; display: grid; place-items: center; }
+  #stage { position: fixed; inset: 0; }
   canvas { display: block; image-rendering: pixelated; touch-action: none; cursor: default; outline: none; }
   #hud { position: fixed; left: max(16px, env(safe-area-inset-left)); top: max(14px, env(safe-area-inset-top)); pointer-events: none; }
   #hud h1 { margin: 0 0 4px; font-size: 13px; font-weight: 600; letter-spacing: .02em; }
@@ -25,8 +25,11 @@
 </div>
 
 <script>
+  /* 兜底尺寸（无头渲染/测试工具用，工具侧设 PP_HEADLESS 跳过全屏） */
   window.PP_W = 300; window.PP_H = 520;
   window.PP_SCALE = 9; window.PP_ORIGIN_X = 0; window.PP_ORIGIN_Y = 10;
+  /* ★ 画布铺满浏览器窗口：像素数 = 窗口 / PP_SCALE，无裁切无留边 */
+  if (!window.PP_HEADLESS) window.PP_FULLSCREEN = true;
 </script>
 <script src="../engine.js"></script>
 <script src="../kit/core.js"></script>

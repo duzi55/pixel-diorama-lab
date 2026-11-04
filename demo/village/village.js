@@ -146,7 +146,12 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
-addEventListener('resize', fit);
+/* 全屏模式：窗口变化 → 重建引擎缓冲 → 场景重烘焙 */
+window.PP_ONRESIZE = function () { lastStep = -1; bake(); };
+addEventListener('resize', () => {
+  if (window.PP_FULLSCREEN) PP_setSize(Math.ceil(innerWidth / PP_SCALE), Math.ceil(innerHeight / PP_SCALE));
+  fit();
+});
 fit();
 bake();
 makeVillagers();

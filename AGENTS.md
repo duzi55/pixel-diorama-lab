@@ -74,7 +74,8 @@
 | Studio 地形·共用 | `demo/studio/terrain-common.js` | 投影/归属/材质过渡混合/子项装饰/收边补洞 | `docs/modules/studio.md §4.2` |
 | Studio 地形·台阶 | `demo/studio/terrain-render.js` | 逐格 quad + 侧壁渲染（快，拖动时降级用） | `docs/modules/studio.md §4.2a` |
 | **Studio 地形·坡面** | `demo/studio/terrain-march.js` | 高度场 sphere tracing 光线步进：缓坡 + 坡度光照，默认渲染器 | `docs/modules/studio.md §4.2a` |
-| **Studio 编辑器** | `demo/studio/editor.html` | 逐格画地形 · 装配物体 · 调碰撞体积 · 存场景 | `docs/modules/studio.md §4` |
+| **Studio 编辑器** | `demo/studio/editor.html` | 场景为主的全屏画布 + 浮动面板；底图模式可编辑已有场景 | `docs/modules/studio.md §4` |
+| Studio 场景导入 | `demo/studio/scene-import.js` | 同源 iframe 抓取已有场景烘焙底图，进入底图编辑模式 | `docs/modules/studio.md §4.0b` |
 | Studio 服务端 | `demo/studio/server.mjs` | 静态服务 + AI 桥 + 落盘器（零依赖，只用 node: 内置模块） | `docs/modules/studio.md §6` |
 | 技术分析 | `docs/analysis.md` | 原项目完整管线拆解与代码索引 | — |
 | 树林规则 | `docs/forest-rules.md` | 从参考图到生成规则的完整参数化说明 | — |
