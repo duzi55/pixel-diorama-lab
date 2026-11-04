@@ -97,7 +97,10 @@ KIT.register({
     const seed = ctx.seed;
     const tr = Math.max(.4, cr * .13);
     const bark = [94, 60, 38], barkLit = [140, 96, 58];
-
+    /* part：'trunk' 只画干 / 'canopy' 只画冠 / 缺省两者都画。
+       场景用它把干（静态）和冠（每帧风动回放）分两遍烘焙。 */
+    const part = inst && inst.part;
+    if (part !== 'canopy') {
     ctx.capsule([ctx.x, ctx.y, 0], [ctx.x, ctx.y, tkH + 2.5], tr, tr * .55, () => bark, 'rough');
     ctx.capsule([ctx.x + tr * .42, ctx.y + tr * .42, 0],
       [ctx.x + tr * .18, ctx.y + tr * .18, tkH + 1.8], tr * .34, tr * .12, () => barkLit, 'rough');
@@ -107,8 +110,9 @@ KIT.register({
         tr * .5, tr * .15, () => bark, 'rough');
     }
 
-    coneCanopy(ctx, ctx.x, ctx.y, tkH, h, cr, seed, ctx.params.density);
-    ctx.shadow(cr * .95, 1, .4);
+    }
+    if (part !== 'trunk') coneCanopy(ctx, ctx.x, ctx.y, tkH, h, cr, seed, ctx.params.density);
+    if (!part) ctx.shadow(cr * .95, 1, .4);
   },
 });
 
@@ -131,12 +135,14 @@ KIT.register({
     const seed = ctx.seed;
     const tr = Math.max(.28, cr * .12);
     const bark = [88, 56, 34], barkLit = [128, 86, 52];
+    const part = inst && inst.part;
 
-    ctx.capsule([ctx.x, ctx.y, 0], [ctx.x, ctx.y, tkH + 1.8], tr, tr * .5, () => bark, 'rough');
-    ctx.capsule([ctx.x + tr * .34, ctx.y + tr * .34, 0],
-      [ctx.x + tr * .14, ctx.y + tr * .14, tkH + 1.3], tr * .28, tr * .1, () => barkLit, 'rough');
-
-    coneCanopy(ctx, ctx.x, ctx.y, tkH, h, cr, seed, ctx.params.density);
-    ctx.shadow(cr * .95, 1, .35);
+    if (part !== 'canopy') {
+      ctx.capsule([ctx.x, ctx.y, 0], [ctx.x, ctx.y, tkH + 1.8], tr, tr * .5, () => bark, 'rough');
+      ctx.capsule([ctx.x + tr * .34, ctx.y + tr * .34, 0],
+        [ctx.x + tr * .14, ctx.y + tr * .14, tkH + 1.3], tr * .28, tr * .1, () => barkLit, 'rough');
+    }
+    if (part !== 'trunk') coneCanopy(ctx, ctx.x, ctx.y, tkH, h, cr, seed, ctx.params.density);
+    if (!part) ctx.shadow(cr * .95, 1, .35);
   },
 });

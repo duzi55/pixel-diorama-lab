@@ -58,12 +58,20 @@
 </div>
 
 <script>
-  /* 画布分辨率与世界尺度映射（微缩模型标准清晰度，细节精致分明） */
-  window.PP_W = 600;
-  window.PP_H = 760;
-  window.PP_SCALE = 12;
+  /* ★ 画布铺满浏览器窗口，**1 画布像素 = 1 CSS 像素**（画面大小不随窗口变）。
+     S=12 是"世界单位→画布像素"，不变；窗口多大画布就多大，
+     多出来的区域由地面/公路延展并有机消散。
+     无头工具设 PP_HEADLESS=true，用 600×760 兜底。 */
+  window.PP_SCALE = 13.5;
   window.PP_ORIGIN_X = 8;
   window.PP_ORIGIN_Y = -21;
+  if (window.PP_HEADLESS) {
+    window.PP_W = 600; window.PP_H = 760;
+  } else {
+    window.PP_FULLSCREEN = true;
+    window.PP_W = Math.ceil(innerWidth);
+    window.PP_H = Math.ceil(innerHeight);
+  }
 </script>
 <script src="../engine.js"></script>
 <script src="../kit/core.js"></script>
@@ -79,5 +87,6 @@
 <script src="road.js"></script>
 <script src="falling.js"></script>
 <script src="village.js"></script>
+<script src="../nav.js"></script>
 </body>
 </html>

@@ -202,7 +202,10 @@ function capsule(a, b, r0, r1, colorOf, mode) {
   }
 }
 
-/* 单像素写入：用来画门窗、水波这类自定义细节 */
+/* 单像素写入：用来画门窗、水波这类自定义细节。
+   plotCapture 非空时同时记录 (ix, iy, d, color) —— 逐像素画的树冠
+   靠它做"烘焙一次、每帧平移回放"的风动（sphere 的 capture 只覆盖球体）。 */
+let plotCapture = null;
 function plot(x, y, z, color) {
   const p = project(x, y, z), ix = p.sx | 0, iy = p.sy | 0;
   if (ix < 0 || iy < 0 || ix >= W || iy >= H) return;
@@ -210,6 +213,7 @@ function plot(x, y, z, color) {
   if (p.d <= zb[i]) return;
   zb[i] = p.d;
   pix[i] = color;
+  if (plotCapture) plotCapture.push(ix, iy, p.d, color);
 }
 
 /* 盒子：只画顶/前/右三个可见面，亮度写死 */
@@ -475,9 +479,12 @@ function drawArrow(sx, sy, time) {
 }
 
 function fit() {
-  /* ★ 整数倍缩放：像素艺术只在整数倍下保持锐利（分数倍会出现
-     1px/2px 混杂的"毛边"）。窗口过大时封顶 3 倍，过小时退化为
-     等比缩小（保持完整可见，不裁剪）。 */
+  /* 全屏模式：画布缓冲已经是窗口尺寸（1 画布像素 = 1 CSS 像素），1:1 显示 */
+  if (window.PP_FULLSCREEN) {
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    return;
+  }
   const fitScale = Math.min(window.innerWidth / W, window.innerHeight / H);
   const scale = fitScale >= 1 ? Math.min(3, Math.floor(fitScale)) : fitScale;
   canvas.style.width = Math.round(W * scale) + 'px';

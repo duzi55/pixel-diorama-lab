@@ -17,7 +17,12 @@ const CURVE_R = 7;                  // 弯道半径（= 直道偏移）
 const TRACK_HALF = 2.8;             // 赛道半宽（整宽 5.6）
 const KERB = .75;                   // 弯道路肩宽
 const WALL_OFF = 2.1;               // 护栏离路边
+const EDGE_R = TRACK_HALF + WALL_OFF + 8.2;   // 岛半径（直道 13.1 世界）
 const PERIM = 4 * STRAIGHT + 2 * Math.PI * CURVE_R;
+
+/* 与页面 CSS 的 --paper 精确一致（village 同款纸色） */
+const PAPER_BG = [252, 245, 218];
+const PAPER_RGB = rgb(...PAPER_BG);
 
 const GRASS = [96, 124, 72], ASPHALT = [88, 90, 96];
 const KERB_RED = [206, 72, 62], KERB_WHITE = [240, 236, 224];
@@ -56,7 +61,7 @@ function trackNearest(x, y) {
     dist = Math.abs(ay - CURVE_R);
   } else {
     const dx = ax - STRAIGHT;
-    const d = Math.hypot(dx, ay) || .001;
+    const d = Math.sqrt(dx * dx + ay * ay) || .001;
     cx = Math.sign(x) * (STRAIGHT + dx / d * CURVE_R);
     cy = Math.sign(y) * (ay / d * CURVE_R);
     dist = Math.abs(d - CURVE_R);
@@ -77,12 +82,39 @@ function onStartGrid(x, y, dist) {
 
 /* ---------------- 地面 ---------------- */
 
+/* 打包像素色 → 纸色（边缘溶解过渡，避免硬切） */
+function mixPaper(c, t) {
+  return rgb(
+    lerp(c & 255, PAPER_BG[0], t),
+    lerp(c >> 8 & 255, PAPER_BG[1], t),
+    lerp(c >> 16 & 255, PAPER_BG[2], t)
+  );
+}
+
 function groundColor(x, y, ix, iy) {
   const n = trackNearest(x, y), dist = n.dist;
 
-  /* 岛式草地边缘：只看外场；内场（inside）无条件保留 */
-  const edge = TRACK_HALF + WALL_OFF + 6.5 + (noise(n.cx * .12 + 3, n.cy * .12 + 7) - .5) * 3;
-  if (!n.inside && dist > edge) return 0;
+  /* 有机岛缘（scene.md §2 + village 的边缘团块）：
+     归一化距离 rough = dist / EDGE_R，叠两层低频噪声；
+     1.0 之外只留 1.2% 的碎点，1.14 之外完全留白。
+     内场（inside）恒在边界内。
+     只有靠近边缘（e0 > .7）的像素才采样两层噪声 —— 内部像素直接跳过。 */
+  const e0 = n.inside ? 0 : dist / EDGE_R;
+  let rough = e0;
+  if (e0 > .7) {
+    rough += (noise(x * .16 + 5.2, y * .16) - .5) * .24
+           + (noise(x * .42, y * .42 + 1.7) - .5) * .10;
+  }
+  if (rough > 1.04) return 0;
+  if (rough > 1.0) {
+    if (hash(ix, iy) < .999) return 0;
+    return mixPaper(rampOf(GRASS)[2], .78);      // 极少量水墨碎点
+  }
+  if (rough > .9) {
+    const fade = (rough - .9) / .1;
+    const clump = noise(ix * .08, iy * .08);
+    if (hash(ix, iy) * .35 + clump * .65 < fade) return 0;   // 大团块啃边，不是均匀喷点
+  }
 
   const onCurve = Math.abs(x) > STRAIGHT - 1.5;
 
@@ -105,11 +137,15 @@ function groundColor(x, y, ix, iy) {
   }
   if (dist < TRACK_HALF + .1) return rgb(...LINE_WHITE);
 
-  /* 草地：内场略亮，外场略沉；零星小花 */
+  /* 草地：内场略亮，外场略沉；边缘向纸色晕开 + 稀疏碎点 */
   const g = rampOf(GRASS);
   const tone = noise(x * .55 + 5, y * .55 + 1) + (n.inside ? .18 : 0);
   let c = g[clamp(Math.floor(1.9 + tone * 1.5 + (bayerAt(ix, iy) - .5) * .6), 1, 4)];
   if (hash(ix, iy) > .994) c = rgb(236, 214, 104);
+  if (!n.inside && rough > .78) {
+    const t = clamp((rough - .78) / .22, 0, 1);
+    c = mixPaper(c, t * .72);
+  }
   return c;
 }
 
@@ -261,7 +297,7 @@ function buildBarrier() {
 
 function bakeTrack() {
   zb.fill(-1e9);
-  pix.fill(rgb(255, 255, 255));
+  pix.fill(PAPER_RGB);
   for (let iy = 0; iy < H; iy++) for (let ix = 0; ix < W; ix++) {
     const g = unproject(ix + .5, iy + .5), c = groundColor(g.x, g.y, ix, iy), i = iy * W + ix;
     if (!c) continue;

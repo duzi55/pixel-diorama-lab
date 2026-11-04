@@ -108,11 +108,30 @@ function makeContext() {
       };
     },
     createElement(tag) {
-      return {
-        tagName: tag, style: {}, textContent: '', children: [],
-        appendChild: noop, addEventListener: noop, classList: { add: noop, remove: noop },
+      /* canvas 要能 getContext/createImageData —— Gallery 等页面会建自己的预览画布 */
+      if (tag === 'canvas') {
+        return {
+          tagName: 'canvas', width: 0, height: 0, style: {}, dataset: {},
+          getContext: () => ({
+            createImageData: (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }),
+            putImageData: noop, getImageData: (x, y, w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }),
+            clearRect: noop, fillRect: noop, drawImage: noop, save: noop, restore: noop,
+          }),
+          appendChild: noop, addEventListener: noop,
+          setAttribute: noop, getAttribute: () => null,
+          classList: { add: noop, remove: noop, toggle: noop, contains: () => false },
+        };
+      }
+      const el = {
+        tagName: tag, style: {}, dataset: {}, textContent: '', innerHTML: '', children: [],
+        appendChild(child) { this.children.push(child); return child; },
+        addEventListener: noop, removeEventListener: noop,
+        setAttribute: noop, getAttribute: () => null,
+        classList: { add: noop, remove: noop, toggle: noop, contains: () => false },
+        querySelector: () => null, querySelectorAll: () => [],
         getContext: () => null,
       };
+      return el;
     },
     addEventListener: noop, removeEventListener: noop,
     body: { appendChild: noop, style: {} },
@@ -123,7 +142,10 @@ function makeContext() {
   const sb = {
     console,
     document,
-    PP_HEADLESS: true, innerWidth: 1200, innerHeight: 900, devicePixelRatio: 1,
+    PP_HEADLESS: process.env.VIEW ? false : true,
+    innerWidth: process.env.VIEW ? parseInt(process.env.VIEW.split('x')[0], 10) : 1200,
+    innerHeight: process.env.VIEW ? parseInt(process.env.VIEW.split('x')[1] || '900', 10) : 900,
+    devicePixelRatio: 1,
     /* 测试用：SKIP=模块名，逗号分隔（roadtest 等排除法实验用） */
     __SKIP: process.env.SKIP || '',
     addEventListener: (t, fn) => { (listeners[t] ||= []).push(fn); },

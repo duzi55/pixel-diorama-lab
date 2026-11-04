@@ -64,6 +64,8 @@ function hillE(x, y) {
      走廊若无限延伸，画布左右缘会把它切成垂直直线（用户看到的"方框"）。
      收窄后公路与地面一起在岛端有机消散，像墨画里石径淡出纸面。 */
   const corrHW = 7.2 * (1 + .22 * Math.sin(sRel * .09 + 1.3) + .12 * Math.sin(sRel * .21));
+  /* 消散点：岛内沿路 ±12 之后开始收窄，±18 处消散完。
+     （试过把公路延伸到旧画布之外的区域，视觉上"拖尾"不好看，收回岛内） */
   const endFade = Math.pow(clamp((Math.abs(sRel) - 12) / 6, 0, 1), 1.5) * 14;
   const eCorr = Math.abs(lat) / corrHW + endFade;
   const e = Math.min(eIsland, eCorr);

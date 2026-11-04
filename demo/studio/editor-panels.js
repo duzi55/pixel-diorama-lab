@@ -363,6 +363,24 @@ function ED_bindPanels() {
     studioStatus('已导出 JSON', 'ok');
   });
 
+  /* 烘焙 three.js 图集（跑 tools/bake-atlas.mjs） */
+  document.getElementById('btn-bake-atlas').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-bake-atlas');
+    btn.disabled = true;
+    studioStatus('正在烘焙图集（27 构件 × 8 朝向，约 10~30 秒）…', 'busy');
+    try {
+      const data = await studioPost('/api/bake-atlas', { dirs: 8, scale: 12 });
+      const link = document.getElementById('atlas-link');
+      if (link) link.style.display = '';
+      studioStatus('✓ 图集已生成 → demo/export/atlas.png + atlas.json', 'ok');
+      console.log('[bake-atlas]\n' + data.log);
+    } catch (e) {
+      studioStatus('烘焙失败：' + e.message, 'err');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
   document.getElementById('btn-clear').addEventListener('click', () => {
     if (!confirm('清空地形和所有物体？')) return;
     TERRAIN.clear();

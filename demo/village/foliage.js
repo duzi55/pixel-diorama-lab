@@ -41,37 +41,97 @@ function folAt(t, lat) {
   return [ROAD.ax + dx * t + (dy / len) * lat, ROAD.ay + dy * t - (dx / len) * lat];
 }
 
-function growFoliage() {
-  if (FOL_READY) return;
-  FOL_READY = true;
-  trees.length = 0;
-  FOL_LEAF_SOURCES.length = 0;
+/* 树冠像素精灵（风动回放用）：{px:[ix,iy,d,color,...], top, rows, phase} */
+const treeSprites = [];
+let folPlaced = [];
 
-  const placed = FOL_TREE_SPECS.map(sp => {
+function folInst(sp, part) {
+  const p = sp.kind === 'cone-mast'
+    ? { height: sp.h, crownR: sp.cr, trunkH: sp.tkH, layers: sp.layers }
+    : { height: sp.h, crownR: sp.cr, trunkH: sp.tkH };
+  return { id: 'tree_' + sp.seed, kind: sp.kind, x: sp.x, y: sp.y, z: 0, rot: 0,
+    params: p, seed: sp.seed, part };
+}
+
+/* 第一遍：只画树干（静态，进底图） */
+function drawTreeTrunks() {
+  folPlaced = FOL_TREE_SPECS.map(sp => {
     const [x, y] = folAt(sp.t, sp.lat);
     return { ...sp, x, y };
-  });
-  /* 画家算法：y 大（远）先画 */
-  placed.sort((a, b) => b.y - a.y);
-  for (const sp of placed) {
-    const p = sp.kind === 'cone-mast'
-      ? { height: sp.h, crownR: sp.cr, trunkH: sp.tkH, layers: sp.layers }
-      : { height: sp.h, crownR: sp.cr, trunkH: sp.tkH, layers: sp.layers };
-    const inst = { id: 'tree_' + sp.seed, kind: sp.kind, x: sp.x, y: sp.y, z: 0, rot: 0,
-      params: p, seed: sp.seed };
+  }).sort((a, b) => b.y - a.y);          // 画家算法：远先画
+  for (const sp of folPlaced) {
+    const inst = folInst(sp, 'trunk');
     KIT.get(sp.kind).draw(KIT_RENDER.makeCtx(inst), inst);
+  }
+}
+
+/* 第二遍：只画树冠，并把像素录进精灵供每帧风动回放 */
+function drawTreeCanopies() {
+  treeSprites.length = 0;
+  FOL_LEAF_SOURCES.length = 0;
+  for (const sp of folPlaced) {
+    const inst = folInst(sp, 'canopy');
+    plotCapture = [];
+    KIT.get(sp.kind).draw(KIT_RENDER.makeCtx(inst), inst);
+    const px = plotCapture;
+    plotCapture = null;
+    if (!px.length) continue;
+    let top = 1e9, bottom = -1;
+    for (let k = 1; k < px.length; k += 4) {
+      if (px[k] < top) top = px[k];
+      if (px[k] > bottom) bottom = px[k];
+    }
+    treeSprites.push({
+      px, top, rows: Math.max(1, bottom - top + 1),
+      phase: hash(sp.seed, 301) * 6.283,
+      tall: sp.h,
+    });
     FOL_LEAF_SOURCES.push({ x: sp.x, y: sp.y, z: sp.h * .7 });
     trees.push({ x: sp.x, y: sp.y, kind: sp.kind, h: sp.h, crownR: sp.cr, seed: sp.seed });
   }
 }
 
+/* 每帧：树冠随风平移回放（顶部摆幅大、根部不动） */
+function drawTreeWind(t) {
+  if (!treeSprites.length) return;
+  /* 阵风包络：多个低频正弦叠加（和 grass/落叶同一套手绘语言） */
+  const gust = Math.sin(t * .62 + .4) * .55 + Math.sin(t * 1.55) * .3 + Math.sin(t * .27 + 2.1) * .15;
+  for (const sp of treeSprites) {
+    const sway = Math.sin(t * 1.05 + sp.phase) * .6 + gust * .55;
+    const amp = 2.4;                                       // 树梢最大位移（像素）
+    const rowOff = sp.rowOff || (sp.rowOff = new Int8Array(sp.rows));
+    for (let r = 0; r < sp.rows; r++) {
+      const hf = 1 - r / sp.rows;                          // 顶部 1 / 底部 0
+      rowOff[r] = Math.round(sway * amp * hf * hf);
+    }
+    const px = sp.px;
+    for (let k = 0; k < px.length; k += 4) {
+      const iy = px[k + 1];
+      const jx = px[k] + rowOff[iy - sp.top], jy = iy;
+      if (jx < 0 || jx >= W || jy < 0 || jy >= H) continue;
+      const j = jy * W + jx, d = px[k + 2];
+      if (d <= zb[j]) continue;
+      zb[j] = d;
+      pix[j] = px[k + 3];
+    }
+  }
+}
+
+/* 兼容旧接口：growFoliage = 两遍都跑（测试/编辑器可能直接调） */
+function growFoliage() {
+  if (FOL_READY) return;
+  FOL_READY = true;
+  trees.length = 0;
+  drawTreeTrunks();
+  drawTreeCanopies();
+}
+
 /* 树影：轻——参考图是晴天，影子只是树根处一小片 */
 function castTreeShadows() {
-  for (const t of trees) {
+  for (const t of folPlaced) {
     /* 晴天柔影：贴地、小半径、极轻 —— 大偏移的深椭圆会读作"泥坑" */
     castShadow(t.x, t.y, 1.0, t.crownR * .55, 4, .85);
     castShadow(t.x, t.y, 0, .28, 3, .85);
   }
 }
 
-function drawFoliage() {}

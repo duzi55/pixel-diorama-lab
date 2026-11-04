@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>像素大奖赛 · Pixel Grand Prix</title>
 <style>
-  :root { --ink: #1c1b19; --muted: #8b877f; --paper: #fff; }
+  :root { --ink: #2a2118; --muted: #9a8b78; --paper: #fcf5da; }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; background: var(--paper); color: var(--ink); overflow: hidden; }
   body { font: 13px/1.35 ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace; user-select: none; }
-  #stage { position: fixed; inset: 0; display: grid; place-items: center; }
+  #stage { position: fixed; inset: 0; display: grid; place-items: center; background: var(--paper); }
   canvas { display: block; image-rendering: pixelated; touch-action: none; outline: none; }
   #lap { position: fixed; top: max(14px, env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); pointer-events: none; }
   #lap b { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -35,11 +35,11 @@
 <div id="bottom"><div>车靠近时，看台会站起来欢呼</div><div>像素大奖赛 · 自动演示</div></div>
 
 <script>
-  /* 440×320 / S=10：真实 oval 赛道（双直道 + 半圆弯），赛车长度约为人的两倍 */
-  window.PP_W = 440;
-  window.PP_H = 320;
+  /* 600×340 / S=10：完整岛 + 看台，四边留纸色；1200px 窗口可整数 2× 显示 */
+  window.PP_W = 600;
+  window.PP_H = 340;
   window.PP_SCALE = 10;
-  window.PP_ORIGIN_Y = -10;
+  window.PP_ORIGIN_Y = 0;
   window.LIGHT = {
     dir: { x: -0.55, y: -0.6, z: 0.58 },
     shadow: { x: 0.9, y: -0.45 },
@@ -53,5 +53,6 @@
 <script src="race.js"></script>
 <script src="spectators.js"></script>
 <script src="main.js"></script>
+<script src="../nav.js"></script>
 </body>
 </html>

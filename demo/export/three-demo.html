@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>three.js 消费示例 · 像素构件图集</title>
+<style>
+  html,body{margin:0;height:100%;background:#11131a;overflow:hidden;
+    font:13px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;color:#e6e4df}
+  #c{display:block;width:100vw;height:100vh}
+  .hud{position:fixed;left:16px;bottom:16px;display:flex;gap:10px;align-items:center;
+    padding:8px 14px;border-radius:20px;background:rgba(30,30,36,.86);
+    backdrop-filter:blur(10px);border:1px solid #33333d;font-size:12px;color:#9a98a3}
+  .hud button{padding:5px 11px;border-radius:6px;border:1px solid #33333d;background:#26262e;
+    color:#e6e4df;cursor:pointer;font:inherit;font-size:12px}
+  .hud button:hover{background:#33333d}
+  .hud button.on{background:#e8b64c;color:#1a1a1e;border-color:#e8b64c}
+  .hud .sep{width:1px;height:16px;background:#33333d}
+  .title{position:fixed;left:16px;top:16px;font-size:13px;color:#9a98a3}
+  .title b{color:#e8b64c}
+  .err{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    color:#e07a6a;text-align:center;padding:40px;line-height:1.8}
+  .err code{background:#26262e;padding:2px 6px;border-radius:4px;color:#e8b64c}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="title">three.js 消费示例 · <b>atlas.json</b> + <b>atlas.png</b></div>
+<div class="hud">
+  <button id="dir-prev">◀ 朝向</button>
+  <span id="dir-label">0°</span>
+  <button id="dir-next">朝向 ▶</button>
+  <span class="sep"></span>
+  <button id="auto">自动旋转</button>
+  <span class="sep"></span>
+  <button id="tint">黄昏色调</button>
+  <span class="sep"></span>
+  <span>滚轮缩放 · 拖动平移</span>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* ------------------------------------------------------------------
+ * 消费 demo/export/atlas.json + atlas.png（由 tools/bake-atlas.mjs 生成）
+ *
+ * 坐标系：与 demo/engine.js 完全一致的世界坐标 → 等距屏幕坐标
+ *   sx = (x - y)/√2 * S
+ *   sy = ((x + y)/√2 * 0.5 - z * 0.866) * S
+ * 精灵锚点 anchorX/anchorY = 构件原点在帧内的像素位置，摆位靠它对齐。
+ *
+ * 渲染结构：
+ *   camera（正交，屏幕像素单位，y 向上）
+ *     └ world（Group：承载缩放/平移）
+ *         ├ ground（菱形草地）
+ *         └ sprites（每个物体一个 Plane + clone 贴图）
+ * ------------------------------------------------------------------ */
+
+const S = 12;                       /* 图集烘焙尺度（manifest.scale） */
+const SIN = 0.5, COS = 0.8660254, R2 = 1.4142136;
+
+/* ---------------- 场景布局（世界坐标 x,y · 朝向 dir） ---------------- */
+const LAYOUT = [
+  /* 建筑 */
+  { kind: 'wood-house',    x: -6, y: -3, dir: 2 },
+  { kind: 'stone-mill',    x: 7,  y: -6, dir: 2 },
+  { kind: 'shed',          x: 2,  y: 6,  dir: 1 },
+  { kind: 'arch',          x: 12, y: 1,  dir: 2 },
+  /* 前景树（常规尺寸） */
+  { kind: 'broadleaf',     x: -12, y: 4,  dir: 1 },
+  { kind: 'broadleaf',     x: 10, y: 8,  dir: 5 },
+  { kind: 'pine',          x: 4,  y: -9, dir: 0 },
+  { kind: 'willow',        x: -9, y: 9,  dir: 4 },
+  { kind: 'birch',         x: 14, y: 4,  dir: 2 },
+  /* 远景巨树：缩小到 45%，压在北侧当背景林 */
+  { kind: 'cone-mast',     x: -12, y: -8, dir: 0, scale: 0.45 },
+  { kind: 'cone-mast',     x: -3,  y: -10, dir: 3, scale: 0.4 },
+  { kind: 'cone-spire',    x: 7,   y: -9, dir: 1, scale: 0.5 },
+  /* 道具 */
+  { kind: 'well-house',    x: -2, y: 1,  dir: 0 },
+  { kind: 'tin-lamp-post', x: 3,  y: -1, dir: 0 },
+  { kind: 'fence',         x: -5, y: 7,  dir: 0 },
+  { kind: 'fence',         x: 5,  y: 8,  dir: 0 },
+  { kind: 'crate',         x: 1,  y: 3,  dir: 0 },
+  { kind: 'stone-lantern', x: 8,  y: 3,  dir: 0 },
+  { kind: 'wheelbarrow',   x: -8, y: 1,  dir: 1 },
+];
+
+/* ---------------- three 基础 ---------------- */
+
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setClearColor(0x11131a, 1);
+
+const scene = new THREE.Scene();
+
+/* 正交相机：世界单位 = 屏幕像素，y 向上；可视区 (0..W, 0..H) */
+const camera = new THREE.OrthographicCamera(0, innerWidth, innerHeight, 0, -1000, 1000);
+camera.position.set(0, 0, 10);
+
+/* world 组承载全部内容：缩放/平移都作用在它身上 */
+const world = new THREE.Group();
+scene.add(world);
+
+/* 视图状态：zoom 缩放，pan 为屏幕像素位移（y 向下为正） */
+const view = { zoom: 1, panX: 0, panY: 0 };
+
+function applyView() {
+  world.scale.set(view.zoom, view.zoom, 1);
+  world.position.set(view.panX, -view.panY, 0);
+}
+
+function resize() {
+  renderer.setSize(innerWidth, innerHeight);
+  camera.left = 0; camera.right = innerWidth;
+  camera.top = innerHeight; camera.bottom = 0;
+  camera.updateProjectionMatrix();
+}
+
+/* 等距投影 → 屏幕坐标（y 向下，与 engine 一致） */
+function iso(x, y, z) {
+  const u = (x - y) / R2, v = (x + y) / R2;
+  return {
+    x: u * S + innerWidth / 2,
+    y: (v * SIN - z * COS) * S + innerHeight / 2 - 40,
+  };
+}
+
+/* 屏幕坐标（y 向下）→ three 世界坐标（y 向上） */
+function toThree(sx, sy) {
+  return { x: sx, y: innerHeight - sy };
+}
+
+/* ---------------- 载入图集 ---------------- */
+
+let atlas = null;
+const sprites = [];
+
+async function boot() {
+  const meta = await fetch('./atlas.json').then(r => {
+    if (!r.ok) throw new Error('atlas.json ' + r.status);
+    return r.json();
+  });
+  const img = await new Promise((res, rej) => {
+    const im = new Image();
+    im.onload = () => res(im);
+    im.onerror = () => rej(new Error('atlas.png 加载失败 —— 先运行 node tools/bake-atlas.mjs'));
+    im.src = './atlas.png';
+  });
+  atlas = meta;
+
+  /* 共享底图：所有精灵 texture.clone() 共享同一个 source（同一张 GPU 贴图） */
+  const baseTex = new THREE.Texture(img);
+  baseTex.colorSpace = THREE.SRGBColorSpace;
+  baseTex.magFilter = THREE.NearestFilter;
+  baseTex.minFilter = THREE.NearestFilter;
+  baseTex.generateMipmaps = false;
+  baseTex.needsUpdate = true;
+
+  world.add(makeGround());
+
+  for (const item of LAYOUT) {
+    const comp = atlas.components[item.kind];
+    if (!comp || !comp.frames.length) continue;
+
+    const dirs = comp.frames.length;
+    const f = comp.frames[((item.dir % dirs) + dirs) % dirs];
+
+    const tex = baseTex.clone();
+    tex.needsUpdate = true;
+    setFrameUV(tex, f);
+
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(f.w, f.h),
+      new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.5, depthWrite: false })
+    );
+    mesh.userData = { wx: item.x, wy: item.y, baseDir: item.dir, scale: item.scale || 1 };
+    mesh.renderOrder = (item.x + item.y) * 10 + 1000;   /* 画家算法：远的先画 */
+    world.add(mesh);
+
+    sprites.push({ mesh, tex, comp, baseDir: item.dir });
+    placeSprite(mesh, f);
+  }
+
+  resize();
+  applyView();
+  animate();
+  document.title = `three OK · ${sprites.length} sprites · atlas ${atlas.size.w}x${atlas.size.h}`;
+}
+
+/* 帧矩形 → 纹理 UV（three 的 flipY 默认 true，图片 v 轴与 UV 相反） */
+function setFrameUV(tex, f) {
+  const { w: AW, h: AH } = atlas.size;
+  tex.repeat.set(f.w / AW, f.h / AH);
+  tex.offset.set(f.x / AW, 1 - (f.y + f.h) / AH);
+}
+
+/* 锚点对齐：帧左上角落在「世界原点的投影 - 锚点偏移」处 */
+function placeSprite(mesh, f) {
+  const sc = mesh.userData.scale || 1;
+  const p = iso(mesh.userData.wx, mesh.userData.wy, 0);
+  /* 以锚点为原点缩放：帧左上角 = 投影点 - 锚点×s */
+  const topLeftX = p.x - f.anchorX * sc;
+  const topLeftY = p.y - f.anchorY * sc;
+  const t = toThree(topLeftX + f.w * sc / 2, topLeftY + f.h * sc / 2);
+  mesh.position.set(t.x, t.y, 0);
+  mesh.scale.set(sc, sc, 1);
+}
+
+/* 等距椭圆草地：逆投影逐像素生成（与 engine 的地面观感一致） */
+function makeGround() {
+  const CW = 620, CH = 340;
+  const c = document.createElement('canvas');
+  c.width = CW; c.height = CH;
+  const g = c.getContext('2d');
+  const img = g.createImageData(CW, CH);
+  const u32 = new Uint32Array(img.data.buffer);
+  const cx = CW / 2, cy = CH / 2;
+  const RX = 13.5, RY = 11;
+
+  for (let iy = 0; iy < CH; iy++) for (let ix = 0; ix < CW; ix++) {
+    /* 屏幕 → 世界（z=0）逆投影 */
+    const u = (ix - cx) / S;
+    const v = (iy - cy) / (S * SIN);
+    const wx = (u + v) * R2 / 2;
+    const wy = (v - u) * R2 / 2;
+
+    /* 超椭圆 + 低频噪声抖动边缘 */
+    const e = Math.pow(Math.pow(Math.abs(wx) / RX, 4) + Math.pow(Math.abs(wy) / RY, 4), 0.25);
+    const jitter = Math.sin(wx * 5.1) * Math.cos(wy * 4.3) * 0.012;
+    if (e > 1 + jitter) continue;
+
+    /* 明暗起伏（比纯色更有层次） */
+    const tone = 0.88
+      + Math.sin(wx * 0.9 + wy * 0.5) * 0.035
+      + Math.sin(wy * 1.3) * 0.02;
+    const r = Math.round(104 * tone), gg = Math.round(132 * tone), b = Math.round(62 * tone);
+    u32[iy * CW + ix] = (255 << 24 | b << 16 | gg << 8 | r) >>> 0;
+  }
+  g.putImageData(img, 0, 0);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestFilter;
+  tex.colorSpace = THREE.SRGBColorSpace;
+
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(CW, CH),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false })
+  );
+  const t = toThree(innerWidth / 2, innerHeight / 2 - 10);
+  mesh.position.set(t.x, t.y, -1);
+  mesh.renderOrder = 0;
+  return mesh;
+}
+
+/* ---------------- 朝向切换 ---------------- */
+
+let dirOffset = 0;
+const dirLabel = document.getElementById('dir-label');
+
+function setDir(off) {
+  if (!atlas) return;
+  dirOffset = ((off % 8) + 8) % 8;
+  dirLabel.textContent = Math.round(dirOffset * 45) + '°';
+  for (const sp of sprites) {
+    const dirs = sp.comp.frames.length;
+    const f = sp.comp.frames[((sp.baseDir + dirOffset) % dirs + dirs) % dirs];
+    setFrameUV(sp.tex, f);
+    /* 不同朝向的帧尺寸/锚点不同：重建几何并重新摆位 */
+    sp.mesh.geometry.dispose();
+    sp.mesh.geometry = new THREE.PlaneGeometry(f.w, f.h);
+    placeSprite(sp.mesh, f);
+  }
+}
+
+document.getElementById('dir-prev').onclick = () => setDir(dirOffset - 1);
+document.getElementById('dir-next').onclick = () => setDir(dirOffset + 1);
+
+let autoRotate = false;
+document.getElementById('auto').onclick = e => {
+  autoRotate = !autoRotate;
+  e.target.classList.toggle('on', autoRotate);
+};
+
+let dusk = false;
+document.getElementById('tint').onclick = e => {
+  dusk = !dusk;
+  e.target.classList.toggle('on', dusk);
+  renderer.setClearColor(dusk ? 0x2a2438 : 0x11131a, 1);
+  for (const sp of sprites) {
+    sp.mesh.material.color.setRGB(1, dusk ? 0.82 : 1, dusk ? 0.66 : 1);
+  }
+};
+
+/* ---------------- 缩放 / 平移 ---------------- */
+
+/* 滚轮缩放：以屏幕中心为锚（简单可靠） */
+addEventListener('wheel', e => {
+  const old = view.zoom;
+  const next = Math.min(4, Math.max(0.35, old * (e.deltaY > 0 ? 0.9 : 1.111)));
+  if (next === old) return;
+  /* 保持屏幕中心下的内容不动 (world: y 向上) */
+  const cxs = innerWidth / 2, cys = innerHeight / 2;
+  const cx = cxs, cy = innerHeight - cys;       /* three 坐标 */
+  const k = next / old;
+  const wx = cx - (cx - world.position.x) * k;
+  const wy = cy - (cy - world.position.y) * k;
+  view.zoom = next;
+  world.scale.set(next, next, 1);
+  world.position.set(wx, wy, 0);
+  /* 回写 pan（y 向下为正） */
+  view.panX = wx;
+  view.panY = -wy;
+}, { passive: true });
+
+let drag = null;
+addEventListener('pointerdown', e => {
+  if (e.target.closest('.hud')) return;
+  drag = { x: e.clientX, y: e.clientY, px: view.panX, py: view.panY };
+});
+addEventListener('pointermove', e => {
+  if (!drag) return;
+  view.panX = drag.px + (e.clientX - drag.x);
+  view.panY = drag.py + (e.clientY - drag.y);
+  applyView();
+});
+addEventListener('pointerup', () => { drag = null; });
+addEventListener('resize', () => { resize(); applyView(); });
+
+/* ---------------- 主循环 ---------------- */
+
+let lastDir = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  if (autoRotate) {
+    const d = Math.floor(performance.now() / 700) % 8;
+    if (d !== lastDir) { lastDir = d; setDir(d); }
+  }
+  renderer.render(scene, camera);
+}
+
+resize();
+/* 调试/分享用：?dir=3 直接打开某个朝向 */
+const qDir = Number(new URLSearchParams(location.search).get('dir'));
+if (Number.isFinite(qDir)) { dirOffset = 0; /* boot 后再应用 */ }
+
+boot().then(() => {
+  if (Number.isFinite(qDir)) setDir(qDir);
+}).catch(e => {
+  document.title = 'ERR ' + e.message;
+  document.body.innerHTML =
+    `<div class="err">无法载入图集：${e.message}<br><br>
+     请先在项目根目录运行 <code>node tools/bake-atlas.mjs</code>，
+     然后用 HTTP 服务打开本页（不能直接双击）。</div>`;
+});
+</script>
+</body>
+</html>

@@ -81,7 +81,10 @@ function makeSandbox() {
   const rafQueue = [];
   const sb = {
     console, document,
-    PP_HEADLESS: true, innerWidth: 1200, innerHeight: 900, devicePixelRatio: 1,
+    /* ★ 按浏览器全屏窗口跑：画布 = 窗口尺寸（1:1 像素）。
+       地面/公路会延伸出"基准画面"再有机消散，只有全屏画布下
+       边距断言才有意义。 */
+    PP_HEADLESS: false, innerWidth: 1400, innerHeight: 820, devicePixelRatio: 1,
     addEventListener: (t, fn) => { (listeners[t] ||= []).push(fn); },
     removeEventListener: noop,
     requestAnimationFrame: fn => { rafQueue.push(fn); return rafQueue.length; },
@@ -235,6 +238,35 @@ if (picked) {
   /* 阈值 25%：场景加密后留白自然下降；这条断言守的是
      "背景必须是纯色留白、不能铺满"（用户核心要求），不是精确占比 */
   check('纯色背景留白充分', pct > 25, `留白 ${pct.toFixed(0)}%`);
+}
+
+/* 8.5 车辆淡入淡出：路端不"凭空消失/出现"
+ * 车开到画面外侧 → fade→0；回到画面中央 → fade→1。 */
+{
+  const probe = t => evalIn(`(() => {
+    Road.car.t = ${t}; Road.updateCar(${t}, 0);
+    update(0, 0);
+    return +Road.car.fade.toFixed(2);
+  })()`);
+  const mid = probe(.5), farR = probe(1.55), farL = probe(-.8);
+  check('车辆在画面中央完全可见、路端淡出', mid > .95 && farR < .15 && farL < .15,
+    `中央 ${mid} · 右端 ${farR} · 左端 ${farL}`);
+}
+
+/* 8.6 树冠风动：只看画面上部（y<220，只有树冠和天空）的帧间变化 */
+{
+  const W = evalIn('W'), H = evalIn('H');
+  evalIn('lastStep = -1; update(0, 0); draw(0)');
+  const a = Array.from(evalIn('pix'));
+  evalIn('update(2.0, 2.0); draw(2.0)');
+  const b = Array.from(evalIn('pix'));
+  let changed = 0;
+  for (let i = 0; i < a.length; i++) {
+    if (((i / W) | 0) >= Math.min(220, H)) break;
+    if (a[i] !== b[i]) changed++;
+  }
+  const sprites = evalIn('treeSprites.length');
+  check('树冠随风摆动', sprites > 0 && changed > 150, `${sprites} 个树冠精灵 · 上部帧差 ${changed}px`);
 }
 
 /* 9. 内容不触碰画布边缘（防"方框裁切"回归）

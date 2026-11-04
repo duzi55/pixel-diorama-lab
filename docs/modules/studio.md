@@ -511,7 +511,22 @@ node tools/crowd-test.mjs
 
 ---
 
-## 10. 相关文档
+## 10. 导出到其他引擎
+
+构件是「绘制代码」不是资产文件。要交给 three.js / 其他引擎，先跑图集烘焙：
+
+```bash
+node tools/bake-atlas.mjs          # 或编辑器「⇩ 烘焙 three.js 图集」按钮
+```
+
+产出 `demo/export/atlas.png` + `atlas.json`（帧矩形、锚点、UV、碰撞体），
+消费示例见 `demo/export/three-demo.html`。
+
+详见 [export.md](export.md)。
+
+---
+
+## 11. 相关文档
 
 - [../kit/README.md](../kit/README.md) — 构件库总览
 - [../kit/registry.md](../kit/registry.md) — 变体注册表（活索引）

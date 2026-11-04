@@ -26,8 +26,9 @@
 | 无头渲染 | `node tools/render.mjs <html> <out.png> [帧数]` |
 | **山村场景测试** | `node tools/village-test.mjs`（8 项断言：动/车/风动/拾取/标记/路/屋/配色） |
 | **屋顶晾衣测试** | `node tools/laundry-test.mjs`（烘焙/21 件衣物/拾取/拖拽入篮/阵风/天气/结算，导出 `docs/laundry-screenshot.png`） |
-| **赛车场测试** | `node tools/racetrack-test.mjs`（烘焙/3 车/40 观众/车在赛道内/欢呼联动，导出 `docs/racetrack-screenshot.png`） |
+| **赛车场测试** | `node tools/racetrack-test.mjs`（烘焙/无裁切留白/3 车/50 观众/车在赛道内/欢呼联动，导出 `docs/racetrack-screenshot.png`） |
 | **锥树构件预览** | `node tools/cone-preview.mjs [out.png]`（沙箱实画 cone-mast/cone-spire 组合，导出 PNG 目检形态） |
+| **构件库 Gallery** | 浏览器打开 `demo/kit/gallery.html`（全部构件带实时预览、参数滑块、随机种子、可复制用法代码） |
 | **并排对比** | `node tools/compare.mjs <ref.png> <mine.png> <out.png>` |
 | **参考图实测** | `node tools/measure-haze.mjs <png>`（色相/饱和度梯度）· `measure-road.mjs`（公路斜率）· `solve-road.mjs`（反解坐标） |
 
@@ -55,14 +56,15 @@
 | 树林页面 | `demo/forest.html` | 树林预览与控制面板 | `docs/forest-rules.md` |
 | 秋日野餐 | `demo/autumn.js` | 梧桐、菱形地台、野餐布、人物、风动 | `docs/modules/autumn.md` |
 | 秋日页面 | `demo/autumn.html` | 秋日野餐预览 | — |
-| **山村植被** | `demo/village/foliage.js` | 路轴坐标树表（17 棵锥树构件的 t/lat 摆位，高矮分层）+ 轻影 + 落叶源 | `docs/modules/foliage.md` |
+| **山村植被** | `demo/village/foliage.js` | 路轴坐标树表（17 棵锥树）+ **树冠风动**：烘焙期用 `plotCapture` 录像素，每帧按风势回放 + 轻影 + 落叶源 | `docs/modules/foliage.md` |
 | **山村木屋** | `demo/village/houses.js` | 木板拼缝墙 + 苔藓坡顶 + 亮灯窗 + 烟囱 + 体积阴影；4 栋小房沿路两侧摆位（读 terrain.js 的 ROAD） | `docs/kit/buildings.md §5b` |
-| 山村村民 | `demo/village/villagers.js` | 路人沿人行道走停、门口村民张望、头顶锚点与拾取接口 | `docs/modules/villagers.md` |
+| 山村村民 | `demo/village/villagers.js` | **行为状态机**：走停 / 张望 / 招手 / 弯腰捡叶 / 看车；头顶锚点与点击拾取 | `docs/modules/villagers.md` |
 | 山村公路与车 | `demo/village/road.js` | 公路几何（切向/法向/投影/路坐标系）+ 黄色小甲壳虫（沿路行驶、警灯闪烁、动态阴影） | `docs/kit/props.md §8b` |
 | 山村路面绘制 | `demo/village/road-paint.js` | road.js 的兜底路面实现：沥青 + 路缘石 + 黄色虚线（terrain.js 已画路面时不要调） | `docs/kit/props.md §8b` |
-| **秋日山村场景** | `demo/village/` | **纸上微缩模型**：纯色纸背景 + 有机落叶岛（5 木屋 + 17 棵金黄塔树）+ 公路（随地面在岛端消散，不切成直线）+ 黄甲壳虫 + 村民 + 落叶；内容四边距画布边 ≥12px | `docs/modules/village.md` |
+| **秋日山村场景** | `demo/village/` | **全屏画布 + 纸上微缩模型**：画布=窗口（1:1 像素），纯色纸背景 + 有机落叶岛（5 木屋 + 17 棵塔树），公路/地面延伸出基准画面后有机消散，车辆 Bayer 抖动淡入淡出 | `docs/modules/village.md` |
 | **屋顶晾衣复刻** | `demo/laundry/` | 参考项目 Rooftop Laundry 的完整复刻：抹灰楼体 + 女儿墙 + 楼梯间/水塔/烟囱 + 21 件会摆动的衣物 + 藤篮 + 阵风/暴雨/闪电；拖拽收衣与计分 | `docs/modules/laundry.md` |
-| **像素大奖赛** | `demo/racetrack/` | 等距微缩赛车场：椭圆赛道 + 3 辆持续绕圈的赛车 + 看台/围栏 40 名观众；观众按最近赛车的距离起身欢呼（手臂 + 起跳 + 后仰），深度排序绘制 | `docs/modules/racetrack.md` |
+| **像素大奖赛** | `demo/racetrack/` | 等距微缩赛车场：**oval 赛道（双直道 + 半圆弯）** + 主看台/维修区/记分塔 + 3 辆方程式赛车持续绕圈 + 50 名观众；观众按最近赛车的距离起身欢呼；600×340 画布，有机溶解岛缘 + 纸色过渡，内容四边距画布边 ≥12px；人高 1.6 / 车长 3.05 / 赛道宽 5.6 | `docs/modules/racetrack.md` |
+| **场景导航** | `demo/nav.js` | 每个 demo 页面左上角的场景切换菜单：本工作区 6 个场景 + 参考项目 5 个游戏（5300 端口）；自动识别当前页并下移原有 HUD | `docs/modules/nav.md` |
 | **远景树海** | `demo/village/sea.js` | 岛式留白构图：锥树构件布场（大而少）+ 碎点晕开层 + 空气透视 | `docs/kit/depth-and-haze.md §4` |
 | **构件库运行时** | `demo/kit/core.js` | `KIT.register` 构件注册表：id / name / category / params / collision / draw | `docs/modules/studio.md §5` |
 | 构件库·人群行为 | `demo/kit/crowd.js` | `KIT_CROWD`：spectator/wanderer/crowd 三变体（目标选择+软排斥+姿态合成） | `docs/modules/studio.md §8` |
@@ -70,6 +72,7 @@
 | 构件库·渲染 | `demo/kit/render.js` | 场景模型 → 画布：地面协议、画家算法排序、实例旋转 | `docs/modules/studio.md §5` |
 | 构件库·构件 | `demo/kit/trees.js` · `demo/kit/plants.js` | 树 / 草木灌木构件（与 docs/kit/ 篇目对齐） | `docs/kit/registry.md` |
 | 构件库·构件 | `demo/kit/buildings.js` · `demo/kit/stoneworks.js` · `demo/kit/props.js` · `demo/kit/cart.js` | 建筑 / 石砌 / 道具 / 载具构件（AI 生成物按分类落对应模块） | `docs/kit/registry.md` |
+| **构件库 Gallery** | `demo/kit/gallery.html` | **构件陈列页（Bootstrap 风格）**：按分类列出全部构件，实时预览 + 参数滑块 + seed 换形 + 一键复制调用代码；数据来自运行时注册表，新构件自动出现 | `docs/kit/README.md` |
 | 构件库·锥状树 | `demo/kit/conifers.js` | `cone-mast` / `cone-spire`：**叶簇团块**锥冠（plot 逐像素填充，规避球体深描边）+ 粗直干根爪；`density` 控密度 | `docs/kit/trees.md §5.7-5.8` |
 | 构件库·地面 | `demo/kit/ground.js` | 5 种地面材质（草地/泥土/沙地/石板/水面） | `docs/kit/scene.md` |
 | **Studio 生成页** | `demo/studio/index.html` | 描述需求 → AI 按规范写代码 → 进度条 → 预览调参 → 确认保存；顶部可切换模型 | `docs/modules/studio.md` |
@@ -85,6 +88,8 @@
 | **Studio 编辑器** | `demo/studio/editor.html` | 场景为主的全屏画布 + 浮动面板；底图模式可编辑已有场景 | `docs/modules/studio.md §4` |
 | Studio 场景导入 | `demo/studio/scene-import.js` | 同源 iframe 抓取已有场景烘焙底图，进入底图编辑模式 | `docs/modules/studio.md §4.0b` |
 | Studio 服务端 | `demo/studio/server.mjs` | 静态服务 + AI 桥 + 落盘器（零依赖，只用 node: 内置模块） | `docs/modules/studio.md §6` |
+| **图集烘焙器** | `tools/bake-atlas.mjs` | 构件按 N 朝向离屏渲染 → `demo/export/atlas.png` + `atlas.json`（帧矩形/锚点/UV/碰撞体） | `docs/modules/export.md` |
+| **three.js 消费示例** | `demo/export/three-demo.html` | 读图集渲染等距场景：8 朝向切换/缩放平移/色调；three.js 走 CDN | `docs/modules/export.md §3` |
 | 技术分析 | `docs/analysis.md` | 原项目完整管线拆解与代码索引 | — |
 | 树林规则 | `docs/forest-rules.md` | 从参考图到生成规则的完整参数化说明 | — |
 

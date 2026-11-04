@@ -67,7 +67,7 @@ function makeSandbox() {
       };
     },
     addEventListener: noop, removeEventListener: noop,
-    getBoundingClientRect: () => ({ left: 0, top: 0, width: 440, height: 320 }),
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 600, height: 340 }),
     focus: noop, setPointerCapture: noop,
   };
   const document = {
@@ -127,6 +127,7 @@ const updateSpectators = vm.runInContext('updateSpectators', context);
 const trackNearest = vm.runInContext('trackNearest', context);
 const racerPose = vm.runInContext('racerPose', context);
 const TRACK_HALF = vm.runInContext('TRACK_HALF', context);
+const PAPER = vm.runInContext('PAPER_RGB', context);
 
 let failures = 0;
 function check(name, ok, detail = '') {
@@ -134,12 +135,21 @@ function check(name, ok, detail = '') {
   if (!ok) failures++;
 }
 
-/* 1. 烘焙出图 */
+/* 1. 烘焙出图 + 内容不触碰画布边缘（无方框裁切，四边 ≥12px） */
 R.draw();
-let lit = 0;
-for (let i = 0; i < pix.length; i++) if (pix[i] !== 0xffffffff) lit++;
+let lit = 0, minX = W, maxX = -1, minY = H, maxY = -1;
+for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  if (pix[y * W + x] === PAPER) continue;
+  lit++;
+  if (x < minX) minX = x; if (x > maxX) maxX = x;
+  if (y < minY) minY = y; if (y > maxY) maxY = y;
+}
 const coverage = lit / (W * H);
-check('赛道烘焙出图', coverage > 0.2, `非白像素 ${(coverage * 100).toFixed(1)}%`);
+check('赛道烘焙出图', coverage > 0.2, `非纸色像素 ${(coverage * 100).toFixed(1)}%`);
+const margins = { left: minX, right: W - 1 - maxX, top: minY, bottom: H - 1 - maxY };
+const marginOK = margins.left >= 12 && margins.right >= 12 && margins.top >= 12 && margins.bottom >= 12;
+check('内容不触碰画布边缘（无方框裁切）', marginOK,
+  `边距 左${margins.left} 右${margins.right} 上${margins.top} 下${margins.bottom}`);
 
 /* 2. 数量 */
 check('3 辆车 / 50 名观众', R.RACERS.length === 3 && R.SPECTATORS.length === 50,
@@ -194,7 +204,7 @@ check('画面在动', snapA !== snapB);
 /* 7. 内场不是空白：内场中心应被草地覆盖（非纯白） */
 const center = vm.runInContext('project(0, 0, 0)', context);
 const ci = (center.sy | 0) * W + (center.sx | 0);
-check('内场草地铺满', pix[ci] !== 0xffffffff, `pixel=${pix[ci].toString(16)}`);
+check('内场草地铺满', pix[ci] !== PAPER, `pixel=${pix[ci].toString(16)}`);
 
 /* 导出看台欢呼截图 */
 parkNear();

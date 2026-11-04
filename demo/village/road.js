@@ -91,6 +91,7 @@
     speed: .07,      // t / 秒（整条可见路段约 35 秒）
     lateralRatio: .46, // 横向偏移 = halfW × ratio（负 = 右侧，右侧通行）
     x: 0, y: 0, yaw: 0,
+    fade: 1,         // 淡入淡出（场景按屏幕位置设置；0 = 完全消失）
   };
   /* 出入口都放在画面外，车不会凭空出现/消失 */
   const CAR_MIN_T = -.95, CAR_MAX_T = 1.80;
@@ -171,6 +172,7 @@
 
   function drawCar(time) {
     const c = CAR;
+    if (c.fade <= .02) return;
     const f = localFrame(c);
     const P = f.P;
     /* 车身整体缩放：跟着路宽走，路窄车小、路宽车大，比例始终一致。
@@ -220,9 +222,33 @@
     const bp = P(CAB_A * k, 0, (CAB_H + CAB_R + .10) * k);
     sphere(bp[0], bp[1], bp[2], .14 * k, on ? BEACON_ARR : BEACON_DIM, 'gloss');
 
-    /* 动态阴影：车体投影（沿光向偏）+ 贴地接触影 */
-    castShadow(c.x, c.y, .78 * k, .74 * k, 1, .25);
-    castShadow(c.x, c.y, 0, .42 * k, 2, 0);
+    /* 动态阴影：车体投影（沿光向偏）+ 贴地接触影。
+       淡出时半径同步收缩 → 影子跟着车一起消失，不会留一块孤影 */
+    const sf = clamp(c.fade, 0, 1);
+    if (sf > .2) {
+      castShadow(c.x, c.y, .78 * k, .74 * k * sf, 1, .25);
+      castShadow(c.x, c.y, 0, .42 * k * sf, 2, 0);
+    }
+
+    /* 淡出：把车覆盖过的像素按噪声比例还原成烘焙底图（溶解式淡出），
+       避免车在路端"凭空消失/出现" */
+    if (c.fade < .995) {
+      const p0 = project(c.x, c.y, 0);
+      const R = 48;
+      const x0 = Math.max(0, Math.floor(p0.sx - R)), x1 = Math.min(W - 1, Math.ceil(p0.sx + R));
+      const y0 = Math.max(0, Math.floor(p0.sy - R * .8)), y1 = Math.min(H - 1, Math.ceil(p0.sy + R * .5));
+      const keep = c.fade;
+      for (let iy = y0; iy <= y1; iy++) for (let ix = x0; ix <= x1; ix++) {
+        const i = iy * W + ix;
+        if (pix[i] === bakedPix[i]) continue;      // 这像素不是车画的
+        /* Bayer 有序抖动溶解：像素按 4×4 有序矩阵逐格消失，
+           比随机 hash 更像"刻意的像素淡出"（不会碎成噪点） */
+        if (bayerAt(ix, iy) > keep) {
+          pix[i] = bakedPix[i];
+          zb[i] = bakedZ[i];
+        }
+      }
+    }
   }
 
   /* ---------------- 路面绘制：已拆到 road-paint.js ---------------- */

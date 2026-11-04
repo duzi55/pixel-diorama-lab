@@ -100,6 +100,10 @@ function vMake(k, x, y) {
     wait: hash(k, 88) * 2.5,
     scale: 0.95 + hash(k, 89) * 0.12,             // 比例与木屋门车身协调精致
     phase: hash(k, 90) * 6.283,                   // 呼吸/转头相位（各人不同）
+    action: 'idle',                               // idle | wave | pick（行为状态机）
+    actionT: 0,                                   // 当前动作剩余时间
+    actionDur: 1,                                 // 当前动作总时长（做进度用）
+    greet: 0,                                     // 点击打招呼的剩余时间
     side: 0, lat: 0, t: 0, walker: false, lookAt: yaw,
     seed: k, pickCount: 0,
     palette: {
@@ -155,6 +159,22 @@ function vPickWalkTarget(v) {
 function updateVillagers(t, dt) {
   const f = vRoadFrame();
   for (const v of villagers) {
+    /* ---- 行为状态机 ----
+       走路 / 站着发呆（转头张望）/ 招手 / 弯腰捡落叶；点击时强制招手。
+       车开近时扭头看车 —— 让人物和场景里的其他东西产生关系。 */
+    if (v.greet > 0) {
+      v.greet -= dt;
+      if (v.action !== 'wave') { v.action = 'wave'; v.actionT = 1; v.actionDur = 1; }
+    }
+    if (v.actionT > 0) {
+      v.actionT -= dt;
+      if (v.actionT <= 0) { v.action = 'idle'; v.actionT = 0; }
+    } else if (!v.walking) {
+      const r = hash(v.seed * 7919 + (v.pickCount += 0) , Math.floor(t * .7) + 1);
+      if (r > .982) { v.action = 'wave'; v.actionT = v.actionDur = 1.1 + hash(v.seed, 121) * .8; }
+      else if (r > .955) { v.action = 'pick'; v.actionT = v.actionDur = 1.6 + hash(v.seed, 122) * .7; }
+    }
+
     if (v.walker) {
       if (v.walking) {
         const dx = v.targetX - v.x, dy = v.targetY - v.y, d = Math.hypot(dx, dy);
@@ -179,6 +199,12 @@ function updateVillagers(t, dt) {
         v.wait = 2.4 + hash(v.seed + v.pickCount, 113) * 3.6;
       }
       v.look = v.lookAt + Math.sin(t * .45 + v.phase) * .32;
+    }
+    /* 车开近 → 扭头看车（只有停在路边的人会看） */
+    const car = (typeof Road !== 'undefined' && Road.car) ? Road.car : null;
+    if (car && !v.walking && v.greet <= 0) {
+      const dc = Math.hypot(car.x - v.x, car.y - v.y);
+      if (dc < 9) v.lookAt = Math.atan2(car.y - v.y, car.x - v.x);
     }
     /* 朝向归一化：不归一化会绕整圈 */
     let turn = v.look - v.yaw;
@@ -209,14 +235,34 @@ function drawVillagers(t) {
     /* 步态量化：离散步态，和风动同一套手绘语言 */
     const swing = v.walking ? Math.sin(Math.floor(v.gait * 1.3) * Math.PI / 2 + .8) : 0;
     const breathe = Math.sin(t * 1.6 + v.phase) * .012;   // 幅度必须小（≤.02）
-    figure(v.x, v.y, v.yaw, {
+    let pose = {
       z: v.walking ? Math.abs(swing) * .02 : 0,
       scale: v.scale,
       stance: v.walking ? swing * .13 : .06,
       armR: v.walking ? swing * .5 : .1,
       armL: v.walking ? -swing * .5 : -.1,
       lean: breathe,
-    }, v.palette, dynamicAdd);
+    };
+
+    /* 行为覆盖（kit 姿态语义：armR 抬起 = 举臂，crouch = 屈膝） */
+    if (v.action === 'wave') {
+      const k = 1 - Math.max(0, v.actionT) / v.actionDur;     // 0→1 进度
+      const env = Math.sin(Math.min(1, k * 4) * Math.PI / 2); // 快速抬手
+      pose.armR = .15 + env * (2.1 + Math.sin(t * 9 + v.phase) * .45);  // 举臂来回挥
+      pose.lean = breathe - env * .06;
+      pose.z = Math.abs(Math.sin(t * 4.5 + v.phase)) * .02 * env;      // 轻快踮脚
+    } else if (v.action === 'pick') {
+      const k = 1 - Math.max(0, v.actionT) / v.actionDur;
+      /* 下蹲→起身：crouch 走正弦包络 */
+      const env = Math.sin(k * Math.PI);
+      pose.crouch = env * .62;
+      pose.lean = breathe + env * .5;
+      pose.armR = .1 + env * .95;
+      pose.armL = -.1 + env * .95;
+      pose.stance = .06 + env * .3;
+    }
+
+    figure(v.x, v.y, v.yaw, pose, v.palette, dynamicAdd);
   }
 }
 

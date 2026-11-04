@@ -109,6 +109,36 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  /* 烘焙图集：跑 tools/bake-atlas.mjs，把构件导出成 three.js 可用的精灵图集 */
+  if (url.pathname === '/api/bake-atlas' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const { spawn } = await import('node:child_process');
+      const args = [path.join(REPO_DIR, 'tools', 'bake-atlas.mjs')];
+      if (body.dirs) args.push('--dirs', String(body.dirs));
+      if (body.scale) args.push('--scale', String(body.scale));
+      if (body.only && body.only.length) args.push('--only', body.only.join(','));
+
+      const { code, out } = await new Promise(resolve => {
+        const ch = spawn(process.execPath, args, { cwd: REPO_DIR });
+        let out = '';
+        ch.stdout.on('data', d => { out += d; });
+        ch.stderr.on('data', d => { out += d; });
+        ch.on('close', code => resolve({ code, out }));
+      });
+
+      if (code !== 0) return sendJSON(res, 500, { ok: false, error: out.slice(-2000) });
+      return sendJSON(res, 200, {
+        ok: true,
+        log: out.slice(-2000),
+        atlas: { png: '/export/atlas.png', json: '/export/atlas.json', demo: '/export/three-demo.html' },
+      });
+    } catch (e) {
+      console.error('[studio] /api/bake-atlas 失败:', e);
+      return sendJSON(res, 500, { ok: false, error: String(e && e.message || e) });
+    }
+  }
+
   /* 地形预设生成（SSE 流式，与构件生成同一套进度机制） */
   if (url.pathname === '/api/generate-terrain' && req.method === 'POST') {
     const wantsStream = (req.headers.accept || '').includes('text/event-stream');

@@ -19,6 +19,15 @@ let hoverId = null;
 
 /* ---------------- 静态场景烘焙 ---------------- */
 
+/* 无树冠的底图快照：每帧从它出发，再把树冠按风势回放上去 */
+let basePix = new Uint32Array(1), baseZ = new Float32Array(1);
+function ensureBase() {
+  if (basePix.length !== W * H) {
+    basePix = new Uint32Array(W * H);
+    baseZ = new Float32Array(W * H);
+  }
+}
+
 function bake() {
   zb.fill(-1e9);
   pix.fill(SKY);
@@ -26,8 +35,9 @@ function bake() {
   kinds.fill(KIND_NONE);
   shadowMask.fill(0);
   staticShadow.fill(0);
+  ensureBase();
 
-  // 1. 地貌与公路（落叶地台自然散开过渡到留白）
+  // 1. 地貌与公路（落叶岛，边缘有机消散）
   drawGround();
   scatterLitter();
   groundZ.set(zb);        // 定格地面深度
@@ -36,19 +46,24 @@ function bake() {
   drawHouses();
   shadowHouses();
 
-  // 3. 树木群（黄金参天巨树 + 挺拔塔林，完整立体生成）
-  growFoliage();
+  // 3. 树干（静态）
+  drawTreeTrunks();
   castTreeShadows();
 
-  // 4. 环境光影：屏幕空间 AO 与静态阴影
+  // 4. 环境光影
   bakeOcclusion();
   staticShadow.set(shadowMask);
-  applyShadows(groundZ);  // 阴影渲染（公路车行道免影）
+  applyShadows(groundZ);
+
+  // 5. 快照（不含树冠）→ 树冠像素录制（风动基础）
+  basePix.set(pix);
+  baseZ.set(zb);
+  drawTreeCanopies();
 
   bakedPix.set(pix);
   bakedZ.set(zb);
 
-  // 5. 初始化微风落叶源
+  // 6. 落叶源
   setupFallingLeaves(FOL_LEAF_SOURCES, 16);
 }
 
@@ -57,18 +72,25 @@ function bake() {
 function update(t, dt) {
   updateVillagers(t, dt);
   updateCar(t, dt);
+  /* 车辆淡入淡出：与**道路消散点对齐**（岛内 ±12 世界之外开始溶解），
+     车永远不会开在"没有路"的地面上 */
+  const dx = Road.car.x - RD.midX, dy = Road.car.y - RD.midY;
+  const sRel = Math.abs(dx * RD.ex + dy * RD.ey);
+  Road.car.fade = clamp((18 - sRel) / 6, 0, 1);
   updateLeaves(t, dt);
 }
 
 function draw(t) {
-  pix.set(bakedPix);
-  zb.set(bakedZ);
+  /* 从"无树冠底图"出发 → 树冠按风势回放 → 再画动态元素。
+     树冠逐像素录过一次，每帧只做整数像素平移，开销很小。 */
+  pix.set(basePix);
+  zb.set(baseZ);
   pendingShadows.length = 0;
 
-  // 动态图元绘制
-  drawVillagers(t);        // 村民行走与动作
-  drawCar(t);              // 黄色甲壳虫小汽车行驶与警灯闪烁
-  drawFallingLeaves(t);    // 飘落的秋叶
+  drawTreeWind(t);         // 树冠风动
+  drawVillagers(t);        // 村民
+  drawCar(t);              // 黄色甲壳虫
+  drawFallingLeaves(t);    // 落叶
 
   flushShadows();
   applyShadows(groundZ);
@@ -125,8 +147,15 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
-// 响应窗口调整：自适应缩放居中，无拉伸
-addEventListener('resize', fit);
+// 响应窗口调整：全屏模式重建缓冲并重烘焙（1:1，不拉伸）
+window.PP_ONRESIZE = function () { lastStep = -1; };
+addEventListener('resize', () => {
+  if (window.PP_FULLSCREEN) {
+    PP_setSize(Math.ceil(innerWidth), Math.ceil(innerHeight));
+    bake();
+  }
+  fit();
+});
 
 // 初始化启动
 fit();
