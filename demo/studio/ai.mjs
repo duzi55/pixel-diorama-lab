@@ -12,6 +12,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getConfig } from './config.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_DIR = path.resolve(__dirname, '..', '..');
@@ -123,7 +124,7 @@ code 字段是**可直接粘贴运行**的完整代码片段。
  *
  * @param {object} req { id, name, category, spec }
  */
-export async function generateFromSpec(req) {
+export async function generateFromSpec(req, onProgress) {
   const prompt = KIT_SPEC + `
 
 ## 重要：这是「照规格实现」，不是自由创作
@@ -149,7 +150,7 @@ ${req.spec}
 
 请按上面这份规格实现构件。返回结构化 JSON。`;
 
-  const raw = await runClaude(prompt, SCHEMA);
+  const raw = await runClaude(prompt, SCHEMA, onProgress);
   const comp = normalize(raw);
 
   /* **强制用请求里的 id/name** —— AI 可能自造 id（如返回 "x"）。
@@ -205,7 +206,7 @@ const COLLISION_SPEC = `
  * 推断碰撞体。
  * @param {object} req { kind, name, desc, params, current }
  */
-export async function inferCollision(req) {
+export async function inferCollision(req, onProgress) {
   const prompt = `${COLLISION_SPEC}
 
 ## 构件信息
@@ -227,7 +228,7 @@ ${req.current ? `- 现有碰撞体: ${JSON.stringify(req.current)}` : ''}
     required: ['collision', 'reason'],
   };
 
-  const raw = await runClaude(prompt, schema);
+  const raw = await runClaude(prompt, schema, onProgress);
   const c = raw.collision || {};
 
   /* 校验并夹到合理范围 */
@@ -287,9 +288,9 @@ const SCHEMA = {
  * @param {object} req { prompt, category, note }
  * @returns {Promise<object>} 构件定义
  */
-export async function generate(req) {
+export async function generate(req, onProgress) {
   const prompt = buildPrompt(req);
-  const raw = await runClaude(prompt, SCHEMA);
+  const raw = await runClaude(prompt, SCHEMA, onProgress);
 
   /* 重复逃生门：AI 认定需求与现有构件同骨架时，拒收并告知用户 */
   if (raw.duplicate && raw.existingId) {
@@ -340,45 +341,62 @@ function listExisting() {
   return out;
 }
 
-/* 跑 claude CLI，拿结构化输出 */
-function runClaude(prompt, schema) {
+/* 跑 claude CLI，拿结构化输出（流式：onEvent 回调把每条 CLI 事件转发给进度条） */
+function runClaude(prompt, schema, onEvent) {
+  const cfg = getConfig();
   return new Promise((resolve, reject) => {
     const args = [
       '-p', prompt,
-      '--output-format', 'json',
+      '--output-format', 'stream-json',
+      '--verbose',                /* stream-json 需要 verbose，否则 CLI 拒绝 */
       '--json-schema', JSON.stringify(schema),
       '--tools', '',            /* 禁用工具：AI 只写代码 */
       '--permission-mode', 'dontAsk',
       '--no-session-persistence',
-      '--max-budget-usd', '2',
+      '--max-budget-usd', String(cfg.maxBudgetUsd),
     ];
+    if (cfg.model) args.push('--model', cfg.model);
+    if (cfg.effort) args.push('--effort', cfg.effort);
 
-    const child = spawn('claude', args, {
-      cwd: REPO_DIR,
-      env: { ...process.env },
-    });
+    const child = spawn('claude', args, { cwd: REPO_DIR, env: { ...process.env } });
+
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      reject(new Error(`生成超时（${Math.round(cfg.timeoutMs / 1000)}s）。可在 demo/studio/studio.config.json 调大 timeoutMs`));
+    }, cfg.timeoutMs);
 
     let out = '', err = '';
-    child.stdout.on('data', d => { out += d; });
+    let result = null;
+
+    child.stdout.on('data', d => {
+      out += d;
+      /* stream-json：每行一个 JSON 事件，边到边解析 */
+      let nl;
+      while ((nl = out.indexOf('\n')) >= 0) {
+        const line = out.slice(0, nl).trim();
+        out = out.slice(nl + 1);
+        if (!line) continue;
+        let ev;
+        try { ev = JSON.parse(line); } catch { continue; }
+        if (typeof onEvent === 'function') { try { onEvent(ev); } catch { /* 进度回调不许炸主流程 */ } }
+        /* 记住最终 result（type: "result" 的事件带 structured_output） */
+        if (ev.type === 'result') result = ev;
+      }
+    });
     child.stderr.on('data', d => { err += d; });
-    child.on('error', e => reject(new Error('无法启动 claude CLI: ' + e.message)));
+    child.on('error', e => { clearTimeout(timer); reject(new Error('无法启动 claude CLI: ' + e.message)); });
     child.on('close', code => {
+      clearTimeout(timer);
+      if (result) {
+        if (result.structured_output) return resolve(result.structured_output);
+        if (result.result) {
+          try { return resolve(JSON.parse(result.result)); } catch { /* 兜底 */ }
+        }
+        if (result.is_error) return reject(new Error(result.result || 'CLI 返回错误结果'));
+      }
       if (code !== 0) {
         reject(new Error(`claude CLI 退出码 ${code}: ${err.slice(0, 800)}`));
         return;
-      }
-      /* CLI 输出是 JSON 行，最后一行是 result 对象 */
-      const line = out.trim().split('\n').filter(Boolean).pop();
-      let parsed;
-      try { parsed = JSON.parse(line); }
-      catch (e) {
-        reject(new Error('CLI 输出不是合法 JSON: ' + line.slice(0, 400)));
-        return;
-      }
-      if (parsed.structured_output) return resolve(parsed.structured_output);
-      if (parsed.result) {
-        try { return resolve(JSON.parse(parsed.result)); }
-        catch { /* 落到下面的兜底 */ }
       }
       reject(new Error('CLI 未返回结构化输出'));
     });

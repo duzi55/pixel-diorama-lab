@@ -91,26 +91,73 @@ const server = http.createServer(async (req, res) => {
     return sendJSON(res, 200, { ok: true, port: PORT });
   }
 
-  if (url.pathname === '/api/generate' && req.method === 'POST') {
-    try {
-      const body = await readBody(req);
-      const { generate } = await import('./ai.mjs');
-      const result = await generate(body);
-      return sendJSON(res, 200, result);
-    } catch (e) {
-      console.error('[studio] /api/generate 失败:', e);
-      return sendJSON(res, 500, { ok: false, error: String(e && e.message || e) });
-    }
+  /* 当前 AI 配置（生成页顶部展示） */
+  if (url.pathname === '/api/config' && req.method === 'GET') {
+    const { describeConfig } = await import('./config.mjs');
+    return sendJSON(res, 200, { ok: true, config: describeConfig() });
   }
 
-  if (url.pathname === '/api/generate-from-spec' && req.method === 'POST') {
+  /* 生成（SSE 流式：进度事件实时推送，最后一条 event: done 带结果或错误）
+     请求体经查询参数太长，改为：POST /api/generate-stream 先拿 taskId，
+     再 GET /api/progress/<taskId> 收 SSE。简化实现：body 先读入，
+     用 GET 式 SSE 不方便带 body —— 这里用单连接：POST 且 Accept: text/event-stream。 */
+  const isGeneratePath = url.pathname === '/api/generate' || url.pathname === '/api/generate-from-spec';
+  if (isGeneratePath && req.method === 'POST') {
+    const wantsStream = (req.headers.accept || '').includes('text/event-stream');
     try {
       const body = await readBody(req);
-      const { generateFromSpec } = await import('./ai.mjs');
-      const result = await generateFromSpec(body);
-      return sendJSON(res, 200, result);
+      const fnName = url.pathname === '/api/generate' ? 'generate' : 'generateFromSpec';
+
+      if (!wantsStream) {
+        const { [fnName]: fn } = await import('./ai.mjs');
+        const result = await fn(body);
+        return sendJSON(res, 200, result);
+      }
+
+      /* SSE 流式 */
+      res.writeHead(200, {
+        'content-type': 'text/event-stream; charset=utf-8',
+        'cache-control': 'no-store',
+        'connection': 'keep-alive',
+      });
+      const send = (event, data) => {
+        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      };
+      send('open', { model: (await import('./config.mjs')).describeConfig().model });
+
+      const { [fnName]: fn } = await import('./ai.mjs');
+      try {
+        const result = await fn(body, ev => {
+          /* 把 CLI stream-json 事件转成前端可读的进度 */
+          if (ev.type === 'system' && ev.subtype === 'init') {
+            send('progress', { stage: 'connected', message: `已连接模型（会话 ${String(ev.session_id || '').slice(0, 8)}…）` });
+          } else if (ev.type === 'assistant' && ev.message) {
+            const u = ev.message.usage || {};
+            const turns = (ev.message.role === 'assistant') ? '' : '';
+            send('progress', {
+              stage: 'thinking',
+              message: '模型推理中…',
+              outputTokens: u.output_tokens || null,
+              totalTokens: (u.input_tokens || 0) + (u.output_tokens || 0) || null,
+            });
+          } else if (ev.type === 'result') {
+            const u = (ev.usage) || {};
+            send('progress', {
+              stage: 'done',
+              message: '生成完成',
+              outputTokens: u.output_tokens || null,
+              durationMs: ev.duration_ms || null,
+            });
+          }
+        });
+        send('done', result);
+      } catch (e) {
+        send('error', { error: String(e && e.message || e) });
+      }
+      res.end();
+      return;
     } catch (e) {
-      console.error('[studio] /api/generate-from-spec 失败:', e);
+      console.error('[studio] 生成失败:', e);
       return sendJSON(res, 500, { ok: false, error: String(e && e.message || e) });
     }
   }

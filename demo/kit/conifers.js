@@ -29,8 +29,8 @@ function coneTones(golden) {
   return {
     dark: [Math.round(base[0] * .80), Math.round(base[1] * .78), Math.round(base[2] * .76)],
     base,
-    lit: [Math.min(255, Math.round(base[0] * 1.02 + 5)),
-          Math.min(255, Math.round(base[1] * 1.02 + 7)),
+    lit: [Math.min(255, Math.round(base[0] * 1.01 + 3)),
+          Math.min(255, Math.round(base[1] * 1.01 + 5)),
           Math.round(base[2] * 1.01 + 4)],
     seam: [Math.round(base[0] * .62), Math.round(base[1] * .60), Math.round(base[2] * .58)],
   };
@@ -74,7 +74,9 @@ function coneBody(ctx, h, z0, cr, N, tones, radial, seed) {
     /* 小盘不画圆周球：顶层 R 很小时圆周球会突出塔尖（分叉尾巴） */
     if (R < cr * .16) continue;
     for (let k = 0; k < 6; k++) {
-      const a = k / 6 * 6.283 + hash(kk + k, 61) * .3;
+      /* ★ 角度加层间大偏移 i*.55：偏移小（.3）时相邻层的球都围着
+         固定方位排 → 融合后读出 6 条纵向条纹（"液化"感） */
+      const a = k / 6 * 6.283 + hash(kk + k, 61) * .3 + i * .55;
       ctx.sphere(ctx.x + Math.cos(a) * R * .55, ctx.y + Math.sin(a) * R * .55,
         z + hash(kk + k, 62) * R * .08, R * .30, tone, 'flat');
     }

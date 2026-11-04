@@ -54,7 +54,7 @@ open http://127.0.0.1:5320/studio/editor.html
 
 ```bash
 claude -p "<提示词>" \
-  --output-format json \
+  --output-format stream-json --verbose \
   --json-schema '<schema>' \
   --tools ''            # 禁用所有工具：AI 只写代码，不碰文件系统
   --permission-mode dontAsk \
@@ -63,11 +63,39 @@ claude -p "<提示词>" \
 
 `--json-schema` 让 CLI 直接返回合法 JSON（`structured_output` 字段），
 省掉解析自由文本的脆弱环节。`--tools ''` 是硬隔离 —— AI 没有 Bash / 文件读写能力。
+`--output-format stream-json` 让服务端**边跑边收到事件**，供进度条转发。
 
 **提示词模板**在 `demo/studio/ai.mjs` 的 `KIT_SPEC` 里，内容就是本项目的构件规范：
-运行时契约、`ctx` 可用成员、9 条铁律、输出格式。
+运行时契约、`ctx` 可用成员、铁律、输出格式。
 
 **现有构件清单**会自动注入提示词，避免 AI 重造轮子（对应 AGENTS.md「先查注册表」纪律）。
+
+### 模型配置（studio.config.json）
+
+读取优先级：内置默认 → `demo/studio/studio.config.json` → 环境变量 `STUDIO_MODEL` / `STUDIO_EFFORT` / `STUDIO_MAX_BUDGET` / `STUDIO_TIMEOUT`（后者覆盖前者）。
+
+| 项 | 默认 | 说明 |
+|----|------|------|
+| `model` | `""`（CLI 默认） | 模型名或别名：`sonnet` / `opus` / 模型全名 |
+| `effort` | `""` | 思考强度 low ~ max |
+| `maxBudgetUsd` | `2` | 单次生成花费上限（`--max-budget-usd`） |
+| `timeoutMs` | `300000` | 单次超时，超时 SIGKILL 并报错 |
+
+生成页顶部实时显示当前生效配置（`GET /api/config`）。
+
+### 生成进度条（SSE 流式）
+
+`POST /api/generate`（带 `Accept: text/event-stream`）走 **SSE**：
+
+```
+event: open      → 服务就绪
+event: progress  → {stage:'connected'|'thinking'|'done', message, outputTokens}
+event: done      → {ok, component}（或 event: error）
+```
+
+前端进度条策略：连接 18% → 每轮 thinking 渐近 82%（每事件 +3.5%）→
+完成跳 94% → 校验落盘后 100%。同时显示累计输出 token 数与总耗时。
+旧的整包 JSON 返回仍保留（不带流式头时自动回落）。
 
 ### 2.3 预览沙箱
 

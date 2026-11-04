@@ -126,6 +126,7 @@
 | [`fence`](props.md#sign--路牌) | 木栅栏 | 一排等距木桩 + 双横杆 | `demo` `kit/props.js` | `length/height/spacing` | ✅ |
 | [`stone-lantern`](props.md#sign--路牌) | 石灯 | 方柱承灯室，夜里亮着 | `demo` `kit/props.js` | `height/lit` | ✅ |
 | [`well`](props.md#sign--路牌) | 圆石井 | 圆环石砌井口 + 暗井水 | `demo` `kit/props.js` | `radius/height` | ✅ |
+| [`wheelbarrow`](props.md#wheelbarrow--苹果手推车) | 苹果手推车 | 木斗单轮手推车：梯形斗身、木轮、双把手双支腿，斗里堆满红苹果 | `demo` `kit/props.js` | `apples`/`length`/`wheel` | ✅ |
 
 ---
 

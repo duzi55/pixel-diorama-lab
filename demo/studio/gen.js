@@ -167,7 +167,7 @@ function renderCollisionEditor(col) {
   }
 }
 
-/* ---------------- AI 生成 ---------------- */
+/* ---------------- AI 生成（SSE 流式进度） ---------------- */
 
 async function doGenerate() {
   if (GEN.generating) return;
@@ -181,18 +181,90 @@ async function doGenerate() {
   GEN.generating = true;
   el('btn-gen').disabled = true;
   el('btn-save').disabled = true;
+  PROGRESS.show();
   studioStatus('AI 正在按 docs/kit/ 规范编写构件代码…', 'busy');
 
   try {
-    const data = await studioPost('/api/generate', {
-      prompt,
-      category: el('category').value || null,
-      note: el('note').value.trim() || null,
+    const res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'accept': 'text/event-stream' },
+      body: JSON.stringify({
+        prompt,
+        category: el('category').value || null,
+        note: el('note').value.trim() || null,
+      }),
     });
 
-    sendToPreview(data.component);
-    studioStatus('已生成：' + data.component.name + '（可在右侧调节参数与碰撞体积后保存）', 'ok');
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `HTTP ${res.status}`);
+    }
+
+    const ct = res.headers.get('content-type') || '';
+    if (!ct.includes('text/event-stream')) {
+      /* 服务端没走流式（旧版本/兜底），整包 JSON */
+      const data = await res.json();
+      sendToPreview(data.component);
+      PROGRESS.done();
+      studioStatus('已生成：' + data.component.name + '（可在右侧调节参数与碰撞体积后保存）', 'ok');
+      return;
+    }
+
+    /* 解析 SSE 流 */
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    let result = null, errMsg = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+
+      let idx;
+      while ((idx = buf.indexOf('\n\n')) >= 0) {
+        const raw = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        let event = 'message', data = '';
+        for (const line of raw.split('\n')) {
+          if (line.startsWith('event: ')) event = line.slice(7).trim();
+          else if (line.startsWith('data: ')) data += line.slice(6);
+        }
+        if (!data) continue;
+        let payload;
+        try { payload = JSON.parse(data); } catch { continue; }
+
+        if (event === 'progress') {
+          if (payload.stage === 'connected') {
+            PROGRESS.set(18, payload.message, payload.totalTokens ? `${payload.totalTokens} tokens` : '');
+            PROGRESS._thinkingPct = 25;
+          } else if (payload.stage === 'thinking') {
+            PROGRESS._thinkingPct = Math.min(82, (PROGRESS._thinkingPct || 25) + 3.5);
+            PROGRESS.set(
+              PROGRESS._thinkingPct,
+              payload.message || '模型推理中…',
+              payload.outputTokens ? `已输出 ${payload.outputTokens} tokens` : ''
+            );
+          } else if (payload.stage === 'done') {
+            PROGRESS.set(94, '生成完成，正在校验…',
+              payload.outputTokens ? `共 ${payload.outputTokens} tokens · ${(payload.durationMs / 1000).toFixed(1)}s` : '');
+          }
+        } else if (event === 'done') {
+          result = payload;
+        } else if (event === 'error') {
+          errMsg = payload.error;
+        }
+      }
+    }
+
+    if (errMsg) throw new Error(errMsg);
+    if (!result || !result.component) throw new Error('生成结束但没有收到构件数据');
+
+    sendToPreview(result.component);
+    PROGRESS.done();
+    studioStatus('已生成：' + result.component.name + '（可在右侧调节参数与碰撞体积后保存）', 'ok');
   } catch (e) {
+    PROGRESS.fail();
     studioStatus('生成提示：' + e.message, 'err');
   } finally {
     GEN.generating = false;
@@ -396,5 +468,23 @@ for (const b of document.querySelectorAll('.ex')) {
     el('prompt').focus();
   });
 }
+
+/* ---------------- 启动：拉取 AI 配置展示 ---------------- */
+
+async function loadAiConfig() {
+  const box = el('ai-config');
+  if (!box) return;
+  try {
+    const res = await fetch('/api/config');
+    const data = await res.json();
+    if (!data.ok) throw new Error('读取失败');
+    const c = data.config;
+    box.innerHTML = `模型: <b>${esc(c.model)}</b> · 思考: ${esc(c.effort)} · 预算: $${c.maxBudgetUsd}/次 · 超时: ${Math.round(c.timeoutMs / 1000)}s`
+      + ` <span style="opacity:.7">（改 demo/studio/studio.config.json）</span>`;
+  } catch {
+    box.textContent = 'AI 配置读取失败（使用 CLI 默认）';
+  }
+}
+loadAiConfig();
 
 loadKitLibrary();

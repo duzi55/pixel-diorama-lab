@@ -19,6 +19,7 @@
     <h1>AI 构件生成</h1>
     <p class="hint">输入描述，AI 按项目规范（<code>docs/kit/</code>）编写程序化构件代码。
        右侧可实时预览、调参、手动或 AI 设置碰撞体积，确认后一键保存三件套（代码 + 注册表 + 配方卡）。</p>
+    <div class="ai-config" id="ai-config">AI 配置加载中…</div>
 
     <label class="field">
       <span>需求描述</span>
@@ -47,6 +48,14 @@
       <button id="btn-gen" class="primary">✨ AI 生成素材</button>
       <button id="btn-save" disabled>✓ 确认保存入库</button>
       <label class="chk"><input type="checkbox" id="overwrite" checked>允许覆盖同名</label>
+    </div>
+
+    <div class="progress-wrap" id="progress-wrap" style="display:none">
+      <div class="progress-head">
+        <span id="progress-msg">准备中…</span>
+        <span id="progress-tokens" class="mono"></span>
+      </div>
+      <div class="progress-track"><div class="progress-bar" id="progress-bar"></div></div>
     </div>
 
     <div class="examples">
@@ -113,6 +122,7 @@
 </main>
 
 <script src="studio.js"></script>
+<script src="progress.js"></script>
 <script src="gen.js"></script>
 </body>
 </html>

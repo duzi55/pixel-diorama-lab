@@ -1,0 +1,12 @@
+{
+  "model": "",
+  "effort": "",
+  "maxBudgetUsd": 2,
+  "timeoutMs": 300000,
+  "_说明": {
+    "model": "模型名或别名（如 'sonnet' / 'opus' / 模型全名）。留空 = 跟随 CLI 登录账号的默认模型。也可用环境变量 STUDIO_MODEL 覆盖",
+    "effort": "思考强度：low / medium / high / xhigh / max。留空 = CLI 默认",
+    "maxBudgetUsd": "单次生成的花费上限（美元）",
+    "timeoutMs": "单次生成超时毫秒数，超时自动终止并报错"
+  }
+}

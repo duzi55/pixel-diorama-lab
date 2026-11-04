@@ -18,6 +18,7 @@
 | **启动 Studio** | `node demo/studio/server.mjs 5320`，打开 `http://127.0.0.1:5320/studio/` |
 | 构件生成页 | `http://127.0.0.1:5320/studio/index.html` |
 | 场景编辑器 | `http://127.0.0.1:5320/studio/editor.html` |
+| Studio AI 配置 | `demo/studio/studio.config.json`（模型/思考强度/预算/超时，环境变量可覆盖） |
 | 编辑器冒烟测试 | `node tools/editor-test.mjs`（渲染并断言，导出 `docs/editor-screenshot.png`） |
 | **构件库全量实画测试** | `node tools/kit-test.mjs`（沙箱实画每个构件：崩溃/位置/像素数/极端参数） |
 | 人群模块测试 | `node tools/crowd-test.mjs`（避让/CLEARANCE/站桩断言） |
