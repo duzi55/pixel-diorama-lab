@@ -103,6 +103,18 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  if (url.pathname === '/api/generate-from-spec' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const { generateFromSpec } = await import('./ai.mjs');
+      const result = await generateFromSpec(body);
+      return sendJSON(res, 200, result);
+    } catch (e) {
+      console.error('[studio] /api/generate-from-spec 失败:', e);
+      return sendJSON(res, 500, { ok: false, error: String(e && e.message || e) });
+    }
+  }
+
   if (url.pathname === '/api/save' && req.method === 'POST') {
     try {
       const body = await readBody(req);
@@ -111,6 +123,18 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, 200, result);
     } catch (e) {
       console.error('[studio] /api/save 失败:', e);
+      return sendJSON(res, 500, { ok: false, error: String(e && e.message || e) });
+    }
+  }
+
+  if (url.pathname === '/api/collision' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const { inferCollision } = await import('./ai.mjs');
+      const result = await inferCollision(body);
+      return sendJSON(res, 200, result);
+    } catch (e) {
+      console.error('[studio] /api/collision 失败:', e);
       return sendJSON(res, 500, { ok: false, error: String(e && e.message || e) });
     }
   }
@@ -131,6 +155,44 @@ const server = http.createServer(async (req, res) => {
     try {
       const { listScenes } = await import('./persist.mjs');
       return sendJSON(res, 200, { ok: true, scenes: listScenes() });
+    } catch (e) {
+      return sendJSON(res, 500, { ok: false, error: String(e) });
+    }
+  }
+
+  /* 列出构件库中所有已注册构件及其独立源码块 */
+  if (url.pathname === '/api/kit' && req.method === 'GET') {
+    try {
+      const items = [];
+      for (const f of ['trees.js', 'plants.js', 'buildings.js', 'stoneworks.js', 'props.js']) {
+        const p = path.join(DEMO_DIR, 'kit', f);
+        if (!fs.existsSync(p)) continue;
+        const txt = fs.readFileSync(p, 'utf8');
+        let pos = 0;
+        while (true) {
+          const callAt = txt.indexOf('KIT.register(', pos);
+          if (callAt < 0) break;
+          const open = txt.indexOf('(', callAt);
+          let depth = 0, end = -1;
+          for (let i = open; i < txt.length; i++) {
+            if (txt[i] === '(') depth++;
+            else if (txt[i] === ')') {
+              depth--;
+              if (depth === 0) { end = i + 1; break; }
+            }
+          }
+          if (end < 0) break;
+          while (txt[end] === ';') end++;
+          const block = txt.slice(callAt, end);
+          const id = (block.match(/id:\s*'([^']+)'/) || [])[1];
+          const name = (block.match(/name:\s*'([^']+)'/) || [])[1] || id;
+          const category = (block.match(/category:\s*'([^']+)'/) || [])[1] || 'prop';
+          const desc = (block.match(/desc:\s*'([^']*)'/) || [])[1] || '';
+          if (id) items.push({ id, name, category, desc, file: f, code: block });
+          pos = end;
+        }
+      }
+      return sendJSON(res, 200, { ok: true, items });
     } catch (e) {
       return sendJSON(res, 500, { ok: false, error: String(e) });
     }

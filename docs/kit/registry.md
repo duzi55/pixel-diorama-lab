@@ -42,11 +42,13 @@
 | [`plane`](trees.md#3-plane-法国梧桐) | 法国梧桐 | 笔直灰白干 + 三层分叉，**树上无叶** | `demo` `autumn.js:266` | `h/seed/branch` | ✅ |
 | [`canopy`](trees.md#4-canopy-郁闭林冠) | 郁闭林冠 | 内层大球填体块 + 表层小球做轮廓，静态 | `demo` `forest.js:116` | `size/crown/palette` | ✅ |
 | [`simple`](trees.md#5-simple-简易球树) | 简易球树 | 单层球堆，最省 | `demo` `demo.js:70` | `size` | ✅ |
-| [`pine`](trees.md#6-待实现变体的设计要点) | 针叶树 | 锥形塔状，多层三角冠 | — | — | 📐 |
-| [`birch`](trees.md#6-待实现变体的设计要点) | 白桦 | 细直白干 + 横生短枝 | — | — | 📐 |
-| [`willow`](trees.md#6-待实现变体的设计要点) | 垂柳 | 冠下垂枝串，末端渐细 | — | — | 📐 |
-| [`blossom`](trees.md#6-待实现变体的设计要点) | 花树 | 阔叶树冠 + 粉白花点 | — | — | 📐 |
-| [`shrub`](trees.md#6-待实现变体的设计要点) | 灌木 | 无干矮球丛 | — | — | 📐 |
+| [`pine`](trees.md#55-pine-针叶树秋日山村--已实现) | 针叶树 | 锥面塔冠，沿圆周排行 + 半径二次收缩 | `demo` `village/foliage.js` | `scale/rings/pine` | ✅ |
+| [`cone-mast`](trees.md#57-cone-mast-巨层塔树秋日山村背景林--已实现) | 巨层塔树 | 实心宽塔金黄平涂 + 塔面层缝弧线 + 底暗顶亮 + 粗深褐干，背景林主角 | `demo` `kit/conifers.js` | `height/crownR/layers/golden/trunkV` | ✅ |
+| [`cone-spire`](trees.md#58-cone-spire-尖锥树秋日山村背景林--已实现) | 尖锥树 | 实心窄高尖锥 + 微波轮廓 + 底暗顶亮，背景林填充 | `demo` `kit/conifers.js` | `height/crownR/rows/golden` | ✅ |
+| [`birch`](trees.md#birch--白桦) | 白桦 | 细直白干缀横向黑斑，横枝平挑疏朗叶簇 | `demo` `kit/trees.js` | `height`/`trunkR`/`branches`/`crown`/`spots` | ✅ |
+| [`willow`](trees.md#willow--垂柳) | 垂柳 | 矮壮树干托起扁圆冠，冠缘垂下一圈二次下坠的细柳条，末梢渐细 | `demo` `kit/trees.js` | `height`/`spread`/`strands`/`droop` | ✅ |
+| [`blossom`](trees.md#birch--白桦) | 花树 | **= `broadleaf` 参数组**（不建独立 ID）：阔叶树冠 + 粉白花点 | `demo` `kit/trees.js` | `bloomRate/bloomColor` | ✅ |
+| [`shrub`](trees.md#56-shrub-灌木秋日山村--已实现) | 灌木 | 无干矮球丛，5 个小球堆 | `demo` `village/foliage.js` | `r/h/seed` | ✅ |
 
 ---
 
@@ -67,15 +69,17 @@
 | [`water-tank`](buildings.md#7-屋顶小构件组) | 水塔 | 卧倒圆柱 + 支架 | `ref` `laundry:141` | `r/len` | ✅ |
 | [`chimney`](buildings.md#7-屋顶小构件组) | 烟囱 | 三层方柱 + 陶土烟囱帽 | `ref` `laundry:144` | `box/h` | ✅ |
 | [`cabin`](buildings.md#8-cabin-木屋) | 木屋 | 纯 `box()` 拼的板房 | `demo` `demo.js` | — | ✅ |
+| [`wood-house`](buildings.md#5b-wood-house-木屋秋日山村变体) | 山村木屋 | 木板拼缝墙 + 苔藓坡顶 + 亮灯窗 + 烟囱 | `demo` `village/houses.js` | `box/z1/rise/moss/roofColor` | ✅ |
 | [`wood-fence`](structures.md#43-wood-fence-木板围栏) | 木板围栏 | 交替木色的窄板条 | `ref` `balote:127` | `spacing/colors` | ✅ |
 | [`wire-fence`](structures.md#41-wire-fence-铁丝围栏) | 铁丝围栏 | 菱形网眼 + 立柱 + 顶杆 | `ref` `tie-break:108` | `len/z/density` | ✅ |
 | [`net`](structures.md#42-net-球网) | 球网 | 方格网 + 白色包边 | `ref` `tie-break:142` | `y/z` | ✅ |
 | [`ramp`](structures.md#5-曲面构件) | U 型池 | 参数化曲面 + 板缝 + 使用痕迹 | `ref` `mini-ramp:150` | `flat/radius/width` | ✅ |
 | [`stairs`](structures.md#44-stairs-梯子) | 梯子 | 横档 + 侧杆 | `ref` `mini-ramp:183` | — | ✅ |
-| [`balcony`](buildings.md#9-待实现建筑的设计要点) | 阳台 | 挑出平台 + 栏杆 | — | — | 📐 |
-| [`arch`](buildings.md#9-待实现建筑的设计要点) | 拱门 | 券石环 + 拱心石 | — | — | 📐 |
-| [`shed`](buildings.md#9-待实现建筑的设计要点) | 棚屋 | 单坡顶 + 支柱 | — | — | 📐 |
-| [`well`](buildings.md#9-待实现建筑的设计要点) | 水井 | 井圈 + 支架 + 吊桶 | — | — | 📐 |
+| [`balcony`](buildings.md#well-house--水井) | 阳台 | **= `wood-house` 参数组**（不建独立 ID）：挑出平台 + 栏杆 | `demo` `kit/buildings.js` | `balconyDepth/balconyRail` | ✅ |
+| [`arch`](buildings.md#arch--拱门) | 拱门 | 方石墙开半椭圆门洞，券石环按极角分缝沿弧排列 | `demo` `kit/buildings.js` | `width`/`rise` | ✅ |
+| [`shed`](buildings.md#shed--棚屋) | 棚屋 | 四根木柱撑起的单坡顶敞棚，不封墙 | `demo` `kit/buildings.js` | `width`/`depth`/`frontH`/`backH`/`postR`/`thickness`/`overhang` | ✅ |
+| [`stone-mill`](buildings.md#stone-mill--石磨坊) | 石磨坊 | 石砌磨坊小屋，屋旁石台上立着可绕轴转动的石磨盘与十字木推杆 | `demo` `kit/buildings.js` | `width`/`depth`/`height`/`roofPitch`/`millRadius`/`grindAngle`/`tone` | ✅ |
+| [`well-house`](buildings.md#well-house--水井) | 水井 | 圆环石砌井台，两根木柱撑起横梁，麻绳吊着木桶 | `demo` `kit/buildings.js` | `radius`/`height`/`frameHeight` | ✅ |
 
 ---
 
@@ -89,11 +93,11 @@
 | [`flower`](plants.md#2-flower-小花) | 小花 | 草丛顶端替换色，白/黄两色 | `ref` `engine.js:168` | `rate/color` | ✅ |
 | [`scatter-grass`](plants.md#3-scatter-grass-静态草点) | 静态草点 | 直接写像素的短草，无风动 | `demo` `forest.js:60` | `count` | ✅ |
 | [`potted-plant`](plants.md#4-potted-plant-盆栽) | 盆栽 | 花盆 + 14 球叶簇 | `ref` `laundry:150` | `r` | ✅ |
-| [`fern`](plants.md#7-待实现变体的设计要点) | 蕨类 | — | — | — | 📐 |
-| [`reed`](plants.md#7-待实现变体的设计要点) | 芦苇 | — | — | — | 📐 |
+| [`fern`](plants.md#fern--蕨类) | 蕨类 | 从基部向外辐射的羽状叶丛，叶轴沿抛物线弧下垂、末端收细 | `demo` `kit/plants.js` | `fronds`/`length`/`curl` | ✅ |
+| [`reed`](plants.md#reed--芦苇) | 芦苇 | 细高弯杆顶着毛茸茸的穗，风一吹整株大幅摇摆 | `demo` `kit/plants.js` | `height`/`plume`/`bend` | ✅ |
 | [`moss`](plants.md#5-moss-苔藓斑) | 苔藓斑 | 低频噪声选区 + 高频打散 | `ref` `laundry:95` | — | ✅ |
-| [`ivy`](plants.md#7-待实现变体的设计要点) | 藤蔓 | — | — | — | 📐 |
-| [`hedge`](plants.md#7-待实现变体的设计要点) | 树篱 | — | — | — | 📐 |
+| [`ivy`](plants.md#ivy--藤蔓) | 藤蔓 | 贴墙或贴地蔓延的藤，沿曲线等距密布深绿小叶 | `demo` `kit/plants.js` | `length`/`leafSize`/`surface` | ✅ |
+| [`hedge`](plants.md#hedge--树篱) | 树篱 | 沿线密集排布的灌木带，顶部修剪平整 | `demo` `kit/plants.js` | `length/height/depth/rows/colGap/trim` | ✅ |
 | [`fallen-leaf`](plants.md#6-fallen-leaf-落叶) | 落叶 | 地面散落的秋叶 | `demo` `autumn.js:99` | — | ✅ |
 
 ---
@@ -115,8 +119,13 @@
 | [`awning`](structures.md#45-awning-天线) | 天线 | 竖杆 + 3 横杆 | `ref` `laundry:147` | — | ✅ |
 | [`ball-basket`](props.md#8-道具速查表) | 球筐 | 筐 + 散落小球 | `ref` `tie-break:170` | — | ✅ |
 | [`picnic-mat`](props.md#8-道具速查表) | 野餐布 | 格子布 | `demo` `autumn.js:57` | — | ✅ |
-| [`lamp`](props.md#9-移植清单) | 路灯 | — | — | — | 📐 |
-| [`sign`](props.md#9-移植清单) | 路牌 | — | — | — | 📐 |
+| [`beetle-car`](props.md#8b-beetle-car-小甲壳虫秋日山村) | 小甲壳虫 | 胶囊车身 + 半球车篷 + 警灯闪烁 | `demo` `village/road.js` | `k/speed/lateralRatio` | ✅ |
+| [`lamp`](props.md#lamp--路灯) | 路灯 | 直杆顶一颗球形灯罩的铸铁路灯，可点亮 | `demo` `kit/props.js` | `height`/`headR`/`lit`/`base` | ✅ |
+| [`sign`](props.md#sign--路牌) | 路牌 | 细杆撑起的矩形木牌，正面朝向相机、可带横线示意文字 | `demo` `kit/props.js` | `height`/`boardW`/`boardH`/`text` | ✅ |
+| [`tin-lamp-post`](props.md#tin-lamp-post--铁皮路灯) | 铁皮路灯 | 木杆挑出弯铁臂，臂端挂一盏铁皮锥罩暖光灯，夜里透出暖黄光晕并在地上洒出光斑 | `demo` `kit/props.js` | `height`/`arm`/`lampSize`/`glow`/`lit`/`weathered` | ✅ |
+| [`fence`](props.md#sign--路牌) | 木栅栏 | 一排等距木桩 + 双横杆 | `demo` `kit/props.js` | `length/height/spacing` | ✅ |
+| [`stone-lantern`](props.md#sign--路牌) | 石灯 | 方柱承灯室，夜里亮着 | `demo` `kit/props.js` | `height/lit` | ✅ |
+| [`well`](props.md#sign--路牌) | 圆石井 | 圆环石砌井口 + 暗井水 | `demo` `kit/props.js` | `radius/height` | ✅ |
 
 ---
 
@@ -135,7 +144,7 @@
 | [`ready`](figures.md#24-实用姿态配方) | 备球 | 蹲 + 持拍后引 | `ref` `tie-break:489` | ✅ |
 | [`sit`](figures.md#24-实用姿态配方) | 坐姿 | — | `demo` `autumn.js:155` | ✅ |
 | [`lie`](figures.md#24-实用姿态配方) | 躺姿 | — | `demo` `autumn.js:204` | ✅ |
-| [`reach`](figures.md#24-实用姿态配方) | 够取 | 手臂前伸 | — | 📐 |
+| [`reach`](figures.md#附录kit-姿态表kit_pose) | 够取 | 手臂前伸 + 上身前倾 | `demo` `kit/figures.js` `KIT_POSE.reach` | — | ✅ |
 
 ### 5.1 人群变体（crowd）
 
@@ -144,18 +153,22 @@
 | ID | 名称 | 特征 | 来源 | 参数组 | 状态 |
 |----|------|------|------|--------|------|
 | [`passerby`](crowd.md#passerby-路人沿路径穿行) | 路人 | 沿窄带路径走停交替，每帧重新投影回带内 | `demo` `village/villagers.js` | `count/speed/wait/scale/gap` | ✅ |
-| `spectator` | 围观者 | 向主角聚拢，留出 CLEARANCE 半径 | `ref` `stari-most:280` | — | 📐 |
-| `wanderer` | 漫游者 | 均匀随机方向，走一段停一段 | — | — | 📐 |
-| `crowd` | 观众（固定） | 站桩 + 转头/鼓掌 | `ref` `tie-break:506` | — | 📐 |
+| `spectator` | 围观者 | 向主角聚拢，留出 CLEARANCE 半径 | `demo` `kit/crowd.js` | `count/clearance/focus` | ✅ |
+| `wanderer` | 漫游者 | 均匀随机方向，走一段停一段 | `demo` `kit/crowd.js` | `count/bounds/speed` | ✅ |
+| `crowd` | 观众（固定） | 站桩 + 转头/鼓掌 | `demo` `kit/crowd.js` | `count/focus` | ✅ |
 
 ---
 
 ## 6. 特效（effect）
 
-配方卡：[effects.md](effects.md) · [weather.md](weather.md)
+配方卡：[effects.md](effects.md) · [weather.md](weather.md) · [depth-and-haze.md](depth-and-haze.md)
 
 | ID | 名称 | 特征 | 来源 | 状态 |
 |----|------|------|------|------|
+| [`flat`](depth-and-haze.md#1-flat-平涂模式) | 平涂 | 跳过色阶直接写基色，剪纸/像素画风格 | `demo` `engine.js` | ✅ |
+| [`rim`](depth-and-haze.md#2-rim-描边模式) | 描边 | 只画球外圈环带，绕开深度竞争 | `demo` `engine.js` | ✅ |
+| [`haze`](depth-and-haze.md#3-空气透视) | 空气透视 | 远处更淡更灰，雾色要饱和 | `demo` `engine.js` | ✅ |
+| [`tree-sea`](depth-and-haze.md#4-远景树海) | 远景树海 | 按屏幕坐标布点的层叠树群 | `demo` `village/sea.js` | ✅ |
 | [`arrow`](effects.md#1-像素级-ui-图形arrow-bang-target-ring-charge-bar-halo) | 指示箭头 | 字符画 + 白描边 + 浮动 | `ref` `engine.js:325` | ✅ |
 | [`bang`](effects.md#1-像素级-ui-图形arrow-bang-target-ring-charge-bar-halo) | 爆炸符号 | 字符画 + 白描边 | `ref` `mini-ramp:467` | ✅ |
 | [`target-ring`](effects.md#1-像素级-ui-图形arrow-bang-target-ring-charge-bar-halo) | 目标环 | 地面椭圆，黄黑/黑白 | `ref` `tie-break:515` | ✅ |

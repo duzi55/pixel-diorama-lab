@@ -1,0 +1,330 @@
+# studio — 构件生成与场景编辑器
+
+路径：`demo/studio/`
+
+一套**零依赖、零构建**的生产线：把"想要一个构件"变成"项目里多一个可复用构件"，
+再把构件摆进场景、调好碰撞体、存成场景文件。
+
+```
+需求描述 ──▶ AI 按 docs/kit/ 规范写代码 ──▶ iframe 沙箱预览 ──▶ 你确认
+                                                              │
+                                     ┌────────────────────────┘
+                                     ▼
+                       demo/kit/<模块>.js  +  registry.md  +  配方卡
+                                     │
+                                     ▼
+              编辑器：画地形 · 装配物体 · 调碰撞体 · 存场景
+```
+
+---
+
+## 1. 启动
+
+```bash
+# 1. 起 studio 服务（同时提供静态文件与 API）
+node demo/studio/server.mjs 5320
+
+# 2. 打开生成页
+open http://127.0.0.1:5320/studio/index.html
+
+# 3. 打开编辑器
+open http://127.0.0.1:5320/studio/editor.html
+```
+
+服务只用 `node:http` / `node:fs` 等内置模块，不需要 `npm install`。
+
+---
+
+## 2. 构件生成页（`index.html`）
+
+### 2.1 流程
+
+| 步 | 做什么 | 产物 |
+|----|--------|------|
+| 1 | 填需求描述（可选：分类、补充说明） | — |
+| 2 | 点「生成」 | 服务端调 `claude` CLI，拿到结构化 JSON |
+| 3 | 自动送进 iframe 预览 | 转盘旋转 + 碰撞体线框 |
+| 4 | 点「确认保存」 | **三件套**落盘 |
+
+快捷键：`Cmd/Ctrl + Enter` 生成。
+
+### 2.2 AI 桥
+
+**通路**：本地 `claude` CLI headless 模式，不走 HTTP API。
+
+```bash
+claude -p "<提示词>" \
+  --output-format json \
+  --json-schema '<schema>' \
+  --tools ''            # 禁用所有工具：AI 只写代码，不碰文件系统
+  --permission-mode dontAsk \
+  --no-session-persistence
+```
+
+`--json-schema` 让 CLI 直接返回合法 JSON（`structured_output` 字段），
+省掉解析自由文本的脆弱环节。`--tools ''` 是硬隔离 —— AI 没有 Bash / 文件读写能力。
+
+**提示词模板**在 `demo/studio/ai.mjs` 的 `KIT_SPEC` 里，内容就是本项目的构件规范：
+运行时契约、`ctx` 可用成员、9 条铁律、输出格式。
+
+**现有构件清单**会自动注入提示词，避免 AI 重造轮子（对应 AGENTS.md「先查注册表」纪律）。
+
+### 2.3 预览沙箱
+
+`preview.html` + `preview.js`：
+
+- `sandbox="allow-scripts"` 的 iframe，与父页面隔离
+- 构件代码用**真正的 `<script>` 标签**注入 —— `eval` 会让顶层 `const` 留在
+  eval 作用域里，`KIT.register` 反而找不到（这是预览最容易踩的坑）
+- 预览用精简版 KIT 运行时（`preview-kit.js`），只含 `register` / `get` / `resolve`
+- 12fps 步进渲染，与其他场景一致
+
+---
+
+## 3. 落盘三件套
+
+点「确认保存」后写三个文件（`demo/studio/persist.mjs`）：
+
+| 文件 | 内容 | 位置 |
+|------|------|------|
+| 构件代码 | `KIT.register({...})` 块 | `demo/kit/<模块>.js` |
+| 注册表 | 一行 `\| [id](doc#anchor) \| ... \|` | `docs/kit/registry.md` |
+| 配方卡 | ID / 来源 / 形态 / 参数 / 碰撞体 / 移植清单 / 坑 / 实现 | `docs/kit/<篇目>.md` |
+
+**分类 → 落点映射**
+
+| 分类 | 代码模块 | 文档篇目 |
+|------|----------|----------|
+| `tree` | `demo/kit/trees.js` | `docs/kit/trees.md` |
+| `building` | `demo/kit/props.js` | `docs/kit/buildings.md` |
+| `plant` | `demo/kit/trees.js` | `docs/kit/plants.md` |
+| `prop` | `demo/kit/props.js` | `docs/kit/props.md` |
+| `figure` | `demo/kit/props.js` | `docs/kit/figures.md` |
+
+**三件套是原子的**：三个文件的新内容先在内存里算好，全部成功才一起落盘。
+否则中途失败会留下"代码写了、文档没写"的不一致状态。
+
+**覆盖**：勾选「覆盖同名构件」会删掉旧的 `register` 块再插入新的。
+
+---
+
+## 4. 编辑器（`editor.html`）
+
+### 4.1 布局
+
+```
+┌────────────┬──────────────────────────┬──────────────┐
+│ 工具        │  画布                    │ 场景          │
+│ 地形材质    │                          │ 选中对象属性  │
+│ 笔刷/高度   │                          │ 碰撞体积      │
+│ 构件库      │                          │ 物体列表      │
+└────────────┴──────────────────────────┴──────────────┘
+```
+
+### 4.2 地形：逐格绘制
+
+地形不是"选一种材质"，而是**逐格画**。网格模型：
+
+- 格 `(gx, gy)` 覆盖世界坐标 `x∈[gx, gx+1], y∈[gy, gy+1]`
+- 即**世界轴对齐的正方形** —— 投影到屏幕正好是标准等距菱形瓦片，
+  与 `engine.js` 的 `box()` 可见面约定（`+x` 面 / `+y` 面）一致
+- 每格记录：材质 id + 高度 `z`
+
+相邻格高低不同时画**侧壁**，地形才有立体感（`terrain-render.js`）。
+
+**工具**
+
+| 工具 | 作用 |
+|------|------|
+| 画地形 | 用当前材质画笔刷 |
+| 擦除 | 抹掉格子 |
+| 抬高 / 降低 | 塑形，高度差 0.25 |
+| 放置 | 放置当前选中的构件 |
+| 选择 | 选中物体做属性编辑 |
+
+笔刷是圆形 + 噪声抖动边缘（`noise` 调制半径），不是完美圆。
+
+### 4.3 装配
+
+在构件库里点一个构件 → 进入「放置」模式 → 点画布放下。
+
+- 滚轮：旋转朝向（15° 一档）
+- 方向键：微调选中物体位置（`Shift` 加速）
+- `Delete`：删除
+- `Esc`：取消放置 / 取消选中
+
+物体自动吸附到地形高度（`TERRAIN.heightAt`）。
+
+**绘制顺序**：按 `y` 从大到小（画家算法），近的物体后画。
+
+### 4.4 碰撞体积
+
+每个物体有一个碰撞体，两种形状：
+
+```js
+{ type: 'box', w, d, h }              // w=x 宽, d=y 深, h=高
+{ type: 'cylinder', radius, height }
+```
+
+**手动设置**：右侧面板拖滑块。
+
+**AI 推断**：点「AI 推断」→ 服务端把构件的名称、描述、参数发给 CLI，
+让它按外形语义给出体积（树→细圆柱、房屋→贴合的盒子、杆子→极细圆柱），
+并附一句理由。
+
+**显示**：碰撞体画成**虚线**线框，只画背向观众的两条竖线 ——
+它是编辑辅助，不该把物体本身盖住。
+
+### 4.5 场景存取
+
+场景 = `{ version, terrain, objects }`，JSON 格式。
+
+- **保存**：`POST /api/scene {action:'save', name, scene}` → `demo/scenes/<name>.json`
+- **载入**：`POST /api/scene {action:'load', name}`
+- **导出**：浏览器直接下载 JSON
+- **清空**：清地形 + 清物体
+
+---
+
+## 5. 构件库运行时（`demo/kit/`）
+
+编辑器和生成页共用同一套构件契约。
+
+| 文件 | 职责 |
+|------|------|
+| `core.js` | `KIT.register` / `KIT.get` / `KIT.resolve` —— 构件注册表 |
+| `palette.js` | 构件配色基色 |
+| `trees.js` | 树与草木构件 |
+| `props.js` | 建筑与道具构件 |
+| `ground.js` | 地面材质（按 `docs/kit/scene.md` 协议） |
+| `render.js` | 把场景模型画到画布上 |
+
+### 5.1 构件定义契约
+
+```js
+KIT.register({
+  id: 'broadleaf',          // 稳定英文标识
+  name: '阔叶树',
+  category: 'tree',
+  desc: '三段分叉树干 + 多簇球堆树冠',
+  params: {
+    height: { def: 5.0, min: 2, max: 9, step: .1, desc: '树高' },
+  },
+  collision: { type: 'cylinder', radius: .35, height: 5.0 },
+  draw(ctx, inst) { /* ... */ },
+});
+```
+
+### 5.2 `ctx` 可用成员
+
+| 成员 | 说明 |
+|------|------|
+| `ctx.x` / `ctx.y` / `ctx.z` | 实例世界坐标 |
+| `ctx.params` | 参数表（已夹到合法区间） |
+| `ctx.seed` | 实例种子 |
+| `ctx.sphere/capsule/box/plot` | 引擎原语，**已处理实例旋转** |
+| `ctx.rampOf/rgb/hash/noise/lerp/clamp` | 颜色与随机工具 |
+| `ctx.shadow(r, strength, dither)` | 给本实例投地面阴影 |
+| `ctx.shadowAt(x,y,z,r,...)` | 指定位置投阴影 |
+
+### 5.3 旋转
+
+`ctx.rot` 生效时，`ctx.sphere` 等原语会自动把传入坐标绕实例原点旋转。
+构件代码**完全不用管自己被摆成什么朝向**。
+
+---
+
+## 6. API
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/health` | 存活检查 |
+| POST | `/api/generate` | `{prompt, category, note}` → 构件定义 |
+| POST | `/api/save` | `{component, overwrite}` → 三件套落盘 |
+| POST | `/api/collision` | `{kind, name, desc, params, current}` → 碰撞体建议 |
+| GET/POST | `/api/scene` | 场景列表 / 保存 / 载入 |
+| GET | `/api/file?path=` | 读仓库内文件（路径受限） |
+
+---
+
+## 7. 测试与批量工具
+
+```bash
+# 构件库全量实画测试（保存前的同一套机器校验，扫所有已注册构件）
+node tools/kit-test.mjs            # 全量
+node tools/kit-test.mjs birch      # 只测指定的
+
+# 批量补齐 docs/kit/ 里标 📐 的待实现变体（需先起 studio 服务）
+node tools/fill-variants.mjs            # 全部
+node tools/fill-variants.mjs birch shed # 指定的
+
+# 编辑器冒烟测试
+node tools/editor-test.mjs
+
+# 人群行为模块测试
+node tools/crowd-test.mjs
+```
+
+### 7.1 落盘前的机器校验（三道闸）
+
+`validateComponent`（persist.mjs）在写盘前依次执行：
+
+| 闸 | 拦什么 | 怎么拦 |
+|----|--------|--------|
+| 1. 语法 | 语法错误、缺 `KIT.register` | `new Function` 解析 |
+| 2. **沙箱实画** | **崩溃** + **忽略实例位置** | vm 加载引擎 → 注册构件 → 在 `(0,0)` 和 `(4,2)` 各画一次：崩 → 拒收；两次画面相同（说明坐标裸写 `[0,0]` 没基于 `ctx.x/ctx.y`）→ 拒收；像素 < 8 → 拒收 |
+| 3. 合并后整文件 | 块删除/拼装的 bug | 写盘前 `new Function(合并结果)` —— 曾经的块删除 bug 只删半截留下悬空逗号，整文件检查由此而来 |
+
+### 7.2 为什么需要这些闸（真实事故）
+
+- **颜色两张皮**：AI 反复把 `rampOf(...)[i]` / `rgb(...)`（打包像素）喂给
+  `sphere/capsule/box`（它们只吃 `[r,g,b]` 基色数组）—— 运行时才崩，
+  预览页一度静默吞掉异常，用户对着空画面看到"预览就绪"。
+  现在：提示词铁律写死 + 预览试画后才报就绪 + 实画校验拒收。
+- **位置忽略**：AI 写过坐标全部裸写 `[0,0,...]` 的构件（摆哪儿都画在世界原点）。
+  现在：双位置实画比对，一样就拒收。
+- **重复造轮子**：需求"挂在木杆上的铁皮路灯"= 已有的 `tin-lamp-post`，AI 照样新建。
+  现在：现有构件清单带描述注入 + AI 可返回 `duplicate: true`（服务端转成友好错误）。
+- **占位符进库**：早期校验只查语法，`draw() { // placeholder }` 也过了。
+  像素数检查由此而来。
+
+### 7.3 批量补齐流程（fill-variants.mjs）
+
+1. `TARGETS` 清单里每项带 `specDoc` / `specHead` —— 从 `docs/kit/<篇目>.md` 抽出该变体的规格节
+2. 调 `/api/generate-from-spec`：提示词强调**照规格实现**（参数名/区间/算法锚点都是既定的，id/name 强制回填）
+3. 走 `/api/save` 落盘三件套（overwrite: true，允许覆盖坏条目）
+4. 落盘前过 §7.1 的三道闸
+
+---
+
+## 8. 人群与姿态（kit 行为层）
+
+两个**非构件**模块（不进 `KIT.register`，没有 draw）：
+
+| 文件 | 内容 | 测试 |
+|------|------|------|
+| `demo/kit/crowd.js` | `KIT_CROWD`：spectator / wanderer / crowd 三变体（目标选择 + 软排斥 + 边界夹紧 + 姿态合成） | `tools/crowd-test.mjs` |
+| `demo/kit/figures.js` | `KIT_POSE` 姿态表（含注册表欠着的 `reach` 够取）+ `kitPose(name, over)` 覆盖助手 | — |
+
+---
+
+## 9. 坑
+
+| 坑 | 症状 | 对策 |
+|----|------|------|
+| `rampOf()` 收到数字 | `Invalid value used as weak map key` | 颜色必须是 `[r,g,b]` 数组。`engine.js` 已加前置检查并给出明确报错 |
+| `eval` 注入构件代码 | 顶层 `const` 不可见，`KIT.register` 找不到 | 用真正的 `<script>` 标签注入 |
+| 注册表正则拼 id | 反引号在字符类里触发 `Range out of order` | 用字符串 `startsWith` 匹配，不用正则 |
+| 落盘中途失败 | 代码写了、文档没写 | 三个文件先在内存算好再一起写 |
+| 顶层 `const` 重名 | 整个页面 `SyntaxError` | 顶层只放函数与 `KIT.register`；局部量加模块前缀 |
+| 碰撞体线框盖住物体 | 画面全是青色 | 画虚线 + 只画背向观众的竖线 |
+| 格子用旋转 45° 的格系 | 地形不是标准等距菱形，瓦片歪 | 格必须是世界轴对齐的正方形 |
+
+---
+
+## 10. 相关文档
+
+- [../kit/README.md](../kit/README.md) — 构件库总览
+- [../kit/registry.md](../kit/registry.md) — 变体注册表（活索引）
+- [engine.md](engine.md) — 渲染引擎接口
+- [../../AGENTS.md](../../AGENTS.md) — 项目硬性约束

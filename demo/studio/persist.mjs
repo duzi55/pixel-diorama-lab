@@ -1,6 +1,6 @@
 'use strict';
 /* ------------------------------------------------------------------
- * 落盘器：把确认后的构件写进项目
+ * 落盘器：把确认后的构件写进项目（persist.mjs）
  *
  * 三件套（AGENTS.md 硬性纪律：没登记的变体等于不存在）：
  *   1. demo/kit/<模块>.js    构件代码
@@ -13,6 +13,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { validateComponent } from './validate.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_DIR = path.resolve(__dirname, '..', '..');
@@ -20,13 +21,13 @@ const KIT_DIR = path.join(REPO_DIR, 'demo', 'kit');
 const DOCS_KIT = path.join(REPO_DIR, 'docs', 'kit');
 const SCENE_DIR = path.join(REPO_DIR, 'demo', 'scenes');
 
-/* 分类 → (代码模块文件, 文档篇目) */
+/* 分类 → (代码模块文件, 文档篇目) —— 与 docs/kit/ 篇目一一对应 */
 const CATEGORY_MAP = {
-  tree: { file: 'trees.js', doc: 'trees.md', label: '树' },
-  building: { file: 'props.js', doc: 'buildings.md', label: '建筑' },
-  plant: { file: 'trees.js', doc: 'plants.md', label: '草木' },
-  prop: { file: 'props.js', doc: 'props.md', label: '道具' },
-  figure: { file: 'props.js', doc: 'figures.md', label: '人物' },
+  tree:     { file: 'trees.js',     doc: 'trees.md',     label: '树' },
+  plant:    { file: 'plants.js',    doc: 'plants.md',    label: '草木' },
+  building: { file: 'buildings.js', doc: 'buildings.md', label: '建筑' },
+  prop:     { file: 'props.js',     doc: 'props.md',     label: '道具' },
+  figure:   { file: 'props.js',     doc: 'figures.md',   label: '人物' },
 };
 
 /* ---------------- 构件落盘 ---------------- */
@@ -42,31 +43,37 @@ export function saveComponent(body) {
   const map = CATEGORY_MAP[c.category] || CATEGORY_MAP.prop;
   const codePath = path.join(KIT_DIR, map.file);
   const docPath = path.join(DOCS_KIT, map.doc);
+  const regPath = path.join(DOCS_KIT, 'registry.md');
 
-  /* ---- 1. 代码 ---- */
-  let code = fs.readFileSync(codePath, 'utf8');
-  const already = code.includes(`id: '${c.id}'`);
+  /* 先过沙箱实画校验 */
+  validateComponent(c);
+
+  const code0 = fs.readFileSync(codePath, 'utf8');
+  const already = code0.includes(`id: '${c.id}'`);
   if (already && !body.overwrite) {
     throw new Error(`构件 "${c.id}" 已存在于 ${map.file}，请勾选覆盖或换一个 id`);
   }
 
-  if (already) {
-    /* 覆盖：删掉旧的 register 块，插入新的 */
-    code = removeRegisterBlock(code, c.id);
+  /* 1. 代码 */
+  let code = already ? removeRegisterBlock(code0, c.id) : code0;
+  code = insertBlock(code, formatBlock(c));
+
+  try {
+    new Function(code);
+  } catch (e) {
+    throw new Error(`合并后的 ${path.basename(codePath)} 语法不通过（未写入）：${e.message}`);
   }
-  const block = formatBlock(c);
-  code = insertBlock(code, block);
+
+  /* 2. 注册表 */
+  const reg = upsertRegistry(fs.readFileSync(regPath, 'utf8'), c, map);
+
+  /* 3. 配方卡 */
+  const doc0 = fs.existsSync(docPath) ? fs.readFileSync(docPath, 'utf8') : `# ${map.label}\n`;
+  const doc = upsertRecipeCard(doc0, c, map);
+
+  /* 全部算好，一次落盘 */
   fs.writeFileSync(codePath, code, 'utf8');
-
-  /* ---- 2. 注册表 ---- */
-  const regPath = path.join(DOCS_KIT, 'registry.md');
-  let reg = fs.readFileSync(regPath, 'utf8');
-  reg = upsertRegistry(reg, c, map);
   fs.writeFileSync(regPath, reg, 'utf8');
-
-  /* ---- 3. 配方卡 ---- */
-  let doc = fs.existsSync(docPath) ? fs.readFileSync(docPath, 'utf8') : `# ${map.label}\n`;
-  doc = upsertRecipeCard(doc, c, map);
   fs.writeFileSync(docPath, doc, 'utf8');
 
   return {
@@ -80,8 +87,12 @@ export function saveComponent(body) {
   };
 }
 
-/* 把构件格式化成带注释的代码块 */
 function formatBlock(c) {
+  const code = String(c.code || '');
+  if (/^\s*KIT\.register\s*\(/m.test(code)) {
+    return `/* ---- ${c.name} · ${c.id} ---- */\n${code.trim()}\n`;
+  }
+
   const lines = [];
   lines.push(`/* ---- ${c.name} · ${c.id} ---- */`);
   lines.push(`KIT.register({`);
@@ -100,20 +111,20 @@ function formatBlock(c) {
     lines.push(`  collision: ${JSON.stringify(c.collision)},`);
   }
   lines.push(`  draw(ctx, inst) {`);
-  lines.push(indent(c.code, 4));
+  lines.push(indent(code, 4));
   lines.push(`  },`);
   lines.push(`});`);
   lines.push('');
   return lines.join('\n');
 }
 
-/* 生成物的 draw 体内可能已含缩进，这里规整一下 */
 function indent(code, n) {
   const pad = ' '.repeat(n);
-  return code
-    .split('\n')
-    .filter((l, i, arr) => l.trim() || i < arr.length - 1)
-    .map(l => (l.trim() ? pad + l.trim() : ''))
+  const raw = String(code).split('\n');
+  const indents = raw.filter(l => l.trim()).map(l => l.match(/^\s*/)[0].length);
+  const min = indents.length ? Math.min(...indents) : 0;
+  return raw
+    .map(l => (l.trim() ? pad + l.slice(min) : ''))
     .join('\n');
 }
 
@@ -121,38 +132,46 @@ function escapeSingle(s) {
   return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, ' ');
 }
 
-/* 插入代码块：追加到文件末尾 */
 function insertBlock(code, block) {
   return code.replace(/\s*$/, '\n\n' + block);
 }
 
-/* 删除已有的 register 块（覆盖场景） */
 function removeRegisterBlock(code, id) {
   const marker = `id: '${id}'`;
   const at = code.indexOf(marker);
   if (at < 0) return code;
 
-  /* 往前找块首注释行 */
-  let start = code.lastIndexOf('/* ----', at);
-  if (start < 0) start = code.lastIndexOf('KIT.register({', at);
-  /* 往后找块尾 */
-  let depth = 0, end = -1, seen = false;
-  for (let i = code.indexOf('{', at); i < code.length; i++) {
-    if (code[i] === '{') { depth++; seen = true; }
-    else if (code[i] === '}') {
+  const callAt = code.lastIndexOf('KIT.register(', at);
+  if (callAt < 0) return code;
+
+  let start = code.lastIndexOf('/* ----', callAt);
+  if (start < 0) start = callAt;
+
+  const open = code.indexOf('(', callAt);
+  let depth = 0, end = -1;
+  for (let i = open; i < code.length; i++) {
+    if (code[i] === '(') depth++;
+    else if (code[i] === ')') {
       depth--;
-      if (seen && depth === 0) { end = i + 1; break; }
+      if (depth === 0) { end = i + 1; break; }
     }
   }
   if (end < 0) return code;
-  /* 吃掉后面的换行 */
-  while (code[end] === '\n') end++;
+  while (code[end] === ';' || code[end] === '\n') end++;
   return (code.slice(0, start) + code.slice(end)).replace(/\n{3,}/g, '\n\n');
 }
 
 /* ---------------- 注册表 ---------------- */
 
-/* 注册表分节标题 → 分类 */
+function gitAnchor(id, name) {
+  const raw = `${id} — ${name}`;
+  return raw
+    .toLowerCase()
+    .replace(/[^\w\s一-鿿-]/g, '')
+    .trim()
+    .replace(/ /g, '-');
+}
+
 const REGISTRY_SECTION = {
   tree: '## 1. 树（tree）',
   building: '## 2. 建筑（building）',
@@ -161,37 +180,53 @@ const REGISTRY_SECTION = {
   figure: '## 5. 人物姿态（pose）',
 };
 
-/* 注册表每行格式：| [`id`](doc#anchor) | 名称 | 特征 | 来源 | 参数组 | 状态 | */
 function upsertRegistry(reg, c, map) {
   const paramNames = Object.keys(c.params || {});
   const paramsCell = paramNames.length ? paramNames.map(p => `\`${p}\``).join('/') : '—';
-  const row = `| [\`${c.id}\`](${map.doc}#${c.id.replace(/[a-z0-9]+/g, m => m)}) | ${c.name} | ${c.desc || '—'} | \`demo\` \`kit/${map.file}\` | ${paramsCell} | ✅ |`;
+  const row = `| [\`${c.id}\`](${map.doc}#${gitAnchor(c.id, c.name)}) | ${c.name} | ${c.desc || '—'} | \`demo\` \`kit/${map.file}\` | ${paramsCell} | ✅ |`;
 
-  /* 找同 id 的行替换掉 */
-  const rowRe = new RegExp(`^\\| \[\`${c.id}\`\\].*$`, 'm');
-  if (rowRe.test(reg)) return reg.replace(rowRe, row);
+  const lines = reg.split('\n');
+  const prefix = `| [\`${c.id}\`]`;
+  let at = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith(prefix)) { at = i; break; }
+  }
+  if (at >= 0) {
+    lines[at] = row;
+    return lines.join('\n');
+  }
 
-  /* 插到对应分节的表格末尾 */
   const section = REGISTRY_SECTION[c.category];
   if (!section) return reg;
   const sAt = reg.indexOf(section);
   if (sAt < 0) return reg;
-  /* 找该分节里下一个 "## " */
   const nextAt = reg.indexOf('\n## ', sAt + section.length);
   const end = nextAt < 0 ? reg.length : nextAt;
   const sectionText = reg.slice(sAt, end);
-  /* 表格最后一行 */
-  const lines = sectionText.split('\n');
+  const sectionLines = sectionText.split('\n');
   let lastRow = -1;
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].startsWith('|')) lastRow = i;
+  for (let i = 0; i < sectionLines.length; i++) {
+    if (sectionLines[i].startsWith('|')) lastRow = i;
   }
   if (lastRow < 0) return reg;
-  lines.splice(lastRow + 1, 0, row);
-  return reg.slice(0, sAt) + lines.join('\n') + reg.slice(end);
+  sectionLines.splice(lastRow + 1, 0, row);
+  return reg.slice(0, sAt) + sectionLines.join('\n') + reg.slice(end);
 }
 
 /* ---------------- 配方卡 ---------------- */
+
+function demoteHeadings(text) {
+  return String(text)
+    .split('\n')
+    .map(line => {
+      const m = line.match(/^(#{1,5})\s+(.*)$/);
+      if (!m) return line;
+      const level = Math.min(6, m[1].length + 2);
+      return '#'.repeat(level) + ' ' + m[2];
+    })
+    .join('\n')
+    .trim();
+}
 
 function upsertRecipeCard(doc, c, map) {
   const params = Object.entries(c.params || {});
@@ -202,6 +237,8 @@ function upsertRecipeCard(doc, c, map) {
   const collision = c.collision
     ? `\`${JSON.stringify(c.collision)}\``
     : '无（可从地面穿过）';
+
+  const notes = demoteHeadings(c.notes || '');
 
   const card = `## ${c.id} — ${c.name}
 
@@ -228,9 +265,9 @@ ${collision}
 - 注册表：\`docs/kit/registry.md\` · ${map.label}节
 - 依赖引擎：\`demo/engine.js\` 的 \`sphere/capsule/box/plot/rampOf/hash/noise\`
 
-### 坑
+### 实现说明
 
-${c.notes || '（待补充）'}
+${notes || '（待补充）'}
 
 ### 实现
 
@@ -239,11 +276,8 @@ ${c.code.trim()}
 \`\`\`
 `;
 
-  /* 已有同 id 的卡就替换 */
-  const h = `## ${c.id} — ${c.name}`;
   const hRe = new RegExp(`^## ${c.id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} — .*$`, 'm');
   if (hRe.test(doc)) {
-    /* 替换到下一个 "## " 之前 */
     const at = doc.search(hRe);
     const next = doc.indexOf('\n## ', at + 1);
     const end = next < 0 ? doc.length : next + 1;

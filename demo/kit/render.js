@@ -10,7 +10,7 @@
  *   4. 每帧动态要素（人物等）
  *
  * 渲染上下文 ctx 暴露给构件 draw()：
- *   ctx.sphere/capsule/box/plot   引擎原语
+ *   ctx.sphere/capsule/box/plot   引擎原语（自动随 ctx.rot 旋转）
  *   ctx.params                    实例参数
  *   ctx.x / ctx.y / ctx.z         实例位置
  *   ctx.seed                      实例种子
@@ -29,6 +29,9 @@ const KIT_RENDER = {
 
   /* 地面材质表 —— 索引对应 KIND_* */
   groundMats: {},
+
+  /* 背景色（留白区）。编辑器会覆盖成自己的深色。 */
+  bgColor: rgb(250, 246, 232),
 
   /* ---------------- 地面 ---------------- */
 
@@ -76,9 +79,8 @@ const KIT_RENDER = {
 
   /** 构造给构件 draw() 的上下文
    *
-   * 旋转：ctx.rot 是弧度，绕构件自身原点旋转。
-   * 实现方式是包一层原语 —— 把传入的坐标先转到构件局部系再转回，
-   * 这样构件代码完全不用关心自己被摆成什么朝向。
+   * 旋转：ctx.rot 是弧度，绕构件自身原点 (ox, oy) 旋转。
+   * 传入原语的坐标会自动旋转，构件代码完全不用关心自己被摆成什么朝向。
    */
   makeCtx(o) {
     const params = KIT.resolve(o.kind, o.params);
@@ -86,7 +88,6 @@ const KIT_RENDER = {
     const ox = o.x, oy = o.y;
     const rot = o.rot || 0;
     const cs = Math.cos(rot), sn = Math.sin(rot);
-    /* 把世界坐标转回"未旋转"的位置：绕 (ox,oy) 反向旋转 rot */
     const un = (x, y) => {
       if (!rot) return [x, y];
       const dx = x - ox, dy = y - oy;
@@ -105,10 +106,35 @@ const KIT_RENDER = {
       capsule(a, b, r0, r1, colorOf, mode) {
         capsule(wrapPoint(a), wrapPoint(b), r0, r1, colorOf, mode);
       },
-      box(x0, y0, z0, x1, y1, z1, c, seed2) {
-        /* 盒子的 8 个角逐个转 —— 只画三面的语义由 box 自己处理 */
-        const corners = [[x0,y0],[x1,y0],[x0,y1],[x1,y1]].map(([a,b]) => un(a,b));
-        box(corners[0][0], corners[2][1], z0, corners[1][0], corners[3][1], z1, c, seed2);
+      box(x0, y0, z0, x1, y1, z1, c, seed2 = 0) {
+        if (!rot) {
+          box(x0, y0, z0, x1, y1, z1, c, seed2);
+          return;
+        }
+        /* 旋转盒子：对顶面与四个侧面采样，经 un() 旋转后写入 zb 与 pix */
+        const ramp = rampOf(c);
+        const paint = (lx, ly, lz, base, grain) => {
+          const q = un(lx, ly);
+          const p = project(q[0], q[1], lz), ix = p.sx | 0, iy = p.sy | 0;
+          if (ix < 0 || iy < 0 || ix >= W || iy >= H) return;
+          const i = iy * W + ix;
+          if (p.d <= zb[i]) return;
+          zb[i] = p.d;
+          pix[i] = ramp[clamp(Math.floor(base + (grain - .5) * 1.3 + (bayerAt(ix, iy) - .5) * .5), 0, 4)];
+        };
+        const step = .045, longX = x1 - x0 >= y1 - y0;
+        for (let a = x0; a <= x1; a += step) for (let b = y0; b <= y1; b += step)
+          paint(a, b, z1, 3.4, longX ? noise(a * .8 + seed2, b * 9) : noise(a * 9, b * .8 + seed2));
+        for (let a = x0; a <= x1; a += step) for (let b = z0; b <= z1; b += step) {
+          const g = noise(a * .8 + seed2, b * 9);
+          paint(a, y1, b, 2.3, g);
+          paint(a, y0, b, 1.5, g);
+        }
+        for (let a = y0; a <= y1; a += step) for (let b = z0; b <= z1; b += step) {
+          const g = noise(a * .8 + seed2, b * 9);
+          paint(x1, a, b, 1.2, g);
+          paint(x0, a, b, 2.0, g);
+        }
       },
       plot(x, y, z, color) {
         const q = un(x, y);

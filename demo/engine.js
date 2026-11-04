@@ -43,8 +43,14 @@ const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v
 const COOL = [46, 38, 84], WARM = [255, 232, 180];
 const GRADIENT_Y = COS / (S * SIN), EDGE = .28;
 
-/* 默认草色（场景可传自己的色组给 growGrass） */
-const ENGINE_GRASS = [[34, 62, 50], [52, 88, 52], [82, 118, 54], [124, 146, 62], [168, 172, 76]];
+
+/* rim 模式：环带内径比例（外径=1）。越小描边越粗。
+ * ★ 参考图（3× 放大实测）：树冠描边是**连续的深褐色闭合轮廓**，
+ *   宽约 1.5~2px（冠半径 18px 时）。
+ *   内径比 .74 → 环带宽 (1-.74)/2 * 18 ≈ 2.3px，
+ *   连续性好（相邻球的描边环带能互相接上）。
+ *   .84 只有 1.4px，容易被相邻球切碎成虚线。 */
+const RIM_INNER = .74;
 
 const rgb = (r, g, b) => (255 << 24 | Math.min(255, b | 0) << 16 | Math.min(255, g | 0) << 8 | Math.min(255, r | 0)) >>> 0;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -68,6 +74,13 @@ function noise(x, y) {
 /* 5 级色阶：暗部偏紫，亮部偏暖黄 */
 const ramps = new WeakMap();
 function rampOf(c) {
+  /* 颜色必须是 [r,g,b] (0..255) 基色数组 —— 三种错法都在这拦下：
+     1. 传打包数字（rgb() 的返回值）
+     2. 传嵌套数组（把多档色组当基色传入）
+     3. 把 rampOf() 返回的 5 档 Uint32 数组再次传给 sphere/capsule/box */
+  if (!Array.isArray(c) || c.length !== 3 || !(c[0] >= 0 && c[0] <= 255 && c[1] >= 0 && c[1] <= 255 && c[2] >= 0 && c[2] <= 255)) {
+    throw new Error(`rampOf() 需要 [r,g,b] (0..255) 基色数组，收到：${JSON.stringify(c).slice(0, 60)}`);
+  }
   let ramp = ramps.get(c);
   if (ramp) return ramp;
   const mix = (m, tint, k) => rgb(
@@ -109,6 +122,8 @@ function sphere(x, y, z, r, c, mode) {
   const p = project(x, y, z), rp = Math.max(r * S, .75);
   const y0 = Math.max(0, Math.floor(p.sy - rp)), y1 = Math.min(H - 1, Math.ceil(p.sy + rp));
   const x0 = Math.max(0, Math.floor(p.sx - rp)), x1 = Math.min(W - 1, Math.ceil(p.sx + rp));
+  /* 空气透视：这个球整体往雾色偏（球心算一次，不用逐像素） */
+  const hz = hazeAmount(x, y, z);
   for (let iy = y0; iy <= y1; iy++) for (let ix = x0; ix <= x1; ix++) {
     const dx = (ix + .5 - p.sx) / rp, dy = (iy + .5 - p.sy) / rp, nn = dx * dx + dy * dy;
     if (nn > 1) continue;
@@ -120,14 +135,33 @@ function sphere(x, y, z, r, c, mode) {
     if (mode === 'rough') l += (hash(ix, iy) - .5) * .55;
     if (dy > .35) l = Math.max(l, .12 + dy * .24);   // 地面反弹的暖光
     if (capture) {
-      capture.push(ix, iy, d, ramp[clamp(Math.floor(l * 4.4 + .2 + (bayerAt(ix, iy) - .5) * .7), 0, 4)]);
+      const cc = ramp[clamp(Math.floor(l * 4.4 + .2 + (bayerAt(ix, iy) - .5) * .7), 0, 4)];
+      capture.push(ix, iy, d, hz ? mixHaze(cc, hz) : cc);
       continue;
     }
     zb[i] = d;
-    if (mode === 'gloss' && l > .9) { pix[i] = rgb(255, 250, 232); continue; }
+    if (mode === 'gloss' && l > .9) { pix[i] = mixHaze(rgb(255, 250, 232), hz); continue; }
+    // flat：直接写基色，不走色阶。用于勾边/描线这类要"固定颜色"的场合
+    // （走 rampOf 会被再压暗一次，深色勾边会吃掉半个图形）
+    if (mode === 'flat') { pix[i] = mixHaze(rgb(c[0], c[1], c[2]), hz); continue; }
+    // rim：只画"环带"—— 落在球内但落在内切球外的像素。
+    // 用来给已画好的形体加描边：内层是原色，环带是描边色。
+    // 为什么要专门做这个：更大的球深度贡献总是更大（sqrt(R²-d²)），
+    // 所以"先画大深球再画小金球"是盖不住的 —— 金球永远输掉深度测试。
+    if (mode === 'rim') {
+      const inner = rp * RIM_INNER;
+      if (dx * dx + dy * dy < inner * inner) continue;
+      pix[i] = mixHaze(rgb(c[0], c[1], c[2]), hz);
+      continue;
+    }
     // 剪影用 solid：不加抖动，保持边缘干净
-    if (mode === 'solid') { pix[i] = ramp[clamp(Math.floor(l * 4.4 + .2), 1, 4)]; continue; }
+    if (mode === 'solid') {
+      const cc = ramp[clamp(Math.floor(l * 4.4 + .2), 1, 4)];
+      pix[i] = hz ? mixHaze(cc, hz) : cc;
+      continue;
+    }
     pix[i] = ramp[clamp(Math.floor(l * 4.4 + .2 + (bayerAt(ix, iy) - .5) * .7), 0, 4)];
+    if (hz) pix[i] = mixHaze(pix[i], hz);
   }
 }
 
@@ -198,6 +232,42 @@ function applyShadows(refZ) {
     if (s === 1) tint(i, .54, .52, .72);
     else tint(i, .36, .34, .56);
   }
+}
+
+/* ---- 空气透视 ----
+ * 远处的物体不是"缩小"，而是"变淡变灰"。
+ * 参考图实测：越靠画面上方（越远）明度越高、饱和度越低。
+ *
+ * 做法：按物体基点的深度算雾浓度，把颜色往雾色混。
+ * 雾浓度 0 = 清晰，1 = 完全融进雾里。
+ */
+
+let hazeColor = null;          // null = 不启用空气透视
+let hazeNear = 0, hazeFar = 1, hazeMax = 0;
+
+/* 按世界坐标设定雾：near 之外的东西开始起雾，far 之后完全化掉 */
+function setHaze(color, near, far, maxAmount) {
+  hazeColor = color;
+  hazeNear = near;
+  hazeFar = far;
+  hazeMax = maxAmount == null ? 1 : maxAmount;
+}
+
+/* 求某点的雾浓度（0..1） */
+function hazeAmount(x, y, z) {
+  if (!hazeColor) return 0;
+  /* 用到相机的距离近似"远近"：z 越大（越高）越远 */
+  const d = Math.hypot(x, y) * .5 + (z || 0);
+  const t = clamp((d - hazeNear) / (hazeFar - hazeNear), 0, 1);
+  return t * hazeMax;
+}
+
+/* 把一个颜色往雾色混 */
+function mixHaze(color, amount) {
+  if (!hazeColor || amount <= 0) return color;
+  const r = color & 255, g = color >> 8 & 255, b = color >> 16 & 255;
+  const hr = hazeColor & 255, hg = hazeColor >> 8 & 255, hb = hazeColor >> 16 & 255;
+  return rgb(lerp(r, hr, amount), lerp(g, hg, amount), lerp(b, hb, amount));
 }
 
 /* 屏幕空间 AO：向 8 方向 × 2 半径探测非地面像素，命中越多压得越暗 */
@@ -274,6 +344,44 @@ function drawLeaves(t) {
   }
 }
 
+/* ---- 轮廓线：沿参数化闭合曲线画一圈深色 ----
+ * ★ 为什么不用球体的 rim 描边：
+ *   球在屏幕上是圆，圆周像素本身不连续 → rim 环带碎成虚线。
+ *   参考图（3× 放大）的树冠轮廓是**连续的云朵线**。
+ *   → 直接按参数方程算轮廓点，逐点连线，天然连续。
+ *
+ * ★ 深度怎么处理（关键）：
+ *   轮廓必须盖住**自己**的主体（否则下半截被自己的冠球挡住），
+ *   但又必须被**别的树**盖住（否则整片树海变成网格花纹）。
+ *   → 强制写像素，但把深度记成**冠心深度**（不是轮廓点自己的深度）。
+ *   冠心深度 = 整棵树的深度 → 同层树互不遮挡，后面的树能盖住前面的轮廓。
+ *
+ * pts:    [[x,y,z], ...] 轮廓点的世界坐标（闭合，不重复首点）
+ * depth:  该树的深度基准（一般是冠心深度）
+ */
+function strokePath(pts, color, depth, close = true) {
+  const n = pts.length;
+  const last = close ? n : n - 1;
+  for (let i = 0; i < last; i++) {
+    const a = pts[i], b = pts[(i + 1) % n];
+    const dist = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+    const steps = Math.max(1, Math.ceil(dist / .12));
+    for (let k = 0; k <= steps; k++) {
+      const t = k / steps;
+      const wx = lerp(a[0], b[0], t), wy = lerp(a[1], b[1], t), wz = lerp(a[2], b[2], t);
+      const p = project(wx, wy, wz);
+      const ix = p.sx | 0, iy = p.sy | 0;
+      if (ix < 0 || iy < 0 || ix >= W || iy >= H) continue;
+      const idx = iy * W + ix;
+      /* 深度用冠心深度：同层不互相遮挡，后面的树能盖住前面的轮廓 */
+      const d = depth == null ? p.d : depth;
+      if (d <= zb[idx]) continue;         // 被更近的东西挡住 → 不画
+      zb[idx] = d;
+      pix[idx] = color;
+    }
+  }
+}
+
 /* ---- 动态阴影队列：人物/车这类每帧移动的物体 ---- */
 
 const pendingShadows = [];
@@ -286,96 +394,6 @@ function flushShadows() {
       castShadow(lerp(a[0], c[0], t), lerp(a[1], c[1], t), lerp(a[2], c[2], t), ra * .9, 1, 0);
     }
     if (a[2] < .25) castShadow(a[0], a[1], 0, .2, 2, 0);
-  }
-}
-
-/* ---- 人物骨架：figure() ----
- * 局部坐标 (a=前, b=侧, c=高)，yaw 决定朝向。
- * 不直接画，而是把每根骨头交给 addBone 回调 —— 静态/动态都能复用。
- */
-
-const ENGINE_SHOE = [226, 222, 212];
-
-function figure(px, py, yaw, pose, palette, addBone) {
-  const fx = Math.cos(yaw), fy = Math.sin(yaw), sx = -fy, sy = fx;
-  const base = pose.z || 0, k = pose.scale || 1;
-  const P = (a, b, c) => [px + (fx * a + sx * b) * k, py + (fy * a + sy * b) * k, c * k + base];
-  const add = (a, b, r0, r1, f) => addBone(a, b, r0 * k, r1 * k, f);
-  const t = palette;
-  const shirt = z => (Math.floor(z * 3.2) % 2 ? t.shirt : t.stripe);  // 约 3px 一档
-  const legs = () => t.legs, skin = () => t.skin;
-  const crouch = pose.crouch || 0, lean = pose.lean || 0;
-  const hipZ = 1.28 - crouch * .4;
-  const hipA = -crouch * .15;
-  const shA = hipA + Math.sin(lean) * .95, shZ = hipZ + Math.cos(lean) * .95;
-  const neck = P(shA, 0, shZ + .08), head = P(shA + Math.sin(lean) * .32, 0, shZ + .36);
-  const stance = pose.stance == null ? .2 : pose.stance;
-  const footB = P(-stance * 1.2, .2, .12), footF = P(stance * 2, -.2, .12);
-  const kneeB = P(-stance * .4 + crouch * .12, .22, .68 - crouch * .1);
-  const kneeF = P(stance * 1.2 + crouch * .34, -.22, .72 - crouch * .08);
-  const hipB = P(hipA, .15, hipZ), hipF = P(hipA, -.15, hipZ);
-  add(hipB, kneeB, .17, .13, legs); add(kneeB, footB, .13, .1, legs);
-  add(hipF, kneeF, .17, .13, legs); add(kneeF, footF, .13, .1, legs);
-  add(footB, P(-stance * 1.2 + .16, .2, .08), .1, .09, () => ENGINE_SHOE);
-  add(footF, P(stance * 2 + .16, -.2, .08), .1, .09, () => ENGINE_SHOE);
-  add(P(hipA, 0, hipZ), neck, .3, .32, shirt);
-  add(neck, head, .11, .12, skin);
-  sphere2(add, head, .24, t.skin);
-  sphere2(add, [head[0] - fx * .06, head[1] - fy * .06, head[2] + .08], .205, t.hair);
-  const shR = P(shA, .36, shZ - .03), shL = P(shA, -.36, shZ - .03);
-  const armR = pose.armR == null ? 0 : pose.armR, armL = pose.armL == null ? .08 : pose.armL;
-  const elbowR = P(shA + Math.sin(armR) * .46, .4, shZ - .03 - Math.cos(armR) * .46);
-  const handR = P(shA + Math.sin(armR + .18) * .95, .42, shZ - .03 - Math.cos(armR + .18) * .95);
-  const elbowL = P(shA + Math.sin(armL) * .46, -.42, shZ - .03 - Math.cos(armL) * .46);
-  const handL = P(shA + Math.sin(armL + .2) * .9, -.43, shZ - .03 - Math.cos(armL + .2) * .9);
-  add(shR, elbowR, .12, .1, shirt); add(elbowR, handR, .09, .08, skin);
-  add(shL, elbowL, .12, .1, shirt); add(elbowL, handL, .09, .08, skin);
-  return handR;
-}
-
-function sphere2(add, c, r, color) { add(c, c, r, r, () => color); }
-
-/* 画骨头 + 登记阴影，一步到位 */
-const dynamicAdd = (a, b, r0, r1, f) => {
-  capsule(a, b, r0, r1, f, 'solid');
-  pendingShadows.push(a, r0, b, r1);
-};
-
-/* ---- 草丛：staticShadow 联动，影子里自动变暗 ---- */
-
-const tufts = [];
-/* 影内色 = 基准色压暗并偏紫，和 applyShadows 的地面阴影同一套语言 */
-let tuftLit = [], tuftDark = [];
-
-function growGrass(density = .17, colors = null) {
-  const base = colors || ENGINE_GRASS;
-  tufts.length = 0;                       // 重复调用不叠加
-  tuftLit = base.map(c => rgb(...c));
-  tuftDark = base.map(c => rgb(c[0] * .54, c[1] * .52, c[2] * .72));
-  for (let iy = 3; iy < H; iy++) for (let ix = 0; ix < W; ix++) {
-    const i = iy * W + ix;
-    if (kinds[i] !== KIND_GRASS || hash(ix * 3, iy * 5) > density) continue;
-    tufts.push({
-      ix, iy, i, height: 1 + (hash(ix, iy * 2) * 3 | 0),
-      base: Math.round(noise(ix * .09, iy * .18) * 2.2),
-      phase: ix * .11 + iy * .19 + hash(ix, iy) * .9,
-      bloom: hash(ix * 7, iy) < .022 ? rgb(...(hash(ix, iy) > .5 ? [250, 246, 226] : [240, 200, 84])) : 0,
-    });
-  }
-}
-
-function drawTufts(t) {
-  for (const tuft of tufts) {
-    const gust = Math.sin(t * .8 + tuft.phase) + .5 * Math.sin(t * 2.1 + tuft.phase * 2.3);
-    const colors = staticShadow[tuft.i] ? tuftDark : tuftLit;
-    for (let k = 1; k <= tuft.height; k++) {
-      const jx = tuft.ix + Math.round(gust * .95 * k / 3), jy = tuft.iy - k;
-      if (jx < 0 || jx >= W) continue;
-      const j = jy * W + jx;
-      if ((kinds[j] !== KIND_GRASS && kinds[j] !== KIND_NONE) || zb[j] !== groundZ[j]) continue;
-      pix[j] = tuft.bloom && k === tuft.height ? tuft.bloom
-        : colors[clamp(tuft.base + k + (gust > 1 ? 1 : 0), 1, 4)];
-    }
   }
 }
 

@@ -2,7 +2,8 @@
 
 > 注册表：[registry.md §5](registry.md)
 > 覆盖：`figure()` 骨架 · 姿态参数 · 调色板 · 动态阴影 · 球拍附着 · 自定义骨骼（跳水员/滑板手）
-> 参考实现：`engine.js:248-296` + `stari-most` · `tie-break` · `mini-ramp` · `balote` · `laundry`
+> 参考实现：`engine.js:248-296`（参考项目）· 本项目落地：`demo/village/figures.js`（从 engine.js 拆出，含 `figure` / `dynamicAdd`）
+> 算法出处：`stari-most` · `tie-break` · `mini-ramp` · `balote` · `laundry`
 > 相关：[crowd.md](crowd.md) 人群 AI
 
 参考项目有**两层**人物系统：
@@ -17,7 +18,7 @@
 ## 1. `figure()` 通用骨架
 
 ```js
-// 参考：engine.js:248-282
+// 参考：参考项目 engine.js:248-282 · 本项目 demo/village/figures.js
 function figure(px, py, yaw, pose, palette, addBone) {
   const fx = Math.cos(yaw), fy = Math.sin(yaw), sx = -fy, sy = fx, base = pose.z || 0, k = pose.scale || 1;
   const P = (a, b, c) => [px + (fx * a + sx * b) * k, py + (fy * a + sy * b) * k, c * k + base];
@@ -96,7 +97,7 @@ P = (a, b, c) => [px + (fx*a + sx*b)*k, py + (fy*a + sy*b)*k, c*k + base]
 引擎提供的实现：
 
 ```js
-// 参考：engine.js:283-284
+// 参考：参考项目 engine.js:283-284 · 本项目 demo/village/figures.js
 function sphere2(add, c, r, color) { add(c, c, r, r, () => color); }
 const dynamicAdd = (a, b, r0, r1, f) => { capsule(a, b, r0, r1, f, 'solid'); pendingShadows.push(a, r0, b, r1); };
 ```
@@ -194,7 +195,7 @@ const TEAM = [
 ### 3.1 条纹的间隔
 
 ```js
-// 参考：engine.js:253
+// 参考：参考项目 engine.js:253
 const shirt = z => (Math.floor(z * 3.2) % 2 ? t.shirt : t.stripe);
 ```
 
@@ -206,7 +207,7 @@ const shirt = z => (Math.floor(z * 3.2) % 2 ? t.shirt : t.stripe);
 ## 4. 动态阴影（`pendingShadows`）
 
 ```js
-// 参考：engine.js:284-296
+// 参考：参考项目 engine.js:284-296
 const pendingShadows = [];
 function flushShadows() {
   for (let i = 0; i < pendingShadows.length; i += 4) {
@@ -487,3 +488,27 @@ const pose = { z: deckZ(t.x), scale: TOURIST_SCALE, stance: ... };
 2. `solid` 模式是人物能"跳出来"的关键：抖动会让小尺寸人物糊成一团。
 3. 人物**不能有影子以外的地面写入**。`applyShadows` 会跳过 `zb[i] !== refZ[i]` 的像素，天然保证人物干净。
 4. 每个人物的 `yaw` 要**朝屏幕内**（大致 `Math.PI/2` 附近），参考项目里人物大多朝 +y（面向观众）。
+
+---
+
+## 附录：kit 姿态表（KIT_POSE）
+
+> 来源：`demo/kit/figures.js` · studio 手写 · 服务编辑器与 kit 场景
+
+姿态**不是构件**（没有 draw），是喂给 `figure()` 的一组参数。
+注册表 §5 里的姿态行引用参考项目实现；这张表是 kit 运行时的独立实现，含注册表欠着的 `reach`。
+
+| 姿态 | armR/armL | stance | lean | crouch | 读法 |
+|------|-----------|--------|------|--------|------|
+| `stand` | .06/.08 | .12 | 0 | 0 | 站立 |
+| `walk` | ±.5 | .34 | .06 | 0 | 行走（摆臂由外部量化后叠加） |
+| **`reach`** | 1.45/1.45 | .22 | .22 | 0 | **够取：双臂前伸，上身前压** |
+| `lift` | 2.5/2.5 | .16 | -.08 | 0 | 举物过顶 |
+| `clap` | 1.05/1.05 | .12 | 0 | 0 | 鼓掌 |
+| `cheer` | 2.7/2.7 | .18 | -.14 | 0 | 欢呼（后仰） |
+| `sit` | .3/.3 | .5 | -.12 | .55 | 坐姿 |
+| `crouchPick` | .9/.9 | .28 | .5 | .7 | 蹲下取物 |
+| `look` | .1/.12 | .1 | 0 | 0 | 张望 |
+| `phone` | .75/.55 | .1 | .18 | 0 | 低头看手机 |
+
+用法：`kitPose('reach', { armR: 2 })` —— 第二参覆盖任意字段。

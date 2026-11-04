@@ -133,27 +133,45 @@ button.ghost { background: transparent; padding: 5px 10px; font-size: 12px; }
   position: relative;
   background: #0e0e11;
   border: 1px solid var(--line); border-radius: 8px;
-  height: 380px; overflow: hidden;
+  height: 320px; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
+  flex: none;
 }
 .preview iframe { width: 100%; height: 100%; border: 0; display: block; }
-.empty { color: var(--fg-dim); font-size: 13px; }
+.empty {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(14, 14, 17, 0.88);
+  color: var(--fg-dim); font-size: 13px; padding: 20px; text-align: center;
+  pointer-events: none;
+}
+
+.gen-inspect {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+}
+.inspect-col {
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px;
+  padding: 12px 14px;
+}
+.inspect-col .sec { margin-bottom: 0; }
 
 /* ---------- 代码块 ---------- */
 details.code {
   border: 1px solid var(--line); border-radius: 8px;
   background: var(--bg-2); overflow: hidden;
+  flex: none;
 }
 details.code summary {
   padding: 9px 12px; cursor: pointer; font-size: 12.5px;
   color: var(--fg-dim); user-select: none;
 }
 details.code summary:hover { color: var(--fg); }
-details.code pre {
+details.code pre, textarea.code-edit {
   margin: 0; padding: 12px 14px; overflow-x: auto;
   font-family: var(--mono); font-size: 11.5px; line-height: 1.55;
-  color: #cfd6e0; border-top: 1px solid var(--line);
-  max-height: 380px; overflow-y: auto;
+  color: #cfd6e0; border: 0; border-top: 1px solid var(--line);
+  border-radius: 0; background: var(--bg);
+  max-height: 320px; overflow-y: auto;
 }
 #notes { white-space: pre-wrap; color: var(--fg-dim); }
 

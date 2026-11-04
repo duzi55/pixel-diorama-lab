@@ -418,6 +418,75 @@ for (let k = 0; k < 44; k++) {
 | 遮阳伞/天线 | 竖杆 plot + 横杆 plot | `laundry:147` |
 | 网袋球 | 9 个小球散落 | `tie-break:170` |
 | 野餐布 | 格子布 | `demo/autumn.js:57` |
+| 甲壳虫车 | 胶囊车身 + 半球车篷 + 4 轮 + 警灯 | `demo/village/road.js` |
+
+---
+
+## 8b. `beetle-car` 小甲壳虫（秋日山村）
+
+| 项 | 内容 |
+|----|------|
+| **来源** | `demo` `village/road.js` |
+| **状态** | ✅ 已验证（`tools/village-test.mjs` 断言"汽车在行驶"） |
+
+### 形态
+
+圆润的黄色甲壳虫：胶囊车身 + 半球形车篷 + 四个深色轮子 +
+车头一对圆大灯 + **车顶红色警灯（2Hz 闪烁）**。
+
+### 参数组 `k/speed/lateralRatio/t`
+
+| 参数 | 默认 | 区间 | 作用 |
+|------|------|------|------|
+| `k` | `halfW / 2.4` | — | 车身缩放，**按路宽自动等比** |
+| `speed` | .07 | .03～.15 | 沿路的行驶速度（t/秒）|
+| `lateralRatio` | .45 | 0～.8 | 横向偏移（按 `halfW` 比例）|
+| `t` | 0～1 | — | 沿路位置参数 |
+
+### 关键算法
+
+**① 局部坐标系**
+
+```js
+const fx = Math.cos(yaw), fy = Math.sin(yaw), sx = -fy, sy = fx;
+const P = (a, b, c) => [cx + (fx*a + sx*b), cy + (fy*a + sy*b), c];
+// a = 前后（正 = 车头），b = 左右，c = 高度
+```
+
+`yaw = Math.atan2(tangent.y, tangent.x)`，即**永远沿路的切向**。
+
+**② 车窗不能�� `plot()` 画**
+
+引擎的 `sphere()` 是"屏幕圆 + 伪造深度"（`d = 球心深度 + r·nz`），
+不是真实球面深度。所以车窗要在屏幕圆内**反解法线后直写 `pix[]`**。
+
+**③ 车身必须用 `solid` 不能用 `gloss`**
+
+`rampOf()` 的 0 档是**褐色** (80,64,40)。`gloss` 下球体下半部落进这档，
+黄车身变成"发褐的脏黄"。`solid` 把下限夹到 1 档。
+
+**④ 警灯闪烁**
+
+```js
+const flash = Math.floor(time * 4) % 2 === 0;   // 2Hz
+```
+
+### 移植清单
+
+1. 需要 `Road` 几何（切向/法向/投影），见 `demo/village/road.js`
+2. 车身用 `capsule` + `sphere`，阴影用 `castShadow` 两层（投影 + 接触影）
+3. 横向偏移按 `halfW` **比例**算，别写死绝对值（路宽会变）
+
+### 坑
+
+1. **`plot()` 画不了车窗** —— 见 §②
+2. **`gloss` 会让黄车发褐** —— 见 §③
+3. **`BEACON` 是打包 number**，`rampOf()` 只吃数组 → 直接传会抛
+   `Invalid value used as weak map key`。球体用的颜色要另开 `[r,g,b]` 数组版
+4. **`ASPHALT` 是数组数组**（4 档成品灰），不能走 `rampOf`
+5. 虚线要窄（`LINE_HW=.22`）—— 按 `halfW` 比例画会把整条路涂成黄色
+6. 顶部 `const ROAD` 会和 `terrain.js` 撞名 → SyntaxError 全页挂掉。
+   road.js 的实现全包在 IIFE 里 + 运行时 `typeof ROAD` 探测
 
 ---
 
@@ -439,3 +508,548 @@ for (let k = 0; k < 44; k++) {
 2. `castShadow` 的 `dither` 参数：静态阴影用默认 `.4`（边缘柔），动态阴影用 `0`（边缘锐）。
 3. 道具的 `box()` seed 必须唯一，否则两个箱子的木纹一模一样，一眼假。
 4. 散落物品用 `hash` 不用 `random`：确定性是"看起来精心摆放"和"看起来随机乱放"的分界线。
+
+## 10. 待实现道具的设计要点
+
+以下是注册表里标 `📐` 的道具。每个该怎么接进来。
+
+### `lamp` 路灯
+
+**骨架**：直杆 + 顶部灯头（球形灯罩）+ 底座。
+
+| 参数 | 说明 |
+|------|------|
+| `height` | 杆高（2.5～5） |
+| `headR` | 灯罩半径（.2～.5） |
+| `lit` | 是否点亮 |
+| `base` | 底座半径（0 = 无底座） |
+
+实现：杆用 `capsule`（半径 .06 → .05），灯罩用 `sphere`，
+点亮时灯罩用暖白 + 下方一圈 `castShadow` 之外的柔光点。
+底座用 `sphere` 压扁做锥台。
+**与 `tin-lamp-post` 的区别**：没有悬臂，灯直接在杆顶 ——
+骨架不同，值得独立 ID。
+
+### `sign` 路牌
+
+**骨架**：细杆 + 顶端的矩形牌面。
+
+| 参数 | 说明 |
+|------|------|
+| `height` | 杆高（1.2～2.5） |
+| `boardW` | 牌面宽（.6～1.8） |
+| `boardH` | 牌面高（.3～.8） |
+| `text` | 牌面是否有文字（1 = 有横线示意） |
+
+实现：杆 `capsule`；牌面用 `plot` 逐点画矩形（正面朝 y+ 方向，
+要凸出杆一点否则被深度盖住）；牌面颜色用高对比双色（深底浅字）。
+
+## tin-lamp-post — 铁皮路灯
+
+| 项 | 内容 |
+|---|---|
+| **ID** | `tin-lamp-post` |
+| **来源** | `demo/kit/props.js` · `KIT.register` · studio 生成 |
+| **形态** | 木杆挑出弯铁臂，臂端挂一盏铁皮锥罩暖光灯，夜里透出暖黄光晕并在地上洒出光斑 |
+| **分类** | 道具 |
+
+### 参数
+
+| 参数 | 默认 | 区间 | 步进 | 说明 |
+|------|------|------|------|------|
+| `height` | 4.2 | 2.6 ~ 6 | 0.1 | 木杆高度（含灯的总高约 height + 0.1） |
+| `arm` | 0.95 | 0.5 ~ 1.6 | 0.05 | 铁臂从杆身伸出的水平距离 |
+| `lampSize` | 0.44 | 0.3 ~ 0.72 | 0.02 | 灯罩口径，同时带动灯泡与笼骨尺寸 |
+| `glow` | 0.7 | 0 ~ 1 | 0.05 | 空中光晕密度与地面光斑半径 |
+| `lit` | 1 | 0 ~ 1 | 1 | 0 = 熄灯（灯泡变暗铁球） / 1 = 点灯 |
+| `weathered` | 0.45 | 0 ~ 1 | 0.05 | 铁件锈斑比例 |
+
+### 碰撞体
+
+`{"type":"cylinder","radius":0.28,"height":4.2}`
+
+### 移植清单
+
+- 代码：`demo/kit/props.js`
+- 注册表：`docs/kit/registry.md` · 道具节
+- 依赖引擎：`demo/engine.js` 的 `sphere/capsule/box/plot/rampOf/hash/noise`
+
+### 实现说明
+
+#### 为什么不能复用已有构件
+现有 prop 里最接近的是 `stone-lantern`（石灯），但那是**落地石质矮灯**：无杆、无悬臂、石料砌体。本需求是「木杆 + 弯铁臂 + 悬挂灯」的三段骨架，结构完全不同，参数组合做不出来，必须新建 ID。`fence`/`crate`/`wood-house` 也都不含悬臂挑挂结构。
+
+#### 实现要点
+1. **锥形铁皮罩**：没有圆锥图元，用三层宽度递增的 `box` 叠成阶梯锥（LS×0.30 / 0.42 / 0.52），上层盖住下层顶面，等距投影下读作一个倒扣的铁皮斗笠。像素画里这比真圆锥更锐利。
+2. **灯泡必须露在罩外**：罩体是实心 box，若把发光球塞进罩内会被完全遮死。所以罩只做上半部，灯泡挂在罩底以下，靠四根 `capsule` 笼骨把它包成灯笼。
+3. **「发光」用三层同心球**：外圈 `warm[2]` 大半径做柔化边 → 主体 `warm[4]` 最亮 → 左上偏移一个 `core[4]` 小白球当高光核。三层叠起来就有过曝的观感。
+4. **光晕分两层**：空中用球面参数化的散点（`plot`），地面用 7 圈极坐标环撒点，亮度按半径衰减、密度按亮度反向抖动，避免规则感。地面光斑中心落在灯正下方 `(ARM, 0)`，会自然盖住杆脚，强化「照亮」的读法。
+5. **铁臂几何**：三段折线近似弯臂（从杆身 H-0.72 斜升到 H-0.10，再平伸到灯位），加一根从 H-1.45 斜拉到臂中的细撑杆做成三角受力，这是路灯最容易出戏的细节。
+6. **锈斑**：`capsule` 的 `colorOf(t)` 里用 `round(t*11)` 做分段哈希，让锈点是沿杆轴向成片的，而不是满屏噪点。
+
+#### 坑
+- **灯罩 z 必须对齐**：`lz = top - 0.04` 就是铁臂末端 `p2` 的 z，改一处忘了另一处会看到灯罩和臂断开。
+- **地面光斑的 z 要抬高到 0.03**：和 `ctx.shadow` 的影子同层会被抢深度，看起来像影子盖住了灯光。同时把 `ctx.shadow` 放在光斑之前调用，双保险。
+- **光斑不必手动剔除背面点**：`plot` 有深度测试，被灯罩/灯泡挡住的空中光晕点会自动消失。
+- **`lit = 0` 时别直接不画灯泡**：会留出一个空洞，所以换成 `iron[1]` 的暗铁球。
+- **`glow` 调到 0 附近时**光斑环仍在跑循环，用 `P.glow > 0.02` 整块跳过，省掉每帧约 180 次 `plot`。
+- **`lampSize` 放大到 0.72 时**笼骨会略微穿出罩沿，这是有意为之的「笼比罩宽」读法；若想收窄，把 `LS * 0.34` 改成 `LS * 0.30`。
+
+#### 与场景配合
+默认 `height 4.2` 让灯挂在离地约 3.5，正好高于一个 1.8 高的人。夜间场景里可把 `glow` 拉到 1.0 并配一个低亮度的全局环境色，本构件的 `warm` 色阶（255,190,92 基色）会与冷调夜空形成足够的色温对比。
+
+#### 规模
+`draw` 约 95 行，含 params 与注册约 120 行，在 40~120 区间内；无顶层 const、无 Math.random、无模块语法。
+
+### 实现
+
+```js
+KIT.register({
+  id: 'tin-lamp-post',
+  name: '铁皮路灯',
+  category: 'prop',
+  desc: '木杆挑出弯铁臂，臂端挂一盏铁皮锥罩暖光灯，夜里透出暖黄光晕并在地上洒出光斑',
+  params: {
+    height:    { def: 4.2,  min: 2.6, max: 6.0, step: 0.1,  desc: '木杆高度（含灯的总高约 height + 0.1）' },
+    arm:       { def: 0.95, min: 0.5, max: 1.6, step: 0.05, desc: '铁臂从杆身伸出的水平距离' },
+    lampSize:  { def: 0.44, min: 0.30, max: 0.72, step: 0.02, desc: '灯罩口径，同时带动灯泡与笼骨尺寸' },
+    glow:      { def: 0.7,  min: 0,   max: 1,   step: 0.05, desc: '空中光晕密度与地面光斑半径' },
+    lit:       { def: 1,    min: 0,   max: 1,   step: 1,    desc: '0 = 熄灯（灯泡变暗铁球） / 1 = 点灯' },
+    weathered: { def: 0.45, min: 0,   max: 1,   step: 0.05, desc: '铁件锈斑比例' },
+  },
+  collision: { type: 'cylinder', radius: 0.28, height: 4.2 },
+
+  draw(ctx) {
+    const P = ctx.params, S = ctx.seed;
+    const H = P.height, ARM = P.arm, LS = P.lampSize;
+    const wood = ctx.rampOf([106, 74, 46]);
+    const iron = ctx.rampOf([92, 98, 106]);
+    const rust = ctx.rampOf([142, 88, 54]);
+    const warm = ctx.rampOf([255, 190, 92]);
+    const core = ctx.rampOf([255, 244, 208]);
+    const pick = (k, n) => ctx.clamp(Math.floor(ctx.hash(k, S) * n), 0, n - 1);
+    const poleR = (z) => 0.15 + (0.10 - 0.15) * ctx.clamp(z / H, 0, 1);
+    const ironOf = (t) => {
+      const w = ctx.hash(Math.round(t * 11) + 3, S);
+      return w > 0.86 - P.weathered * 0.18 ? rust[2 + pick(9, 2)] : iron[2 + pick(4, 2)];
+    };
+
+    // ---- 石座 / 木杆 / 铁箍 / 杆顶帽 ----
+    ctx.box(-0.28, -0.28, 0, 0.28, 0.28, 0.15, ctx.rgb(98, 96, 92), S + 3);
+    ctx.capsule([0, 0, 0.14], [0, 0, H], 0.15, 0.10, (t) => {
+      const n = ctx.noise(t * 9 + ctx.hash(2, S) * 5, 2.5);
+      return wood[ctx.clamp(Math.floor(t * 3.2 + n * 1.7), 0, 4)];
+    }, 'rough');
+    for (let i = 0; i < 2; i++) {
+      const bz = H * (0.38 + i * 0.34);
+      const br = poleR(bz) + 0.015;
+      ctx.capsule([0, 0, bz], [0, 0, bz + 0.06], br, br, ironOf, 'rough');
+    }
+    ctx.sphere(0, 0, H + 0.05, 0.09, iron[3], 'rough');
+
+    // ---- 弯铁臂 + 斜撑 ----
+    const top = H - 0.10;
+    const p0 = [-0.02, 0, top - 0.62];
+    const p1 = [ARM * 0.46, 0, top];
+    const p2 = [ARM, 0, top - 0.04];
+    ctx.capsule(p0, p1, 0.075, 0.065, ironOf, 'rough');
+    ctx.capsule(p1, p2, 0.065, 0.055, ironOf, 'rough');
+    ctx.capsule([0, 0, top - 1.35], [ARM * 0.50, 0, top - 0.10], 0.032, 0.026, ironOf, 'rough');
+
+    // ---- 灯罩：三层递增阶梯，叠出锥形铁皮罩 ----
+    const lx = ARM, lz = top - 0.04;
+    const h = LS * 0.22;
+    const w0 = LS * 0.30, w1 = LS * 0.42, w2 = LS * 0.52;
+    ctx.box(lx - w0, -w0, lz, lx + w0, w0, lz + h * 0.8, iron[4], S + 11);
+    ctx.box(lx - w1, -w1, lz - h, lx + w1, w1, lz, iron[3], S + 12);
+    ctx.box(lx - w2, -w2, lz - h * 2, lx + w2, w2, lz - h, iron[2], S + 13);
+
+    // ---- 灯泡：三层同心球做出「发光」错觉 ----
+    const gy = lz - h * 2 - LS * 0.30;
+    const gr = LS * 0.40;
+    if (P.lit > 0.5) {
+      ctx.sphere(lx, 0, gy, gr * 1.10, warm[2], 'gloss');
+      ctx.sphere(lx, 0, gy, gr, warm[4], 'gloss');
+      ctx.sphere(lx - gr * 0.20, -gr * 0.16, gy + gr * 0.20, gr * 0.5, core[4], 'gloss');
+    } else {
+      ctx.sphere(lx, 0, gy, gr, iron[1], 'rough');
+    }
+
+    // ---- 四根笼骨 + 底坠 ----
+    const cageBot = gy - gr * 0.80;
+    for (let k = 0; k < 4; k++) {
+      const a = Math.PI * 0.25 + k * Math.PI * 0.5;
+      const cx = lx + Math.cos(a) * LS * 0.34;
+      const cy = Math.sin(a) * LS * 0.34;
+      ctx.capsule([cx, cy, lz - h * 2], [cx * 0.94 + lx * 0.06, cy * 0.94, cageBot],
+                  0.024, 0.022, ironOf, 'rough');
+    }
+    ctx.sphere(lx, 0, cageBot - 0.03, 0.05, iron[3], 'rough');
+
+    ctx.shadow(0.45 + ARM * 0.4, 1, 0.5);
+
+    // ---- 夜间光晕：空中球面散点 + 地面椭圆光斑 ----
+    if (P.lit > 0.5 && P.glow > 0.02) {
+      const n = 16 + Math.round(P.glow * 20);
+      for (let i = 0; i < n; i++) {
+        const a = ctx.hash(i * 3 + 1, S) * 6.2832;
+        const e = (ctx.hash(i * 3 + 2, S) - 0.5) * 2.4;
+        const rr = LS * (0.7 + ctx.hash(i * 3 + 3, S) * 1.6) * (0.55 + P.glow * 0.8);
+        const b = 1 - rr / (LS * (1.9 + P.glow * 1.6));
+        if (b <= 0.08) continue;
+        ctx.plot(lx + Math.cos(a) * Math.cos(e) * rr, Math.sin(a) * Math.cos(e) * rr,
+                 gy + Math.sin(e) * rr, warm[ctx.clamp(Math.round(b * 4.2), 0, 4)]);
+      }
+      const R = 0.8 + P.glow * 1.2;
+      for (let ri = 1; ri <= 7; ri++) {
+        const rr = R * (ri / 7);
+        const cnt = 6 + ri * 5;
+        const b = 1 - (ri / 7) * 0.88;
+        for (let k = 0; k < cnt; k++) {
+          if (ctx.hash(ri * 31 + k, S + 5) > 0.25 + (1 - b) * 0.55) continue;
+          const ang = (k / cnt) * 6.2832 + ctx.hash(ri * 13, S) * 6.2832;
+          const j = 0.86 + ctx.hash(ri * 23 + k, S) * 0.26;
+          ctx.plot(lx + Math.cos(ang) * rr * j, Math.sin(ang) * rr * j, 0.03,
+                   warm[ctx.clamp(Math.round(b * 5.2) - 1, 0, 4)]);
+        }
+      }
+    }
+  },
+});
+```
+
+## lamp — 路灯
+
+| 项 | 内容 |
+|---|---|
+| **ID** | `lamp` |
+| **来源** | `demo/kit/props.js` · `KIT.register` · studio 生成 |
+| **形态** | 直杆顶一颗球形灯罩的铸铁路灯，可点亮 |
+| **分类** | 道具 |
+
+### 参数
+
+| 参数 | 默认 | 区间 | 步进 | 说明 |
+|------|------|------|------|------|
+| `height` | 3.6 | 2.5 ~ 5 | 0.1 | 杆高（世界单位，1 ≈ 人高） |
+| `headR` | 0.32 | 0.2 ~ 0.5 | 0.01 | 灯罩半径 |
+| `lit` | 1 | 0 ~ 1 | 1 | 是否点亮（1 亮 / 0 灭） |
+| `base` | 0.34 | 0 ~ 0.6 | 0.02 | 底座半径，0 为无底座 |
+
+### 碰撞体
+
+`{"type":"cylinder","radius":0.24,"height":4}`
+
+### 移植清单
+
+- 代码：`demo/kit/props.js`
+- 注册表：`docs/kit/registry.md` · 道具节
+- 依赖引擎：`demo/engine.js` 的 `sphere/capsule/box/plot/rampOf/hash/noise`
+
+### 实现说明
+
+骨架严格按配方卡三段式：底座（球压扁的锥台）→ 直杆 capsule（.06→.05）→ 顶部球形灯罩，无悬臂——这是它与 tin-lamp-post 的骨架差异。
+
+实现要点：
+1) 底座用「球心压到半径 1/3 高度」的球，只露上半球，再做一层 0.62 倍的小球叠出阶梯锥台；BASE≤0.005 时整段跳过，杆改为从 z=0.02 起。
+2) 杆底插入底座内部（BASE*0.6），避免任何参数组合下出现浮空缝隙。
+3) 灯罩球心 = H + headR*0.62，使球底低于杆顶约 0.38*headR，保证 headR 取最小值 0.2、height 取最大值 5 时仍然重叠。
+4) 点亮时的柔光用两层错位圆环 plot 点：内环靠灯罩（亮暖白）、外环更低更大（橙黄），点走引擎深度缓冲，被杆与灯罩自然遮挡，产生前后层次；半径用 ctx.hash 抖动，非规则圆环。castShadow 只负责地面投影，光点不参与阴影系统。
+5) 颜色全部在 draw 内定义（遵守「顶层不放 const」）；铁三档通道差 18~22，防止 Bayer 抖动读成棋盘。
+
+坑：
+- sphere/capsule 只吃 [r,g,b] 基色数组，plot 只吃 ctx.rgb 打包值，两套颜色变量分开命名避免混用。
+- colorOf 的 z 按局部高度处理（与配方卡示例一致），杆上段提亮一档即可，不做世界坐标运算。
+- lit 用 >=0.5 判定，防编辑器把 0/1 存成浮点。
+
+与已有构件差异：tin-lamp-post 有横向悬臂 + 吊挂灯头；lamp 无悬臂、灯罩直接坐在杆顶，骨架不同故独立 ID。
+
+### 实现
+
+```js
+KIT.register({
+  id: 'lamp',
+  name: '路灯',
+  category: 'prop',
+  desc: '直杆顶一颗球形灯罩的铸铁路灯，可点亮',
+  params: {
+    height: { def: 3.6, min: 2.5, max: 5, step: 0.1, desc: '杆高（世界单位，1 ≈ 人高）' },
+    headR: { def: 0.32, min: 0.2, max: 0.5, step: 0.01, desc: '灯罩半径' },
+    lit: { def: 1, min: 0, max: 1, step: 1, desc: '是否点亮（1 亮 / 0 灭）' },
+    base: { def: 0.34, min: 0, max: 0.6, step: 0.02, desc: '底座半径，0 为无底座' },
+  },
+  collision: { type: 'cylinder', radius: 0.24, height: 4 },
+  draw(ctx, inst) {
+    const X = ctx.x;
+    const Y = ctx.y;
+    const H = ctx.params.height;
+    const HR = ctx.params.headR;
+    const BASE = ctx.params.base;
+    const lit = ctx.params.lit >= 0.5;
+
+    const IRON_D = [54, 56, 64];
+    const IRON = [76, 80, 90];
+    const IRON_L = [96, 102, 114];
+    const GLASS_OFF = [198, 206, 214];
+    const GLASS_LIT = [250, 224, 168];
+    const GLOW_HI = [255, 244, 200];
+    const GLOW_LO = [238, 176, 96];
+
+    // 1. 底座：球心压到半径 1/3 处，只露上半 → 压扁的锥台
+    if (BASE > 0.005) {
+      const cz = BASE * 0.32;
+      ctx.sphere(X, Y, cz, BASE, IRON_D, 'solid');
+      ctx.sphere(X, Y, cz + BASE * 0.52, BASE * 0.62, IRON, 'solid');
+    }
+
+    // 2. 直杆：底粗顶细（.06 → .05），上段提亮一档
+    const rodBottom = BASE > 0.005 ? BASE * 0.6 : 0.02;
+    ctx.capsule(
+      [X, Y, rodBottom],
+      [X, Y, H],
+      0.06,
+      0.05,
+      (z) => (z > H * 0.55 ? IRON_L : IRON),
+      'rough'
+    );
+
+    // 3. 灯罩：球心略高于杆顶，球底与杆顶重叠，不悬空
+    const headZ = H + HR * 0.62;
+    ctx.sphere(X, Y, headZ, HR, lit ? GLASS_LIT : GLASS_OFF, lit ? 'gloss' : 'solid');
+
+    // 4. 点亮：灯罩下方一圈柔光点（plot 走深度测试，前后自然遮挡）
+    if (lit) {
+      const N = 24;
+      for (let i = 0; i < N; i++) {
+        const a = (i / N) * Math.PI * 2 + ctx.hash(i * 5 + 1, ctx.seed) * 0.35;
+        const t = ctx.hash(i * 11 + 3, ctx.seed);
+        const near = i % 2 === 0;
+        const rr = HR * (near ? 1.1 + t * 0.35 : 1.55 + t * 0.55);
+        const px = X + Math.cos(a) * rr;
+        const py = Y + Math.sin(a) * rr;
+        const pz = headZ - HR * (near ? 0.55 + t * 0.6 : 1.1 + t * 0.9);
+        const c = near ? GLOW_HI : GLOW_LO;
+        ctx.plot(px, py, pz, ctx.rgb(c[0], c[1], c[2]));
+      }
+    }
+
+    ctx.shadow(Math.max(0.45, HR * 1.7), 1, 0.5);
+  },
+});
+```
+
+## sign — 路牌
+
+| 项 | 内容 |
+|---|---|
+| **ID** | `sign` |
+| **来源** | `demo/kit/props.js` · `KIT.register` · studio 生成 |
+| **形态** | 细杆撑起的矩形木牌，正面朝向相机、可带横线示意文字 |
+| **分类** | 道具 |
+
+### 参数
+
+| 参数 | 默认 | 区间 | 步进 | 说明 |
+|------|------|------|------|------|
+| `height` | 1.8 | 1.2 ~ 2.5 | 0.1 | 杆高 |
+| `boardW` | 1.1 | 0.6 ~ 1.8 | 0.1 | 牌面宽 |
+| `boardH` | 0.5 | 0.3 ~ 0.8 | 0.05 | 牌面高 |
+| `text` | 1 | 0 ~ 1 | 1 | 牌面是否有文字（1 = 有横线示意） |
+
+### 碰撞体
+
+`{"type":"cylinder","radius":0.18,"height":2.2}`
+
+### 移植清单
+
+- 代码：`demo/kit/props.js`
+- 注册表：`docs/kit/registry.md` · 道具节
+- 依赖引擎：`demo/engine.js` 的 `sphere/capsule/box/plot/rampOf/hash/noise`
+
+### 实现说明
+
+按配方卡实现：细杆 capsule + 顶端矩形牌面。三个关键点：(1) 牌面用 plot 逐点写矩形，正面朝 y+ 并相对杆身向相机方向（y+0.09）凸出，否则会被杆的深度测试盖住；(2) 牌面深底 [70,58,44] + 浅字 [222,210,182] 做高对比双色，边框用中间调 [148,126,92]，三条色的通道差都在 10~25 内，不会抖成棋盘格；(3) 牌面高度随 boardH 参数走，文字行数按 boardH 自适应（>0.52 三行，否则两行），每行长度用 ctx.hash 做确定性抖动，保证同一 seed 每次重建一致。与已有立柱类 prop 的差异：牌面是零厚度平面像素板而非 box，因此额外画了顶部/右侧一条薄边来交代厚度。所有绘制坐标都基于 ctx.x / ctx.y 偏移，符合原点铁律；只有函数内的局部 const，没有顶层常量。
+
+### 实现
+
+```js
+KIT.register({
+  id: 'sign',
+  name: '路牌',
+  category: 'prop',
+  desc: '细杆撑起的矩形木牌，正面朝向相机',
+  params: {
+    height: { def: 1.8, min: 1.2, max: 2.5, step: 0.1, desc: '杆高' },
+    boardW: { def: 1.1, min: 0.6, max: 1.8, step: 0.1, desc: '牌面宽' },
+    boardH: { def: 0.5, min: 0.3, max: 0.8, step: 0.05, desc: '牌面高' },
+    text: { def: 1, min: 0, max: 1, step: 1, desc: '牌面是否有文字（1 = 有横线示意）' },
+  },
+  collision: { type: 'cylinder', radius: 0.18, height: 2.2 },
+  draw(ctx, inst) {
+    const P = ctx.params;
+    const H = P.height;
+    const W = P.boardW;
+    const BH = P.boardH;
+    const X = ctx.x;
+    const Y = ctx.y;
+
+    // 木杆：略向牌面反方向倾斜的锥形杆
+    const POLE_LO = [92, 74, 56];
+    const POLE_HI = [122, 100, 78];
+    ctx.capsule([X, Y, 0], [X, Y, H + BH * 0.5], 0.075, 0.055,
+      z => z > H * 0.6 ? POLE_HI : POLE_LO, 'rough');
+
+    // 牌面：中心高度略低于杆顶，正面朝 y+，整体前凸避免被杆遮
+    const cz = H + BH * 0.5 - BH * 0.18;
+    const cy = Y + 0.09;          // 向相机方向凸出
+    const BOARD = [70, 58, 44];    // 深色底
+    const BOARD_TOP = [86, 72, 54];
+    const TRIM = [148, 126, 92];   // 浅色边框
+    const TEXT = [222, 210, 182];  // 浅色字
+
+    const x0 = -W * 0.5;
+    const x1 = W * 0.5;
+    const z0 = cz - BH * 0.5;
+    const z1 = cz + BH * 0.5;
+    const stepX = 0.055;
+    const stepZ = 0.05;
+
+    // —— 牌面本体：逐点画矩形（plot 直接带深度测试）——
+    for (let sx = x0; sx <= x1 + 1e-6; sx += stepX) {
+      for (let sz = z0; sz <= z1 + 1e-6; sz += stepZ) {
+        // 顶边一档亮，越往下越暗，做出木牌的面感
+        const t = (sz - z0) / BH;
+        const shade = t > 0.82 ? BOARD_TOP : BOARD;
+        ctx.plot(X + sx, cy, cz + (sz - cz), ctx.rgb(shade[0], shade[1], shade[2]));
+      }
+    }
+
+    // —— 边框：上下左右各一条浅色线 ——
+    for (let sx = x0; sx <= x1 + 1e-6; sx += stepX) {
+      ctx.plot(X + sx, cy, z0, ctx.rgb(TRIM[0], TRIM[1], TRIM[2]));
+      ctx.plot(X + sx, cy, z1, ctx.rgb(TRIM[0], TRIM[1], TRIM[2]));
+    }
+    for (let sz = z0; sz <= z1 + 1e-6; sz += stepZ) {
+      ctx.plot(X + x0, cy, sz, ctx.rgb(TRIM[0], TRIM[1], TRIM[2]));
+      ctx.plot(X + x1, cy, sz, ctx.rgb(TRIM[0], TRIM[1], TRIM[2]));
+    }
+
+    // —— 文字：2~3 行横线示意（按宽度自适应）——
+    if (P.text >= 0.5) {
+      const lines = BH > 0.52 ? 3 : 2;
+      const margin = W * 0.16;
+      const usable = W - margin * 2;
+      for (let i = 0; i < lines; i++) {
+        const lz = z0 + BH * (0.26 + i * (0.48 / Math.max(1, lines - 1)));
+        const lw = usable * (0.55 + ctx.hash(i * 7 + 1, ctx.seed) * 0.4);
+        const lx0 = -lw * 0.5;
+        const lx1 = lw * 0.5;
+        for (let sx = lx0; sx <= lx1 + 1e-6; sx += stepX * 0.7) {
+          ctx.plot(X + sx, cy + 0.001, lz, ctx.rgb(TEXT[0], TEXT[1], TEXT[2]));
+        }
+      }
+    }
+
+    // —— 牌面顶部与右侧的薄边，强化厚度 ——
+    const EDGE = [104, 88, 66];
+    for (let sx = x0; sx <= x1 + 1e-6; sx += stepX) {
+      ctx.plot(X + sx, cy - 0.01, z1 + 0.03, ctx.rgb(EDGE[0], EDGE[1], EDGE[2]));
+    }
+    for (let sz = z0; sz <= z1 + 1e-6; sz += stepZ) {
+      ctx.plot(X + x1 + 0.02, cy - 0.01, sz, ctx.rgb(EDGE[0], EDGE[1], EDGE[2]));
+    }
+
+    // —— 杆底小石堆/基座 ——
+    ctx.sphere(X, Y, 0.06, 0.15, [104, 98, 88], 'rough');
+
+    ctx.shadow(0.42, 1, 0.5);
+  },
+});
+```
+
+## fence — 木栅栏
+
+| 项 | 内容 |
+|---|---|
+| **ID** | `fence` |
+| **来源** | `demo/kit/props.js` · `KIT.register` · studio 手写 |
+| **形态** | 一排等距木桩 + 上下两道横杆 |
+
+### 参数
+
+| 参数 | 默认 | 区间 | 步进 | 说明 |
+|------|------|------|------|------|
+| `length` | 4.0 | 1 ~ 12 | 0.2 | 沿 x 方向总长 |
+| `height` | 0.7 | 0.3 ~ 1.6 | 0.05 | 桩高 |
+| `spacing` | 0.8 | 0.4 ~ 2 | 0.1 | 桩间距（实取 n=round(len/spacing)+1 根均布） |
+
+### 碰撞体
+
+`{"type":"box","w":4.0,"d":0.16,"h":0.7}` —— 细长条，d 取桩径级别
+
+### 关键算法
+
+- 桩：`capsule` 从地面到 `h*(0.9+hash*0.2)`，顶端参差避免读成尺子量的
+- 横杆：一条 `capsule` 贯穿 `h*0.55`，半径 0.05
+
+### 坑
+
+- 桩数必须 `max(2, …)`，否则 length < spacing 时除零
+- 碰撞体 w 要跟 length 参数联动改（编辑器里 AI 推断会按参数算）
+
+## stone-lantern — 石灯
+
+| 项 | 内容 |
+|---|---|
+| **ID** | `stone-lantern` |
+| **来源** | `demo/kit/props.js` · `KIT.register` · studio 手写 |
+| **形态** | 方形柱身承一方小灯室，顶盖出檐，夜里亮暖光 |
+
+### 参数
+
+| 参数 | 默认 | 区间 | 步进 | 说明 |
+|------|------|------|------|------|
+| `height` | 1.1 | 0.5 ~ 2.2 | 0.05 | 总高 |
+| `lit` | 1 | 0 ~ 1 | 1 | 点亮（灯室变暖黄） |
+
+### 碰撞体
+
+`{"type":"box","w":0.4,"d":0.4,"h":1.1}`
+
+### 关键算法
+
+- 全部 `plot` 方块堆叠：基座（w×1.5）→ 柱（w）→ 灯室（w×1.3）→ 顶盖（w×1.8）
+- 灯室亮时直接写暖黄像素，不走色阶 —— 自发光不要明暗
+
+### 坑
+
+- `plot` 逐点画要向 +y 偏 0.01 否则被同位素面吞深度
+
+## well — 圆石井
+
+| 项 | 内容 |
+|---|---|
+| **ID** | `well` |
+| **来源** | `demo/kit/props.js` · `KIT.register` · studio 手写 |
+| **形态** | 圆环石砌井口，中间一汪暗井水（无支架吊桶；带支架的见 buildings `well-house`） |
+
+### 参数
+
+| 参数 | 默认 | 区间 | 步进 | 说明 |
+|------|------|------|------|------|
+| `radius` | 0.55 | 0.3 ~ 1.4 | 0.05 | 井口半径 |
+| `height` | 0.5 | 0.2 ~ 1.2 | 0.05 | 井壁高 |
+
+### 碰撞体
+
+`{"type":"cylinder","radius":0.55,"height":0.5}`
+
+### 关键算法
+
+- 井壁：圆周 10 颗 `sphere`（r×0.34）围一圈，中层
+- 井口：中心一颗深色 `[38,40,44]` 大球（r×0.62）压出"洞"的读法
+- 顶沿：再一圈 10 颗亮档球收口
+
+### 坑
+
+- **sphere 只吃 [r,g,b] 基色数组** —— 最初写了 `rgb(38,40,44)` 打包值，WeakMap 键报错（本项目的第一个颜色类型事故，`engine.js` 的 rampOf 前置检查由此而来）

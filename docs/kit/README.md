@@ -39,12 +39,31 @@
 | [nature.md](nature.md) | 三条通用机制 + 水面、岩石、落叶 | 需要机制/水 |
 | [effects.md](effects.md) | 像素级 UI 覆盖层、屏幕特效、描边、AO | 加 HUD/特效 |
 | [weather.md](weather.md) | 雨云闪电、全局调色、天气声音 | 做天气 |
+| **[depth-and-haze.md](depth-and-haze.md)** | **平涂 / 描边 / 空气透视 / 远景树海** | **做远景、做剪纸风** |
 
 ### 0.3 阅读约定
 
 - 行号锚点写 `文件:行号`，相对 `reference/pixel-plays/`。
 - **行号会漂移，函数名才是稳定锚点。** 用 `grep -n "function xxx"` 定位。
 - 每篇末尾有「移植清单」，列出搬到 `demo/` 要动的地方。
+
+### 0.4 这些规格现在有了运行时
+
+`docs/kit/` 原本只是规格书。现在 **`demo/kit/` 是它的可执行实现**：
+
+| 东西 | 位置 | 说明 |
+|------|------|------|
+| 构件运行时 | `demo/kit/core.js` | `KIT.register` / `KIT.get` / `KIT.resolve` |
+| 已落地构件 | `demo/kit/trees.js`（树+草木）· `demo/kit/props.js`（建筑+道具） | 22 个，全部通过 `tools/kit-test.mjs` 实画测试 |
+| 地面材质 | `demo/kit/ground.js` | 草地/泥土/沙地/石板/水面 |
+| 渲染器 | `demo/kit/render.js` | 场景模型 → 画布（实例旋转在 makeCtx 里处理） |
+| 人群行为 | `demo/kit/crowd.js` | spectator / wanderer / crowd 三变体（非构件，每帧运行） |
+| 姿态表 | `demo/kit/figures.js` | `KIT_POSE` 十姿态（含 reach） |
+
+**新构件不需要手写运行时** —— 用 Studio 生成页（`demo/studio/`）描述需求，
+AI 按本目录的规范写代码，落盘时自动完成「代码 + 注册表 + 配方卡」三件套。
+
+细则见 [../modules/studio.md](../modules/studio.md)。
 
 ---
 
@@ -71,7 +90,8 @@ registry.md          ← 活索引，所有变体一行登记
    ├─→ props.md      ← 道具配方卡
    │
    └─→ scene.md / figures.md / crowd.md / structures.md
-        nature.md / effects.md / weather.md   ← 机制与横向专题
+        nature.md / effects.md / weather.md / depth-and-haze.md
+                                     ← 机制与横向专题
 ```
 
 **两级组织**：

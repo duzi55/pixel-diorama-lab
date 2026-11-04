@@ -1,24 +1,179 @@
 'use strict';
 /* ------------------------------------------------------------------
- * 生成页逻辑
+ * 生成页逻辑（gen.js）
  *
- * 流程：填需求 → 生成 → 预览（iframe 沙箱）→ 确认保存
+ * 完整闭环：
+ *   1. 输入需求 → AI 按 docs/kit/ 规范生成代码（或从左侧点选现有构件）
+ *   2. 送入右侧 iframe 沙箱转盘预览
+ *   3. 实时拖动参数滑块、手动或 AI 设置碰撞体积（同步更新代码与预览）
+ *   4. 点「确认保存入库」→ 原子写入 demo/kit/<模块>.js + registry.md + 配方卡
  * ------------------------------------------------------------------ */
 
 const GEN = {
   component: null,
+  liveParams: {},
   generating: false,
+  kitItems: [],
+  curCat: '',
+};
+
+const CAT_LABELS = {
+  tree: '树', plant: '草木', building: '建筑', prop: '道具', figure: '人物',
 };
 
 const el = id => document.getElementById(id);
 
-/* ---------------- 生成 ---------------- */
+/* ---------------- 预览沙箱通信 ---------------- */
+
+function sendToPreview(component) {
+  if (!component) return;
+  GEN.component = component;
+  GEN.liveParams = {};
+  el('code').value = component.code || '';
+  el('notes').textContent = component.notes || '（来自现有构件库，可直接调参或修改代码后覆盖保存）';
+  el('preview-title').textContent = `转盘预览 · ${component.name || component.id} (${component.id})`;
+
+  const frame = el('frame');
+  const postCode = () => {
+    if (!frame.contentWindow) return;
+    frame.contentWindow.postMessage({
+      type: 'code',
+      code: el('code').value,
+      id: component.id,
+      params: GEN.liveParams,
+      collision: component.collision || null,
+    }, '*');
+    frame.contentWindow.postMessage({ type: 'spin', on: el('spin').checked }, '*');
+    frame.contentWindow.postMessage({ type: 'box', on: el('showbox').checked }, '*');
+  };
+
+  if (!frame.getAttribute('src')) {
+    frame.onload = postCode;
+    frame.src = 'preview.html';
+  } else {
+    postCode();
+  }
+}
+
+/* 把 collision 修改同步回写到 code 里的 collision: {...} 行 */
+function syncCollisionIntoCode(col) {
+  if (!GEN.component) return;
+  GEN.component.collision = col;
+  const code = el('code').value;
+  const colStr = `collision: ${JSON.stringify(col)},`;
+  if (/collision:\s*(\{[^\n]*\}|null)\s*,?/.test(code)) {
+    el('code').value = code.replace(/collision:\s*(\{[^\n]*\}|null)\s*,?/, colStr);
+  }
+  GEN.component.code = el('code').value;
+}
+
+/* ---------------- 渲染参数与碰撞体积面板 ---------------- */
+
+function renderParamSliders(paramsDef) {
+  const box = el('gen-params');
+  box.innerHTML = '';
+  const keys = Object.keys(paramsDef || {});
+  if (!keys.length) {
+    box.innerHTML = '<div class="empty-note">该构件无可调参数</div>';
+    return;
+  }
+
+  for (const k of keys) {
+    const p = paramsDef[k];
+    const curVal = GEN.liveParams[k] != null ? GEN.liveParams[k] : p.def;
+    const wrap = document.createElement('div');
+    wrap.className = 'slider';
+    wrap.innerHTML = `<label><span>${esc(p.desc || k)} <code>${esc(k)}</code></span><b>${curVal}</b></label>`;
+    const inp = document.createElement('input');
+    inp.type = 'range';
+    inp.min = String(p.min);
+    inp.max = String(p.max);
+    inp.step = String(p.step);
+    inp.value = String(curVal);
+    inp.addEventListener('input', e => {
+      const v = Number(e.target.value);
+      GEN.liveParams[k] = v;
+      if (GEN.component && GEN.component.params && GEN.component.params[k]) {
+        GEN.component.params[k].def = v;
+      }
+      wrap.querySelector('b').textContent = String(v);
+      const frame = el('frame');
+      if (frame.contentWindow) {
+        frame.contentWindow.postMessage({ type: 'params', params: GEN.liveParams }, '*');
+      }
+    });
+    wrap.appendChild(inp);
+    box.appendChild(wrap);
+  }
+}
+
+function renderCollisionEditor(col) {
+  const box = el('gen-col');
+  box.innerHTML = '';
+  el('btn-gen-col-ai').disabled = !GEN.component;
+  el('btn-gen-col-box').disabled = !GEN.component;
+  el('btn-gen-col-cyl').disabled = !GEN.component;
+
+  if (!col) {
+    box.innerHTML = '<div class="empty-note">当前无碰撞体积，可点下方按钮手动设置或让 AI 推断</div>';
+    return;
+  }
+
+  /* 统一字段名：兼容 width/depth/height 与 w/d/h */
+  if (col.type === 'box') {
+    if (col.w == null) col.w = col.width || 1;
+    if (col.d == null) col.d = col.depth || 1;
+    if (col.h == null) col.h = col.height || 1;
+  } else if (col.type === 'cylinder') {
+    if (col.radius == null) col.radius = .4;
+    if (col.height == null) col.height = 1;
+  }
+
+  const head = document.createElement('div');
+  head.className = 'list-row';
+  head.innerHTML = `<span class="nm">当前类型</span><span class="pos">${esc(col.type)}</span>`;
+  box.appendChild(head);
+
+  const addSlider = (label, key, min, max, step) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'slider';
+    wrap.innerHTML = `<label>${label} <b>${col[key]}</b></label>`;
+    const inp = document.createElement('input');
+    inp.type = 'range';
+    inp.min = String(min);
+    inp.max = String(max);
+    inp.step = String(step);
+    inp.value = String(col[key]);
+    inp.addEventListener('input', e => {
+      col[key] = Number(e.target.value);
+      wrap.querySelector('b').textContent = String(col[key]);
+      syncCollisionIntoCode(col);
+      const frame = el('frame');
+      if (frame.contentWindow) {
+        frame.contentWindow.postMessage({ type: 'collision', collision: col }, '*');
+      }
+    });
+    wrap.appendChild(inp);
+    box.appendChild(wrap);
+  };
+
+  if (col.type === 'box') {
+    addSlider('宽 w (x)', 'w', .1, 10, .05);
+    addSlider('深 d (y)', 'd', .1, 10, .05);
+    addSlider('高 h (z)', 'h', .1, 10, .05);
+  } else {
+    addSlider('半径 radius', 'radius', .05, 5, .05);
+    addSlider('高度 height', 'height', .1, 10, .05);
+  }
+}
+
+/* ---------------- AI 生成 ---------------- */
 
 async function doGenerate() {
   if (GEN.generating) return;
   const prompt = el('prompt').value.trim();
   if (!prompt) {
-    studioStatus('先写点需求吧', 'err');
+    studioStatus('请先输入构件需求描述', 'err');
     el('prompt').focus();
     return;
   }
@@ -26,7 +181,7 @@ async function doGenerate() {
   GEN.generating = true;
   el('btn-gen').disabled = true;
   el('btn-save').disabled = true;
-  studioStatus('AI 生成中…（可能要几十秒）', 'busy');
+  studioStatus('AI 正在按 docs/kit/ 规范编写构件代码…', 'busy');
 
   try {
     const data = await studioPost('/api/generate', {
@@ -35,30 +190,49 @@ async function doGenerate() {
       note: el('note').value.trim() || null,
     });
 
-    GEN.component = data.component;
-    el('code').textContent = data.component.code;
-    el('notes').textContent = data.component.notes || '（无）';
-
-    /* 送进预览沙箱 */
-    const frame = el('frame');
-    frame.src = 'preview.html';
-    /* 等 iframe 加载完再 postMessage */
-    frame.onload = () => {
-      frame.contentWindow.postMessage({
-        type: 'code',
-        code: data.component.code,
-        id: data.component.id,
-        params: {},
-        collision: data.component.collision,
-      }, '*');
-    };
-
-    studioStatus('已生成：' + data.component.name, 'ok');
+    sendToPreview(data.component);
+    studioStatus('已生成：' + data.component.name + '（可在右侧调节参数与碰撞体积后保存）', 'ok');
   } catch (e) {
-    studioStatus('生成失败：' + e.message, 'err');
+    studioStatus('生成提示：' + e.message, 'err');
   } finally {
     GEN.generating = false;
     el('btn-gen').disabled = false;
+  }
+}
+
+/* ---------------- AI 推断碰撞体 ---------------- */
+
+async function doInferCollision() {
+  if (!GEN.component) return;
+  const btn = el('btn-gen-col-ai');
+  btn.disabled = true;
+  studioStatus('AI 正在根据当前参数推断碰撞体积…', 'busy');
+
+  try {
+    const params = {};
+    for (const [k, p] of Object.entries(GEN.component.params || {})) {
+      params[k] = GEN.liveParams[k] != null ? GEN.liveParams[k] : p.def;
+    }
+    const data = await studioPost('/api/collision', {
+      kind: GEN.component.id,
+      name: GEN.component.name,
+      desc: GEN.component.desc,
+      params,
+      current: GEN.component.collision,
+    });
+    if (data.collision) {
+      syncCollisionIntoCode(data.collision);
+      renderCollisionEditor(data.collision);
+      const frame = el('frame');
+      if (frame.contentWindow) {
+        frame.contentWindow.postMessage({ type: 'collision', collision: data.collision }, '*');
+      }
+      studioStatus('AI 碰撞体积推断完成：' + data.reason, 'ok');
+    }
+  } catch (e) {
+    studioStatus('AI 推断失败：' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
   }
 }
 
@@ -71,6 +245,16 @@ window.addEventListener('message', e => {
   if (msg.type === 'preview-ok') {
     el('preview-empty').style.display = 'none';
     el('btn-save').disabled = false;
+    if (GEN.component) {
+      GEN.component.id = msg.id || GEN.component.id;
+      GEN.component.name = msg.name || GEN.component.name;
+      GEN.component.category = msg.category || GEN.component.category;
+      GEN.component.desc = msg.desc || GEN.component.desc;
+      GEN.component.params = msg.params || GEN.component.params || {};
+      GEN.component.collision = msg.collision || GEN.component.collision || null;
+      renderParamSliders(GEN.component.params);
+      renderCollisionEditor(GEN.component.collision);
+    }
     studioStatus('预览就绪：' + (msg.name || msg.id), 'ok');
     return;
   }
@@ -78,6 +262,7 @@ window.addEventListener('message', e => {
   if (msg.type === 'preview-error') {
     el('preview-empty').style.display = '';
     el('preview-empty').textContent = '预览失败：' + msg.error;
+    el('btn-save').disabled = true;
     studioStatus('预览失败：' + msg.error, 'err');
   }
 });
@@ -86,18 +271,78 @@ window.addEventListener('message', e => {
 
 async function doSave() {
   if (!GEN.component) return;
+  GEN.component.code = el('code').value;
   el('btn-save').disabled = true;
-  studioStatus('保存中…', 'busy');
+  studioStatus('正在校验并写入三件套（代码 + 注册表 + 配方卡）…', 'busy');
 
   try {
     const data = await studioPost('/api/save', {
       component: GEN.component,
       overwrite: el('overwrite').checked,
     });
-    studioStatus('已保存 → ' + data.files.join(' , '), 'ok');
+    studioStatus('✓ 已保存入库 → ' + data.files.join(' , '), 'ok');
+    await loadKitLibrary(GEN.component.id);
   } catch (e) {
     studioStatus('保存失败：' + e.message, 'err');
+  } finally {
     el('btn-save').disabled = false;
+  }
+}
+
+/* ---------------- 现有构件库列表 ---------------- */
+
+async function loadKitLibrary(selectId) {
+  try {
+    const res = await fetch('/api/kit');
+    const data = await res.json();
+    if (!data.ok) return;
+    GEN.kitItems = data.items || [];
+    el('kit-count').textContent = `(${GEN.kitItems.length})`;
+    renderKitCats();
+    renderKitList(selectId);
+    if (!GEN.component && GEN.kitItems.length) {
+      const def = GEN.kitItems.find(x => x.id === 'stone-mill') || GEN.kitItems[0];
+      sendToPreview({ ...def });
+    }
+  } catch (e) {
+    console.error('[gen] 加载构件库失败', e);
+  }
+}
+
+function renderKitCats() {
+  const box = el('kit-cats');
+  if (!box) return;
+  box.innerHTML = '';
+  const cats = ['', 'tree', 'plant', 'building', 'prop'];
+  for (const c of cats) {
+    const b = document.createElement('button');
+    b.className = 'pill' + (GEN.curCat === c ? ' on' : '');
+    b.textContent = c ? (CAT_LABELS[c] || c) : '全部';
+    b.addEventListener('click', () => {
+      GEN.curCat = c;
+      renderKitCats();
+      renderKitList(GEN.component ? GEN.component.id : null);
+    });
+    box.appendChild(b);
+  }
+}
+
+function renderKitList(activeId) {
+  const box = el('kit-list');
+  if (!box) return;
+  box.innerHTML = '';
+  const items = GEN.kitItems.filter(x => !GEN.curCat || x.category === GEN.curCat);
+  for (const it of items) {
+    const row = document.createElement('div');
+    row.className = 'item' + (activeId === it.id ? ' on' : '');
+    row.innerHTML = `<span>${esc(it.name)}</span><span class="cat">${esc(it.id)}</span>`;
+    row.title = it.desc || it.id;
+    row.addEventListener('click', () => {
+      for (const ch of box.children) ch.classList.remove('on');
+      row.classList.add('on');
+      sendToPreview({ ...it });
+    });
+    box.appendChild(row);
   }
 }
 
@@ -105,20 +350,30 @@ async function doSave() {
 
 el('btn-gen').addEventListener('click', doGenerate);
 el('btn-save').addEventListener('click', doSave);
+el('btn-gen-col-ai').addEventListener('click', doInferCollision);
+
+el('btn-gen-col-box').addEventListener('click', () => {
+  if (!GEN.component) return;
+  const col = { type: 'box', w: 2.0, d: 2.0, h: 2.0 };
+  syncCollisionIntoCode(col);
+  renderCollisionEditor(col);
+  const frame = el('frame');
+  if (frame.contentWindow) frame.contentWindow.postMessage({ type: 'collision', collision: col }, '*');
+});
+
+el('btn-gen-col-cyl').addEventListener('click', () => {
+  if (!GEN.component) return;
+  const col = { type: 'cylinder', radius: 0.5, height: 2.0 };
+  syncCollisionIntoCode(col);
+  renderCollisionEditor(col);
+  const frame = el('frame');
+  if (frame.contentWindow) frame.contentWindow.postMessage({ type: 'collision', collision: col }, '*');
+});
 
 el('btn-reload').addEventListener('click', () => {
   if (!GEN.component) return;
-  const frame = el('frame');
-  frame.src = 'preview.html';
-  frame.onload = () => {
-    frame.contentWindow.postMessage({
-      type: 'code',
-      code: GEN.component.code,
-      id: GEN.component.id,
-      params: {},
-      collision: GEN.component.collision,
-    }, '*');
-  };
+  GEN.component.code = el('code').value;
+  sendToPreview(GEN.component);
 });
 
 el('spin').addEventListener('change', e => {
@@ -131,15 +386,15 @@ el('showbox').addEventListener('change', e => {
   if (frame.contentWindow) frame.contentWindow.postMessage({ type: 'box', on: e.target.checked }, '*');
 });
 
-/* Ctrl/Cmd + Enter 快捷生成 */
 el('prompt').addEventListener('keydown', e => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') doGenerate();
 });
 
-/* 示例按钮 */
 for (const b of document.querySelectorAll('.ex')) {
   b.addEventListener('click', () => {
     el('prompt').value = b.dataset.p;
     el('prompt').focus();
   });
 }
+
+loadKitLibrary();

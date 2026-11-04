@@ -1,21 +1,44 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>秋日山村</title></head><body>
-<canvas id="c"></canvas>
-<script>window.PP_W=300;window.PP_H=520;window.PP_SCALE=9;window.PP_ORIGIN_X=0;window.PP_ORIGIN_Y=10;</script>
-<script src="../engine.js"></script>
-<script src="palette.js"></script>
-<script src="road.js"></script>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>秋日山村 · Pixel Diorama</title>
+<style>
+  :root { --ink: #2a2118; --muted: #9a8b78; --paper: #fcf5da; --line: #e8dfcc; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--paper); color: var(--ink); }
+  body { font: 13px/1.4 ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace; overflow: hidden; }
+  #stage { position: fixed; inset: 0; display: grid; place-items: center; }
+  canvas { display: block; image-rendering: pixelated; touch-action: none; cursor: default; outline: none; }
+  #hud { position: fixed; left: max(16px, env(safe-area-inset-left)); top: max(14px, env(safe-area-inset-top)); pointer-events: none; }
+  #hud h1 { margin: 0 0 4px; font-size: 13px; font-weight: 600; letter-spacing: .02em; }
+  #hud p { margin: 0; color: var(--muted); }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="c" aria-label="秋日山村等距像素场景，可点击村民"></canvas></div>
+
+<div id="hud">
+  <h1>秋日山村</h1>
+  <p>点击村民打招呼 · 树在风里摇</p>
+</div>
+
 <script>
-zb.fill(-1e9); pix.fill(SKY); ground.fill(0);
-for (let iy=0;iy<H;iy++) for (let ix=0;ix<W;ix++) {
-  const g = unproject(ix+.5, iy+.5), i = iy*W+ix;
-  pix[i] = rgb(190,150,70); ground[i]=1; zb[i]=(g.x+g.y)/R2*COS;
-}
-groundZ.set(zb);
-Road.drawRoadSurface();
-Road.drawRoadEdge();
-Road.drawRoadMarkings();
-makeCar();
-for (let f=0;f<8;f++) updateCar(f/12, 1/12);
-drawCar(0);
-ctx.putImageData(image,0,0);
-</script></body></html>
+  window.PP_W = 300; window.PP_H = 520;
+  window.PP_SCALE = 9; window.PP_ORIGIN_X = 0; window.PP_ORIGIN_Y = 10;
+</script>
+<script src="../engine.js"></script>
+<script src="../kit/figures.js"></script>
+<script src="figures.js"></script>
+<script src="palette.js"></script>
+<script src="terrain.js"></script>
+<script src="sea.js"></script>
+<script src="houses.js"></script>
+<script src="foliage.js"></script>
+<script src="villagers.js"></script>
+<script src="road.js"></script>
+<script src="falling.js"></script>
+<script src="village.js"></script>
+</body>
+</html>

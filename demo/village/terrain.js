@@ -18,15 +18,17 @@
 const RX = 26;                            /* §1 x 方向半径 */
 const RY = 30;                            /* §1 y 方向半径 */
 const ROAD = {                            /* §2 公路中心线 */
-  ax: -13, ay: -18,                       /* 远端 */
-  bx: 17, by: 19,                         /* 近端 */
-  halfW: 1.5,                             /* 沥青半宽 */
+  /* 参考图实测：屏幕斜率 0.3918，路从画布左 70% 高处进、右 93% 高处出。
+     由 tools/solve-road.mjs 反解得到（30° 等距投影，OX=150 OY=260 S=9）。 */
+  ax: 4.56, ay: 28.13,                  /* 远端：左下出画 */
+  bx: 46.92, by: 23.35,                 /* 近端：右上出画 */
+  halfW: 2.4,                             /* 沥青半宽 */
 };
 
 /* ==================== 可调参数 ==================== */
 
 const EXT = 64;                           /* 公路两端向外延伸的世界长度 */
-const CURB_W = .40;                       /* 路缘石宽（≈3.5px） */
+const CURB_W = .48;                       /* 路缘石宽（≈4.3px） */
 const WALK_W = .62;                       /* 人行道宽（≈5.5px） */
 const SHOULDER = .55;                     /* 人行道外的留白路肩宽 */
 const DASH_PERIOD = 4.0;                  /* 虚线周期 */
@@ -35,9 +37,11 @@ const LINE_HW = .22;                      /* 虚线半宽 */
 const LITTER_COUNT = 2000;                /* 落叶碎屑目标数量 */
 
 /* 台地边界：以公路为主轴的超椭圆。长轴沿路、半轴垂直于路 ——
-   这样路永远从台地中间穿过，台地连成一体（不会被路切成两块孤岛）。 */
-const HILL_HALF_LEN = 52;                     /* 沿路半长 */
-const HILL_HALF_HW = 13;                      /* 垂直于路的半宽 */
+   这样路永远从台地中间穿过，台地连成一体（不会被路切成两块孤岛）。
+   ★ 半宽 22 → 30：台地必须延伸到树海的下缘，否则台地和树海之间
+     露出一条米白背景带（参考图整幅没有背景，全是树和地面）。 */
+const HILL_HALF_LEN = 56;                     /* 沿路半长 */
+const HILL_HALF_HW = 30;                      /* 垂直于路的半宽 */
 const HILL_POW = 2.6;                         /* 超椭圆指数（越小越接近椭圆） */
 
 /* 路面配件的**局部**色。palette.js 的 CURB(178,172,158) / WALK(190,184,170)
@@ -118,23 +122,23 @@ function asphaltColor(x, y, ix, iy, d, s) {
 }
 
 /* 路缘石：比路面亮一档的窄石条。沿路方向每 ~1.6 世界单位一道接缝，
-   和人行道的板缝对齐，整条路边看起来是一格一格的铺装。 */
+   和人行道的板缝对齐，整条路边看起来是一格一格的铺装。
+   接缝要**窄**（.08）：宽接缝会把路缘石切成断续的点，远看就消失了。 */
 function curbColor(x, y, ix, iy) {
   const r = distToRoad(x, y);
   const ph = (r.s / 1.6) % 1;
-  if (ph < .13) return rgb(...CURB_LO);
+  if (ph < .08) return rgb(...CURB_LO);
   const u = noise(x * 2.4, y * 2.4) + (hash(ix, iy) - .5) * .5;
   return rgb(...(u > .48 ? CURB_HI : CURB_LO));
 }
 
 /* 人行道：浅灰石板。沿路方向每 ~1.6 世界单位一道板缝，
    缝用最暗一档，面用亮/暗两档交替 —— 读成一格格铺装，
-   而不是一整条灰边。人行道较宽（.8 世界单位 ≈ 7px），
-   才有空间放得下"路缘石 + 板缝 + 板面"三层。 */
+   而不是一整条灰边。缝宽 .10：再宽就把人行道切成断续的点。 */
 function walkColor(x, y, ix, iy) {
   const r = distToRoad(x, y);
   const ph = (r.s / 1.6) % 1;
-  if (ph < .13) return rgb(...WALK_SEAM);              /* 板缝 */
+  if (ph < .10) return rgb(...WALK_SEAM);              /* 板缝 */
   const u = noise(x * 1.7, y * 1.7) * .55 + hash(ix, iy) * .45;
   return rgb(...(u > .58 ? WALK_HI : WALK_LO));
 }

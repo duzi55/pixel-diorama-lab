@@ -5,20 +5,19 @@
  * 职责（CONTRACT §2 街道 / §5 人物与车）：
  *   1. 公路几何：中心线 / 切向 / 法向 / 距离 / 投影 / 横向偏移 / 路坐标系
  *   2. 小汽车：沿公路行驶，每帧移动 + 转向 + 警灯闪烁 + 动态阴影
- *   3. 路面：沥青 + 路缘石 + 黄色虚线（terrain.js 已画路面时只调标记函数）
+ *   3. 路面：沥青 + 路缘石 + 黄色虚线（terrain.js 已画路面时**不要**再调）
  *
- * 【为什么本文件不定义顶层 const ROAD】
- *   terrain.js 也会定义 ROAD。const 是全局词法声明，同名重复声明会让整个
- *   页面脚本抛 SyntaxError，所有模块一起挂掉。所以本文件：
+ * 【坑 1 · 不定义顶层 const ROAD】
+ *   terrain.js 拥有 ROAD（契约 §2）。const 是全局词法声明，同名重复声明会让
+ *   整个页面脚本抛 SyntaxError，所有模块一起挂掉。所以本文件：
  *     · 全部实现包在 IIFE 里，一个全局名都不占
- *     · 运行时用 `typeof ROAD` 探测 terrain.js 给的几何（运行时才解析，
+ *     · 运行时用 `typeof ROAD` 探测 terrain.js 的几何（运行时才解析，
  *       不构成编译期重复声明）
  *     · 唯一新增的全局是 `Road` 对象（挂 window.Road）
  *
- * 【路坐标系 s / lat】
- *   s   = 沿路弧长（从远端 a 点起算，无限延伸，可负可超出）
- *   lat = 相对中心线的横向偏移
- *   路面/虚线/路缘都用这套坐标，公路才能真正延伸到画面外而不是圆头封口。
+ * 【坑 2 · 路坐标系 s / lat】
+ *   s = 沿路弧长（从远端 a 点起算，无限延伸），lat = 横向偏移。
+ *   路面绘制用这套坐标，公路才能延伸到画面外而不是圆头封口。
  *   （roadDist() 会把 t 夹到 [0,1]，那是"点到线段"的语义，画路面不能用。）
  * ------------------------------------------------------------------ */
 
@@ -28,13 +27,10 @@
 
   /* palette.js 里没有的两个色 */
   const CAR_LAMP = [255, 246, 212];
-  /* 坑：palette.js 的 BEACON 是 rgb() 打包的 number，rampOf() 只吃数组
+  /* 坑 3 · palette.js 的 BEACON 是 rgb() 打包的 number，rampOf() 只吃数组
      （WeakMap 键 + c[0..2]）。球体必须走 rampOf，所以另开一个数组版。 */
   const BEACON_ARR = [228, 62, 46];
   const BEACON_DIM = [128, 30, 22];
-
-  /* 车身尺寸（世界单位，人高 1.9）。车宽约占路宽 1/3，才读得出"车在道上"。 */
-  const BODY_R = .82, ROOF_R = .66;
 
   /* ---------------- 公路几何 ---------------- */
 
@@ -93,7 +89,7 @@
   const CAR = {
     t: .50,          // 在公路上的位置参数
     speed: .07,      // t / 秒（整条可见路段约 35 秒）
-    lateral: -1.05,  // 相对中心线的横移：负 = 右侧（右侧通行）
+    lateralRatio: .46, // 横向偏移 = halfW × ratio（负 = 右侧，右侧通行）
     x: 0, y: 0, yaw: 0,
   };
   /* 出入口都放在画面外，车不会凭空出现/消失 */
@@ -105,12 +101,14 @@
     return CAR;
   }
 
-  /* 沿公路推进 dt 秒，同步位置与朝向 */
+  /* 沿公路推进 dt 秒，同步位置与朝向。
+     横向偏移按 halfW 的比例算：terrain.js 的 ROAD.halfW 可能被调，
+     固定绝对值会让车压到虚线上或跑出沥青。 */
   function step(time, dt) {
     const c = CAR;
     c.t += c.speed * dt;
     if (c.t > CAR_MAX_T) c.t = CAR_MIN_T;   // 近端出去，远端进来
-    const p = roadOffset(c.t, c.lateral);
+    const p = roadOffset(c.t, -cfg().halfW * c.lateralRatio);
     c.x = p.x; c.y = p.y;
     const g = roadTangent(c.t);
     c.yaw = Math.atan2(g.y, g.x);
@@ -129,7 +127,7 @@
 
   /* 车顶球上的窗区判定。na = 前后法线分量，nb = 左右，nh = 朝上。
      甲壳虫的窗：挡风在车头侧（a+）、侧窗在两侧、后窗在车尾侧（a-）。
-     注意：球体可见半球只覆盖朝观察者的一半，"后窗"往往被自身挡住，
+     坑 4 · 球体可见半球只覆盖朝观察者的一半，"后窗"往往被自身挡住，
      所以主要靠挡风 + 侧窗表达"这是一辆有玻璃的甲壳虫"。 */
   function isWindow(na, nb, nh) {
     if (nh < -.15) return false;                             // 舱体下半：不透明
@@ -141,7 +139,7 @@
   }
 
   /* 直接写像素画车窗。
-     坑：引擎的 sphere() 是"屏幕圆 + 伪造深度"，球面像素深度
+     坑 5 · 引擎的 sphere() 是"屏幕圆 + 伪造深度"，球面像素深度
      d = 球心深度 + r·nz；plot() 用点深度会被球体自身挡住，所以不行。
      这里在屏幕圆内反解球面法线 → 换算到车身局部坐标 → 判窗区，
      并用 zb 检查"这块像素的最前表面确实是车顶球"。 */
@@ -158,8 +156,7 @@
       if (nn > 1) continue;
       const nz = Math.sqrt(1 - nn);
       const i = iy * W + ix;
-      /* zb 更大 = 更靠前。若 zb 明显大于车顶球该像素的深度，
-         说明这块被引擎盖/车头等更近的部件盖住，不该画窗。 */
+      /* zb 更大 = 更靠前。zb 明显大于车顶球该像素深度 → 被车头等遮住，不画窗 */
       if (zb[i] > pr.d + r * nz + 1e-3) continue;
       /* 屏幕法线 → 世界法线（正交基：右 / 下 / 朝观察者） */
       const nx = (dxu + dyu * SIN + nz * COS) / R2;
@@ -176,107 +173,63 @@
     const c = CAR;
     const f = localFrame(c);
     const P = f.P;
+    /* 车身整体缩放：跟着路宽走，路窄车小、路宽车大，比例始终一致。
+       基准 halfW = 2.4（契约 §2 写的 3.1 时车会略大，仍在沥青内）。 */
+    const k = clamp(cfg().halfW / 2.4, .7, 1.25);
     const ball = (a, b, h, r, col, mode) => {
-      const p = P(a, b, h);
-      sphere(p[0], p[1], p[2], r, col, mode);
+      const p = P(a * k, b * k, h * k);
+      sphere(p[0], p[1], p[2], r * k, col, mode);
     };
 
-    /* 下车身：沿车头方向一根胶囊 —— 甲壳虫的圆润长条底座 */
-    capsule(P(-.88, 0, .50), P(.88, 0, .50), .50, .50, () => CAR_BODY, 'gloss');
-    /* 引擎盖前凸 */
-    ball(.92, 0, .54, .42, CAR_BODY, 'gloss');
-
-    /* 4 个轮子：外缘比车身宽，能看到"轮子在外面" */
-    for (const a of [.62, -.62]) for (const b of [.54, -.54])
+    /* 下车身：沿车头方向一根胶囊 —— 甲壳虫圆润的长条底座。
+       车头（a+）在屏幕上是"右下"，车尾（a-）是"左上"。
+       坑 6 · 材质：车身用 'solid' —— rampOf 的 0 档是褐色（80,64,40），
+       'gloss' 下球体下半部会落进这档，黄色车身就变成"发褐的脏黄"。
+       'solid' 把亮度下限夹到 1 档，车身保持明快（docs/kit/props.md §1.1）。
+       车顶用 'gloss' 保留一个高光点，让圆顶读作"有反光的漆面"。 */
+    capsule(P(-.80 * k, 0, .50 * k), P(.78 * k, 0, .50 * k),
+      .52 * k, .52 * k, () => CAR_BODY, 'solid');
+    ball(.82, 0, .50, .40, CAR_BODY, 'solid');   // 引擎盖前凸
+    ball(-.86, 0, .50, .44, CAR_BODY, 'solid');  // 车尾圆尾（与胶囊同高，避免下缘突出）
+    /* 4 个轮子：外缘比车身宽，能看出"轮子露在外面" */
+    for (const a of [.52, -.52]) for (const b of [.52, -.52])
       ball(a, b, .28, .28, CAR_DARK, 'rough');
 
-    /* 车篷球：画在最后，才能稳稳压住车身顶部（挡风/侧窗都靠它） */
-    const CAB_A = -.10, CAB_H = 1.16, CAB_R = .54;
+    /* 车篷球：罩在车身后半（甲壳虫的驾驶舱偏后），压住车身顶部。
+       车厢中心 a=-.28 → 挡风在车头侧（a 更大），车顶留黄。 */
+    const CAB_A = -.28, CAB_H = 1.04, CAB_R = .50;
     ball(CAB_A, 0, CAB_H, CAB_R, CAR_TOP, 'gloss');
 
     /* 车窗（车篷之后画，zb 深度检查负责避开被车头遮住的像素） */
-    drawGlass(P, f, CAB_A, CAB_H, CAB_R);
+    drawGlass(P, f, CAB_A * k, CAB_H * k, CAB_R * k);
 
     /* 前后保险杠 */
-    capsule(P(1.38, -.42, .34), P(1.38, .42, .34), .075, .075, () => CAR_DARK, 'solid');
-    capsule(P(-1.40, -.40, .34), P(-1.40, .40, .34), .075, .075, () => CAR_DARK, 'solid');
+    capsule(P(1.30 * k, -.42 * k, .32 * k), P(1.30 * k, .42 * k, .32 * k),
+      .075 * k, .075 * k, () => CAR_DARK, 'solid');
+    capsule(P(-1.26 * k, -.40 * k, .32 * k), P(-1.26 * k, .40 * k, .32 * k),
+      .075 * k, .075 * k, () => CAR_DARK, 'solid');
 
     /* 车头一对圆大灯 */
-    for (const b of [.28, -.28]) {
-      const l = P(1.22, b, .60);
-      sphere(l[0], l[1], l[2], .17, CAR_LAMP, 'gloss');
+    for (const b of [.26, -.26]) {
+      const l = P(1.10 * k, b * k, .56 * k);
+      sphere(l[0], l[1], l[2], .17 * k, CAR_LAMP, 'gloss');
     }
 
-    /* 车顶警灯：2Hz 闪烁 */
+    /* 车顶警灯：2Hz 闪烁（亮 / 灭各 .25 秒） */
     const on = Math.floor(time * 4) % 2 === 0;
-    const bp = P(CAB_A, 0, CAB_H + CAB_R + .10);
-    sphere(bp[0], bp[1], bp[2], .14, on ? BEACON_ARR : BEACON_DIM, 'gloss');
+    const bp = P(CAB_A * k, 0, (CAB_H + CAB_R + .10) * k);
+    sphere(bp[0], bp[1], bp[2], .14 * k, on ? BEACON_ARR : BEACON_DIM, 'gloss');
 
     /* 动态阴影：车体投影（沿光向偏）+ 贴地接触影 */
-    castShadow(c.x, c.y, .78, .74, 1, .25);
-    castShadow(c.x, c.y, 0, .42, 2, 0);
+    castShadow(c.x, c.y, .78 * k, .74 * k, 1, .25);
+    castShadow(c.x, c.y, 0, .42 * k, 2, 0);
   }
 
-  /* ---------------- 路面（terrain.js 未实现时才调用） ---------------- */
-
-  /* 沥青 + 路缘石 + 人行道：写 ground / zb，可作烘焙底图的一部分。
-     注意两处配色约定：
-     1. ASPHALT 是 palette.js 里已调好的 4 档成品灰（数组数组），
-        **不再走 rampOf** —— rampOf 会把每档再压暗 40%，路面会变成纯黑。
-        但它是 [r,g,b] 三元组，要用 rgb() 打包后才能写进 pix。
-     2. CURB / WALK 是单个 [r,g,b] 基色，走 rampOf 生成 5 档色阶。 */
-  function drawRoadSurface() {
-    const R = cfg();
-    const asph = ASPHALT.map(col => rgb(col[0], col[1], col[2]));
-    const curb = rampOf(CURB), walk = rampOf(WALK);
-    for (let iy = 0; iy < H; iy++) for (let ix = 0; ix < W; ix++) {
-      const g = unproject(ix + .5, iy + .5);
-      const d = Math.abs(roadAxis(g.x, g.y).lat);
-      let c = 0;
-      if (d <= R.halfW) {
-        const n = noise(g.x * 2.3, g.y * 2.3);
-        c = asph[clamp(Math.floor(n * 3.4 + (bayerAt(ix, iy) - .5) * .9), 0, 3)];
-      } else if (d <= R.halfW + .26) {
-        c = curb[3];
-      } else if (d <= R.halfW + 1.10) {
-        c = walk[hash(ix, iy) > .74 ? 3 : 2];
-      }
-      if (!c) continue;
-      const i = iy * W + ix;
-      pix[i] = c;
-      ground[i] = 1;
-      zb[i] = (g.x + g.y) / R2 * COS;
-    }
-  }
-
-  /* 路面中央黄色虚线：沿路每 2.4 单位画一段 1.2 长。
-     直写 pix 但**不动 zb** —— 虚线是路面贴花，zb 仍归地面，
-     这样 applyShadows / bakeOcclusion 还会正确给它上影和 AO。 */
-  function drawRoadMarkings() {
-    const R = cfg(), period = 2.4, dash = 1.2;
-    /* 虚线沿路方向：在路坐标系里取一段 (s, lat≈0)，再投影回像素 */
-    for (let s0 = -40; s0 < 80; s0 += period) {
-      for (let d = 0; d < dash; d += .12) {
-        const t = (s0 + d) / roadLength();
-        const p = roadPoint(t);
-        const pr = project(p.x, p.y, .02);
-        const ix = pr.sx | 0, iy = pr.sy | 0;
-        if (ix < 0 || iy < 0 || ix >= W || iy >= H) continue;
-        pix[iy * W + ix] = ROAD_LINE;
-      }
-    }
-  }
-
-  /* 路缘石：路面两侧的窄亮条（同样直写 pix，不动 zb） */
-  function drawRoadEdge() {
-    const R = cfg(), curb = rampOf(CURB)[3];
-    for (let iy = 0; iy < H; iy++) for (let ix = 0; ix < W; ix++) {
-      const g = unproject(ix + .5, iy + .5);
-      const d = Math.abs(roadAxis(g.x, g.y).lat);
-      if (d > R.halfW + .26 || d <= R.halfW - .04) continue;
-      pix[iy * W + ix] = curb;
-    }
-  }
+  /* ---------------- 路面绘制：已拆到 road-paint.js ---------------- */
+  /* terrain.js 已实现完整路面（groundColor() 逐像素处理沥青 + 路缘石 +
+     人行道 + 黄色虚线，由 bakeTerrain() 一次烘焙），主场景不要重复画。
+     road.js 自己那套兜底实现放在 road-paint.js：road.js 要能独立成场景
+     （契约 §8「只定义函数，不自动执行」）。 */
 
   /* ---------------- 导出 ---------------- */
 
@@ -284,7 +237,6 @@
     cfg, roadLength, roadPoint, roadTangent, roadNormal,
     roadProject, roadDist, roadOffset, roadAxis,
     car: CAR, makeCar, updateCar, drawCar,
-    drawRoadSurface, drawRoadMarkings, drawRoadEdge,
   };
   /* 便捷别名：主场景与验收脚本可直接按函数名调用 */
   window.makeCar = makeCar;

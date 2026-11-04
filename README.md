@@ -10,6 +10,8 @@
 | `demo/` | 从零重写的最小 demo：投影、深度缓冲、球体光照、抖动、阴影、描边、土层 |
 | `demo/forest.html` | 翠绿小树林生成器，带参数面板（树数量 / 树冠大小 / 配色 / 种子） |
 | `demo/autumn.html` | 秋日野餐：梧桐、菱形地台、格子野餐布、两个人物、风动落叶 |
+| `demo/kit/` | **构件库运行时**：`KIT.register` 注册表 + 已落地构件（AI 生成物也落这里） |
+| `demo/studio/` | **Studio 生产线**：构件生成页 + 场景编辑器 + AI 桥 + 落盘器 |
 | `docs/kit/` | **构件库**：参考项目资产的规格书（场景/建筑/人物/道具/自然/特效），含算法、参数与移植清单 |
 | `docs/analysis.md` | 对 Pixel Plays 渲染管线的完整技术拆解 |
 | `docs/forest-rules.md` | 从参考图到树林生成规则的完整说明 |
@@ -17,9 +19,11 @@
 | `docs/modules/demo.md` | demo 场景与交互说明 |
 | `docs/modules/forest.md` | 树林生成器模块说明 |
 | `docs/modules/autumn.md` | 秋日野餐模块说明 |
+| `docs/modules/studio.md` | **Studio 生产线说明**：生成流程、AI 桥、编辑器、碰撞体积 |
 | `docs/screenshot.png` | demo 运行截图 |
 | `docs/forest-screenshot.png` | 树林运行截图 |
 | `docs/autumn-screenshot.png` | 秋日野餐运行截图 |
+| `docs/editor-screenshot.png` | 编辑器运行截图 |
 
 ## 构件库（`docs/kit/`）
 
@@ -31,7 +35,7 @@
 
 | 篇目 | 内容 |
 |------|------|
-| [registry.md](docs/kit/registry.md) | **变体注册表**：78 个变体，每行带配方卡锚点链接 |
+| [registry.md](docs/kit/registry.md) | **变体注册表**：80 个变体，每行带配方卡锚点链接 |
 | [README.md](docs/kit/README.md) | 架构说明、复用路线、能力差距对照表 |
 | [trees.md](docs/kit/trees.md) | 树变体配方卡（8 种） |
 | [buildings.md](docs/kit/buildings.md) | 建筑变体配方卡（20 种） |
@@ -80,6 +84,35 @@ cd reference/pixel-plays
 node serve.mjs
 # 打开 http://127.0.0.1:5300/
 ```
+
+## Studio：构件生成与场景编辑
+
+一条**需求 → 构件 → 场景**的生产线，零依赖、零构建。
+
+```bash
+node demo/studio/server.mjs 5320
+# 生成页  http://127.0.0.1:5320/studio/index.html
+# 编辑器  http://127.0.0.1:5320/studio/editor.html
+```
+
+**生成页**：描述你想要什么 → AI 按 `docs/kit/` 的规范写出构件代码 →
+转盘预览（带碰撞体线框）→ 你点「确认保存」，**三件套**一次落盘：
+
+- `demo/kit/<模块>.js` —— 构件代码
+- `docs/kit/registry.md` —— 注册表加一行
+- `docs/kit/<篇目>.md` —— 配方卡
+
+AI 走本地 `claude` CLI headless 模式（`--json-schema` 保证结构化输出，
+`--tools ''` 硬隔离，不给 AI 碰文件系统的能力）。
+
+**编辑器**：逐格画地形（世界轴对齐的方格 → 标准等距菱形瓦片，带高度与侧壁）·
+从构件库拖构件进场景 · 调朝向与参数 · **手动或让 AI 推断碰撞体积** · 存成场景 JSON。
+
+碰撞体是编辑辅助，画成虚线、只画背向观众的竖线，不遮挡物体本身。
+
+详见 [docs/modules/studio.md](docs/modules/studio.md)。
+
+---
 
 ## Demo 演示了什么
 

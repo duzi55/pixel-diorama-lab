@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Studio · 场景与地形编辑器</title>
+<link rel="stylesheet" href="studio.css">
+</head>
+<body>
+<header class="bar">
+  <nav class="tabs">
+    <a class="tab" href="index.html">1. 素材生成与确认</a>
+    <a class="tab active" href="editor.html">2. 场景与地形编辑器</a>
+  </nav>
+  <div class="bar-note" id="status">就绪</div>
+</header>
+
+<main class="ed">
+  <!-- ============ 左侧：工具与构件库 ============ -->
+  <aside class="ed-left">
+    <div class="sec">
+      <h3>编辑工具</h3>
+      <div class="pill-row" id="tools">
+        <button class="pill on" data-tool="paint">画地形</button>
+        <button class="pill" data-tool="erase">擦除</button>
+        <button class="pill" data-tool="raise">抬高</button>
+        <button class="pill" data-tool="lower">降低</button>
+        <button class="pill" data-tool="place">放置</button>
+        <button class="pill" data-tool="select">选择/拖拽</button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h3>地形材质与笔刷</h3>
+      <div class="pill-row" id="mats"></div>
+      <div class="slider" style="margin-top:10px">
+        <label>笔刷半径 <b id="v-brush">2.0</b></label>
+        <input type="range" id="brush" min="0.5" max="6" step="0.5" value="2">
+      </div>
+      <div class="slider">
+        <label>绘制高度 <b id="v-height">0.00</b></label>
+        <input type="range" id="height" min="0" max="3" step="0.25" value="0">
+      </div>
+      <div class="pill-row" style="margin-top:6px">
+        <button class="pill" id="preset-village" title="生成默认山坡石路村落">预设:山坡村落</button>
+        <button class="pill" id="preset-flat" title="生成平坦草地岛">预设:平坦草岛</button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h3>构件库（点选放置）</h3>
+      <div class="pill-row" id="cats" style="margin-bottom:8px"></div>
+      <div id="comp-list"></div>
+    </div>
+  </aside>
+
+  <!-- ============ 中间：画布 ============ -->
+  <section class="ed-main">
+    <div class="ed-stage" id="stage">
+      <canvas id="c"></canvas>
+    </div>
+    <div class="ed-foot">
+      <span id="pos">—</span>
+      <span id="sel">未选中</span>
+      <span style="margin-left:auto;display:flex;align-items:center;gap:12px">
+        <label class="chk">人群 AI:
+          <select id="crowd-mode" style="width:auto;padding:2px 6px;font-size:11.5px">
+            <option value="">关闭</option>
+            <option value="wanderer">漫游村民 (wanderer)</option>
+            <option value="spectator">围观人群 (spectator)</option>
+            <option value="crowd">固定观众 (crowd)</option>
+          </select>
+        </label>
+        <label class="chk"><input type="checkbox" id="showgrid"> 网格</label>
+        <label class="chk"><input type="checkbox" id="showbox" checked> 碰撞体</label>
+      </span>
+    </div>
+  </section>
+
+  <!-- ============ 右侧：属性与场景 ============ -->
+  <aside class="ed-right">
+    <div class="sec">
+      <h3>场景存取</h3>
+      <div class="stack">
+        <div class="row">
+          <input type="text" id="scene-name" placeholder="场景名" value="my-scene">
+          <button id="btn-save-scene" class="primary">保存</button>
+        </div>
+        <div class="row">
+          <select id="scene-list"><option value="">— 载入场景 —</option></select>
+          <button id="btn-load-scene">载入</button>
+        </div>
+        <div class="row">
+          <button id="btn-export" class="ghost">导出 JSON</button>
+          <button id="btn-clear" class="ghost">清空场景</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec" id="sel-sec">
+      <h3>选中对象属性</h3>
+      <div id="sel-info"><div class="empty-note">用「选择/拖拽」工具点选物体（可按住拖动位置、滚轮旋转）</div></div>
+    </div>
+
+    <div class="sec" id="col-sec" style="display:none">
+      <h3>碰撞体积（手动 / AI）</h3>
+      <div id="col-info"></div>
+      <div class="row" style="margin-top:8px">
+        <button id="btn-col-ai">✨ AI 推断</button>
+        <button id="btn-col-reset" class="ghost">重置默认</button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h3>场景物体列表 <span id="obj-count" style="opacity:.6"></span></h3>
+      <div id="obj-list"></div>
+    </div>
+  </aside>
+</main>
+
+<script src="studio.js"></script>
+<script src="../engine.js"></script>
+<script src="../kit/core.js"></script>
+<script src="../kit/palette.js"></script>
+<script src="../kit/render.js"></script>
+<script src="../kit/trees.js"></script>
+<script src="../kit/plants.js"></script>
+<script src="../kit/buildings.js"></script>
+<script src="../kit/stoneworks.js"></script>
+<script src="../kit/props.js"></script>
+<script src="../kit/figures.js"></script>
+<script src="../kit/crowd.js"></script>
+<script src="terrain.js"></script>
+<script src="terrain-render.js"></script>
+<script src="editor-view.js"></script>
+<script src="editor-panels.js"></script>
+<script src="editor.js"></script>
+</body>
+</html>

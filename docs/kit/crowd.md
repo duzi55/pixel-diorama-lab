@@ -402,3 +402,37 @@ function drawCrowd() {
 4. 每人的相位要用位置偏移（`t.x`）错开，否则像仪仗队。
 5. 人群站在曲面上时，每个人的 `pose.z` 要单独算。
 6. `figure()` 每人每帧都要调 → 14 人 × 每帧 = 开销可观。人数上限参考项目是 14。
+
+### `spectator` / `wanderer` / `crowd`（kit 运行时实现）
+
+> 来源：`demo/kit/crowd.js` · `KIT_CROWD` · studio 手写 · 冒烟测试 `tools/crowd-test.mjs`
+
+三个变体共用同一骨架（初始化 → pickTarget → 软排斥 → 边界夹紧 → 姿态合成），
+**只差目标选择** —— 与 §2.2 的设计完全一致：
+
+| 变体 | pickTarget | 局部动作 |
+|------|-----------|---------|
+| `spectator` | 主角周围环状布点，半径 `clearance + .1 + hash*3.4`，并额外被推离 CLEARANCE 圈 | 站立/走路 |
+| `wanderer` | 当前位置 + 均匀随机方向 × 1.5~6 | 走停交替，55% 掏手机 |
+| `crowd` | 原地不动 | 慢转头（±.32 正弦）+ 周期性欢呼（cheer 姿态） |
+
+用法：
+
+```js
+KIT_CROWD.create({ variant: 'spectator', count: 10, seed: 7,
+                   focus: { x: 0, y: 0 }, clearance: 2.2,
+                   bounds: { x0: -8, x1: 8, y0: -4, y1: 4 } });
+// 每帧：
+KIT_CROWD.update(t, dt);
+KIT_CROWD.draw(t);      // 内部走 figure() + dynamicAdd
+```
+
+**移植清单**
+
+- 从 `stari-most` 抄：朝向归一化（while 收敛到 ±π）、软排斥（`min(1, dt*5)`）、边界夹紧（+.2 余量）
+- 配色表法照 §1.4：8 衫 5 裤 6 发 4 肤，25% 白条纹
+
+**坑**
+
+- 人群变体**不是 KIT 构件**（每帧运行动态，不是静态 draw）——不要塞进 `KIT.register`
+- `crowd` 变体的欢呼用 `sin(t*1.7 + phase) > .3` 相位错开，否则全员同步举手像仪仗队
