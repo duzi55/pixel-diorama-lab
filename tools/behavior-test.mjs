@@ -127,21 +127,29 @@ for (const id of behaviorIds) {
 
 /* ---------------- 2. 构件声明的行为都已注册 ---------------- */
 console.log('\n[2] 构件 → 行为引用');
-const comps = run(`KIT.list().map(c => ({
-  id: c.id, category: c.category,
-  behavior: c.behavior ? {
-    def: (c.behavior.default || []).map(b => b.id),
-    allow: (c.behavior.allow || []).slice(),
-  } : null,
-}))`);
-const withBehavior = comps.filter(c => c.behavior);
+/* 有效行为 = 显式 behavior.default，或分类兜底（树摇、人物招手…） */
+const comps = run(`KIT.list().map(c => {
+  const probe = { id: 'p', kind: c.id, x: 0, y: 0, z: 0, rot: 0, seed: 1, params: {} };
+  KIT_BEHAVIOR.attach(probe);
+  return {
+    id: c.id, category: c.category,
+    explicit: !!c.behavior,
+    default: c.behavior ? (c.behavior.default || []).map(b => b.id) : [],
+    allow: c.behavior && c.behavior.allow ? c.behavior.allow.slice() : [],
+    effective: probe.behaviors.map(b => b.id),
+    allowed: KIT_BEHAVIOR.allowed(c).map(d => d.id),
+  };
+})`);
+const withBehavior = comps.filter(c => c.effective.length);
 check('有构件挂了行为', withBehavior.length > 0, `${withBehavior.length} / ${comps.length} 个构件`);
+check('每个构件都至少有一个可挂行为', comps.every(c => c.allowed.length > 0),
+  comps.filter(c => !c.allowed.length).map(c => c.id).join(',') || '全部覆盖');
 
-for (const c of withBehavior) {
-  const ids = [...c.behavior.def, ...c.behavior.allow];
+for (const c of comps.filter(c => c.explicit)) {
+  const ids = [...c.default, ...c.allow];
   const unknown = ids.filter(id => !behaviorIds.includes(id));
   check(`${c.id} 的行为 id 都已注册`, unknown.length === 0, unknown.join(',') || ids.join(', '));
-  const notAllowed = c.behavior.def.filter(id => c.behavior.allow.length && !c.behavior.allow.includes(id));
+  const notAllowed = c.default.filter(id => !c.allowed.includes(id));
   check(`${c.id} 的 default 都在 allow 里`, notAllowed.length === 0, notAllowed.join(',') || 'ok');
 }
 
@@ -169,7 +177,7 @@ for (const c of withBehavior) {
     } catch (e) { return { ok: false, err: String(e && e.message || e) }; }
   })()`);
   /* default 为空 = 明确声明"静态摆件"，不该动；只要求 attach/点击不崩 */
-  if (r.ok && r.n === 0) check(`${c.id} 静态摆件（无默认行为）`, r.ok, 'allow: ' + (c.behavior.allow.join(',') || '无'));
+  if (r.ok && r.n === 0) check(`${c.id} 静态摆件（无默认行为）`, r.ok, 'allow: ' + (c.allowed.join(',') || '无'));
   else check(`${c.id} 行为运行`, r.ok && r.moved, r.ok ? (r.moved ? r.ids.join('+') : '60 帧内 anim 完全没变') : r.err);
 }
 

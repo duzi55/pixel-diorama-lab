@@ -17,6 +17,31 @@ const KIT_BH_CATEGORY = {
   state: '状态',       // 长期状态变化（生长、枯萎）
 };
 
+/* 分类兜底：构件没写 behavior 字段时，按分类给一套默认行为与可挂行为。
+   这样"每个构件都有交互逻辑"成立，同时具体构件仍可显式覆盖。 */
+const KIT_BH_CATEGORY_DEFAULT = {
+  tree: ['sway'],
+  plant: ['sway'],
+  building: [],
+  structure: [],
+  prop: [],
+  vehicle: [],
+  figure: ['greet'],
+  animal: ['wander'],
+  effect: ['flicker'],
+};
+const KIT_BH_CATEGORY_ALLOW = {
+  tree: ['sway', 'chop', 'burn', 'shake'],
+  plant: ['sway', 'shake', 'burn'],
+  building: ['flicker', 'burn', 'shake'],
+  structure: ['sway', 'shake'],
+  prop: ['flicker', 'shake', 'burn'],
+  vehicle: ['spin', 'bob', 'shake'],
+  figure: ['greet', 'wander', 'flee'],
+  animal: ['wander', 'flee', 'greet'],
+  effect: ['flicker', 'bob'],
+};
+
 const KIT_BEHAVIOR = {
   defs: Object.create(null),
   order: [],
@@ -78,12 +103,15 @@ const KIT_BEHAVIOR = {
     return base;
   },
 
-  /** 构件允许的行为列表（编辑器/AI 用） */
+  /** 构件允许的行为列表（编辑器/AI 用）；没声明时回落到分类兜底 */
   allowed(kindOrComp) {
     const c = typeof kindOrComp === 'string' ? KIT.get(kindOrComp) : kindOrComp;
-    if (!c || !c.behavior) return [];
-    return (c.behavior.allow || (c.behavior.default || []).map(b => b.id))
-      .map(id => KIT_BEHAVIOR.get(id)).filter(Boolean);
+    if (!c) return [];
+    const spec = c.behavior || null;
+    const ids = spec
+      ? (spec.allow || (spec.default || []).map(b => b.id))
+      : (KIT_BH_CATEGORY_ALLOW[c.category] || []);
+    return ids.map(id => KIT_BEHAVIOR.get(id)).filter(Boolean);
   },
 
   /**
@@ -102,10 +130,16 @@ const KIT_BEHAVIOR = {
       list = inst.behaviorSpec;
     } else if (spec) {
       list = spec.default || [];
+    } else if (comp) {
+      /* 没声明 behavior：按分类兜底（树摇、人物招手…） */
+      list = (KIT_BH_CATEGORY_DEFAULT[comp.category] || []).map(id => ({ id }));
     }
 
-    /* 只允许构件声明过的行为，避免场景/AI 乱挂 */
-    const allow = spec && spec.allow ? new Set(spec.allow) : null;
+    /* 只允许构件声明过的行为；没声明时用分类白名单，避免场景/AI 乱挂 */
+    const allowIds = spec && spec.allow
+      ? spec.allow
+      : (comp ? (KIT_BH_CATEGORY_ALLOW[comp.category] || []) : []);
+    const allow = allowIds.length ? new Set(allowIds) : null;
     inst.behaviors = list
       .filter(b => b && b.id && KIT_BEHAVIOR.get(b.id))
       .filter(b => !allow || allow.has(b.id))
@@ -304,7 +338,7 @@ KIT_BEHAVIOR.register({
   category: 'ambient',
   desc: '不规则地明灭，像钨丝灯接触不良',
   params: {
-    rate:  { def: .18, min: .02, max: 1, step: .02, desc: '闪烁频率', en: 'rate' },
+    rate:  { def: .35, min: .02, max: 1, step: .02, desc: '闪烁频率', en: 'rate' },
     depth: { def: 1, min: 0, max: 1, step: .1, desc: '熄灭时长占比', en: 'off ratio' },
   },
   tick(inst, bh, dt, world) {

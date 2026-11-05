@@ -87,6 +87,26 @@ world = {
 };
 ```
 
+### 2.5 分类兜底
+
+构件**没写** `behavior` 字段时，按分类给一套默认行为与白名单。
+这样"每个构件都有交互逻辑"成立，具体构件仍可显式覆盖。
+
+| 分类 | 默认行为 | 可挂行为 |
+|------|----------|----------|
+| `tree` | `sway` | sway / chop / burn / shake |
+| `plant` | `sway` | sway / shake / burn |
+| `building` | —（静态） | flicker / burn / shake |
+| `structure` | —（静态） | sway / shake |
+| `prop` | —（静态） | flicker / shake / burn |
+| `vehicle` | —（静态） | spin / bob / shake |
+| `figure` | `greet` | greet / wander / flee |
+| `animal` | `wander` | wander / flee / greet |
+| `effect` | `flicker` | flicker / bob |
+
+建筑默认是静态摆件（不摇），但窗灯可以手动加 `flicker`；
+树默认会随风摆，砍伐/着火要显式挂。
+
 ## 3. 内置行为
 
 ### 3.1 核心（`demo/kit/behavior.js`）
