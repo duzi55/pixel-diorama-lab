@@ -121,6 +121,7 @@ function ED_sceneJSON() {
     originY: window.PP_ORIGIN_Y == null ? 18 : window.PP_ORIGIN_Y,
     terrain: TERRAIN.toJSON(),
     objects: ED.objects,
+    lights: ED.lights || [],
     lighting: {
       dir: { ...LIGHT.dir },
       shadow: { ...LIGHT.shadow },
@@ -185,6 +186,9 @@ function ED_applyScene(scene) {
     ED_setBaseMap(null);
   }
   ED.objects = (scene.objects || []).map(o => ({ ...o }));
+  ED.lights = (scene.lights || []).map(L => ({ ...L }));
+  ED.selectedLight = null;
+  ED.nextLightId = ED.lights.length + 1;
   /* nextId 续上，避免 id 撞车 */
   let max = 0;
   for (const o of ED.objects) {

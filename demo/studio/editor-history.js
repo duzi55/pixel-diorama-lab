@@ -30,6 +30,7 @@ function ED_snapshot(label) {
   HIST.undo.push({
     label: label || '',
     objects: ED_cloneObjects(),
+    lights: JSON.parse(JSON.stringify(ED.lights || [])),
     terrain: ED_terrainSnapshot(),        /* 共享字符串，不重复占内存 */
     selected: ED_selectionList().map(o => o.id),
   });
@@ -52,6 +53,8 @@ function ED_restoreSnapshot(snap) {
     ED_TERRAIN_CACHE = snap.terrain;
   }
   ED.objects = JSON.parse(JSON.stringify(snap.objects));
+  ED.lights = JSON.parse(JSON.stringify(snap.lights || []));
+  ED.selectedLight = null;
   ED.selection = new Set();
   ED.selected = null;
   const ids = new Set(snap.selected || []);

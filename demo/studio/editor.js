@@ -217,6 +217,14 @@ function ED_bindCanvas() {
       return;
     }
     canvas.setPointerCapture(e.pointerId);
+    /* 太阳 gizmo 优先：拖它 = 转方向光，不影响地形/选择 */
+    const sp = toScreen(e);
+    if (typeof ED_pickSun === 'function' && ED_pickSun(sp.sx, sp.sy)) {
+      ED.sunDragging = true;
+      ED_sunDragTo(sp.sx, sp.sy);
+      e.preventDefault();
+      return;
+    }
     const w = toWorld(e);
     if (ED_toolLocked(ED.tool)) {
       studioStatus('底图模式下地形工具不可用（场景地面是烘焙产物）—— 构件放置/选择不受限', 'err');
@@ -232,6 +240,23 @@ function ED_bindCanvas() {
       ED_placeObject(ED.placing, w.x, w.y);
       return;
     }
+    if (ED.tool === 'light') {
+      const hit = ED_pickLight(w.x, w.y);
+      if (hit) {
+        ED.selectedLight = hit;
+        ED.selected = null;
+        ED.selection = new Set();
+        ED.draggingLight = true;
+        ED_refreshSel();
+        ED_refreshObjects();
+      } else {
+        ED_snapshot('放置光源');
+        ED_placeLight(w.x, w.y);
+        ED.draggingLight = true;
+      }
+      return;
+    }
+
     if (ED.tool === 'select') {
       const hit = ED_pickAt(w.x, w.y);
       if (hit) {
@@ -252,11 +277,25 @@ function ED_bindCanvas() {
   });
 
   canvas.addEventListener('pointermove', e => {
+    if (ED.sunDragging) {
+      const s0 = toScreen(e);
+      ED_sunDragTo(s0.sx, s0.sy);
+      return;
+    }
     const w = toWorld(e);
     const g = TERRAIN.toGrid(w.x, w.y);
     document.getElementById('pos').textContent =
       `x=${w.x.toFixed(1)} y=${w.y.toFixed(1)} 格(${g.gx},${g.gy}) 高=${TERRAIN.heightAt(w.x, w.y).toFixed(2)}`;
 
+    if (ED.draggingLight && ED.selectedLight) {
+      const L = ED.selectedLight;
+      L.x = Math.round(w.x * 4) / 4;
+      L.y = Math.round(w.y * 4) / 4;
+      ED_collectLights();
+      ED.dirty = true;
+      ED_refreshSel();
+      return;
+    }
     if (ED.drag) {
       const s0 = toScreen(e);
       ED_updateDrag(s0.sx, s0.sy);
@@ -304,6 +343,8 @@ function ED_bindCanvas() {
       ED.dirty = true;
     }
     ED_endDrag();
+    ED.draggingLight = false;
+    ED.sunDragging = false;
     ED.painting = false;
     ED.draggingObj = false;
     panning = false;

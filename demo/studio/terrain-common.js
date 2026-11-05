@@ -91,6 +91,8 @@ function terrainBlend(gx, gy, wx, wy, ix, iy, cell, mat) {
 
     /* 基础权重：越贴边越强 */
     let w = 1 - s.d / bw;
+    /* 吸色权重：泥土/石板几乎不从邻格吸色（否则泥土会被草地包一圈绿边） */
+    w *= mat.absorb == null ? 1 : mat.absorb;
 
     /* 抖动：两条低频噪声叠加，把直线边界咬成不规则形状 */
     const j = B.jitter * ((mat.blend ? mat.blend.jitter : 0.6) + (nm.blend ? nm.blend.jitter : 0.6)) / 2;
@@ -150,8 +152,8 @@ function terrainDetail(matId, mat, wx, wy, ix, iy, ramp, baseLevel) {
 
   if (matId === 'grass') {
     /* 苔藓斑块：低频选区 + 高频打散（docs/kit/scene.md §5.3） */
-    if (d.clump && noise(wx * 0.55, wy * 0.55) > 0.72 && hash(ix, iy) > 0.55) {
-      return ramp[0];
+    if (d.clump && noise(wx * 0.55, wy * 0.55) > 0.74 && hash(ix, iy) > 0.55) {
+      return ramp[1];          /* 苔藓斑：比底色深一档，不要最暗档（会成黑洞） */
     }
     if (d.speckle && hash(ix * 1.7 + 3, iy * 2.3 + 7) > 0.985) lv = Math.min(4, lv + 1);
   } else if (matId === 'soil') {

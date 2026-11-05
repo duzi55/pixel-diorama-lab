@@ -81,6 +81,18 @@ function ED_initLightingUI() {
 function ED_collectLights() {
   LIGHT.points.length = 0;
   if (ED.pointsEnabled === false) return;
+
+  /* 用户摆放的光源 */
+  for (const L of (ED.lights || [])) {
+    LIGHT.points.push({
+      x: L.x, y: L.y, z: L.z,
+      r: L.r || 6,
+      power: L.power == null ? 0.6 : L.power,
+      color: L.color || [255, 214, 130],
+    });
+  }
+
+  /* 构件自带的光源（路灯/灯笼） */
   for (const o of ED.objects) {
     if (!/lamp|lantern|light/i.test(o.kind)) continue;
     const lit = o.params && o.params.lit != null ? o.params.lit : 1;
@@ -97,3 +109,186 @@ function ED_collectLights() {
   }
 }
 
+
+
+/* ---------------- 可摆放光源 ---------------- */
+
+function ED_placeLight(x, y) {
+  const L = {
+    id: 'L' + (ED.nextLightId++),
+    x: Math.round(x * 4) / 4,
+    y: Math.round(y * 4) / 4,
+    z: (ED.baseMap ? 0 : TERRAIN.heightAt(x, y)) + 4,
+    r: 7,
+    power: 0.85,
+    color: [255, 214, 130],
+  };
+  if (!ED.lights) ED.lights = [];
+  ED.lights.push(L);
+  ED.selectedLight = L;
+  ED.selected = null;
+  ED.selection = new Set();
+  ED_collectLights();
+  ED_refreshSel();
+  ED_refreshObjects();
+  ED.dirty = true;
+  studioStatus('已放置光源 —— 拖动移动，右侧调高度/半径/强度');
+  return L;
+}
+
+function ED_pickLight(x, y) {
+  let best = null, bestD = 2.5;
+  for (const L of (ED.lights || [])) {
+    const d = Math.hypot(L.x - x, L.y - y);
+    if (d < bestD) { bestD = d; best = L; }
+  }
+  return best;
+}
+
+function ED_deleteLight() {
+  if (!ED.selectedLight) return;
+  ED_snapshot('删除光源');
+  ED.lights = (ED.lights || []).filter(L => L !== ED.selectedLight);
+  ED.selectedLight = null;
+  ED_collectLights();
+  ED_refreshSel();
+  ED.dirty = true;
+  studioStatus('已删除光源');
+}
+
+/** 在光源位置画十字标记（选中时加圆环） */
+function ED_drawLightIcons() {
+  for (const L of (ED.lights || [])) {
+    const p = project(L.x, L.y, L.z);
+    const on = L === ED.selectedLight;
+    const col = on ? rgb(255, 224, 140) : rgb(255, 196, 96);
+    const cx = Math.round(p.sx), cy = Math.round(p.sy);
+    for (let d = -3; d <= 3; d++) {
+      ED_plotScreen(cx + d, cy, col);
+      ED_plotScreen(cx, cy + d, col);
+    }
+    if (on) {
+      for (let a = 0; a < 20; a++) {
+        const ang = a / 20 * Math.PI * 2;
+        ED_plotScreen(Math.round(cx + Math.cos(ang) * 8), Math.round(cy + Math.sin(ang) * 8), col);
+      }
+    }
+  }
+}
+
+/** 光源属性面板（editor-props 的 ED_refreshSel 调用） */
+function ED_renderLightPanel(info) {
+  const L = ED.selectedLight;
+  info.innerHTML = '';
+  info.appendChild(ED_kv('类型', '点光源'));
+  info.appendChild(ED_kv('位置', `${L.x.toFixed(2)}, ${L.y.toFixed(2)}`));
+
+  const mkSlider = (label, key, min, max, step, fmt) => {
+    const w = document.createElement('div');
+    w.className = 'slider';
+    const show = () => (fmt ? fmt(L[key]) : String(L[key]));
+    w.innerHTML = `<label>${label} <b>${show()}</b></label>`;
+    const inp = document.createElement('input');
+    inp.type = 'range';
+    inp.min = String(min); inp.max = String(max); inp.step = String(step);
+    inp.value = String(L[key]);
+    inp.addEventListener('input', e => {
+      L[key] = Number(e.target.value);
+      w.querySelector('b').textContent = show();
+      ED_collectLights();
+      ED.dirty = true;
+    });
+    w.appendChild(inp);
+    info.appendChild(w);
+  };
+
+  mkSlider('高度 z', 'z', 0.5, 14, 0.25, v => v.toFixed(2));
+  mkSlider('照明半径', 'r', 1, 20, 0.5, v => v.toFixed(1));
+  mkSlider('强度', 'power', 0.05, 1.5, 0.05, v => v.toFixed(2));
+
+  const tint = document.createElement('div');
+  tint.className = 'prop-sub';
+  tint.textContent = '色温';
+  info.appendChild(tint);
+  const row = document.createElement('div');
+  row.className = 'pill-row';
+  for (const [label, col] of [
+    ['暖光', [255, 214, 130]],
+    ['冷光', [150, 190, 255]],
+    ['白光', [240, 238, 230]],
+  ]) {
+    const b = document.createElement('button');
+    b.className = 'pill' + (L.color && L.color[0] === col[0] && L.color[2] === col[2] ? ' on' : '');
+    b.textContent = label;
+    b.addEventListener('click', () => {
+      L.color = [...col];
+      ED_collectLights();
+      ED.dirty = true;
+      ED_refreshSel();
+    });
+    row.appendChild(b);
+  }
+  info.appendChild(row);
+
+  const del = document.createElement('button');
+  del.className = 'ghost';
+  del.style.marginTop = '8px';
+  del.textContent = '删除光源';
+  del.addEventListener('click', ED_deleteLight);
+  info.appendChild(del);
+}
+
+
+/* ---------------- 太阳 gizmo：方向光可视化拖动 ----------------
+ * 画布右上区域一个太阳，拖它 = 改方向光的方位角与高度角。
+ * 方位：太阳相对画布中心的方向；高度：离中心越近越高（顶光）。
+ * 与「光照」面板的两个滑块共用同一条 syncDir 通道。
+ */
+
+function ED_sunPos() {
+  const cx = W / 2, cy = H / 2;
+  const maxR = Math.min(W, H) * .38;
+  const horiz = Math.hypot(LIGHT.dir.x, LIGHT.dir.y) || .001;
+  /* 光传播方向的反向 = 光源所在侧 */
+  const ux = -LIGHT.dir.x / horiz, uy = -LIGHT.dir.y / horiz;
+  const dist = (1 - LIGHT.dir.z) * maxR;
+  return { x: cx + ux * dist, y: cy + uy * dist, cx, cy, maxR };
+}
+
+function ED_drawSun() {
+  if (ED.tool === 'pan') return;
+  const p = ED_sunPos();
+  const glow = rgb(255, 210, 110), core = rgb(255, 246, 196);
+  const px = Math.round(p.x), py = Math.round(p.y);
+  for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
+    const d2 = dx * dx + dy * dy;
+    if (d2 > 10) continue;
+    ED_plotScreen(px + dx, py + dy, d2 <= 2 ? core : glow);
+  }
+  for (let k = 0; k < 8; k++) {
+    const a = k / 8 * Math.PI * 2;
+    for (let r = 5; r <= 7; r++) {
+      ED_plotScreen(Math.round(px + Math.cos(a) * r), Math.round(py + Math.sin(a) * r), glow);
+    }
+  }
+}
+
+/** 命中太阳（屏幕坐标，半径 12px） */
+function ED_pickSun(sx, sy) {
+  const p = ED_sunPos();
+  return Math.hypot(sx - p.x, sy - p.y) < 12;
+}
+
+/** 拖动太阳 → 更新方向光方位/高度（复用滑块的 input 通道） */
+function ED_sunDragTo(sx, sy) {
+  const p = ED_sunPos();
+  const dx = sx - p.cx, dy = sy - p.cy;
+  const dist = Math.hypot(dx, dy);
+  const hz = Math.max(.08, Math.min(1, 1 - dist / p.maxR));
+  let aDeg = Math.atan2(dy, dx) * 180 / Math.PI;
+  aDeg = ((aDeg % 360) + 360) % 360;
+  const lr = document.getElementById('lt-rot');
+  const lz = document.getElementById('lt-z');
+  if (lr) { lr.value = String(Math.round(aDeg)); lr.dispatchEvent(new Event('input')); }
+  if (lz) { lz.value = String(hz.toFixed(2)); lz.dispatchEvent(new Event('input')); }
+}

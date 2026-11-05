@@ -10,6 +10,16 @@ function ED_refreshSel() {
   const info = document.getElementById('sel-info');
   const colSec = document.getElementById('col-sec');
   if (!info) return;
+  /* 光源优先：选中光源时显示光源面板 */
+  if (ED.selectedLight) {
+    const colSec0 = document.getElementById('col-sec');
+    if (colSec0) colSec0.style.display = 'none';
+    const sel0 = document.getElementById('sel');
+    if (sel0) sel0.textContent = `光源 @ (${ED.selectedLight.x.toFixed(1)}, ${ED.selectedLight.y.toFixed(1)})`;
+    ED_renderLightPanel(info);
+    return;
+  }
+
   const list = ED_selectionList();
 
   if (!list.length) {

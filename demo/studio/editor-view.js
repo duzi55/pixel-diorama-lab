@@ -102,6 +102,7 @@ function ED_bindKeys() {  addEventListener('keydown', e => {
       if (k === 'b') { ED_setTool('place'); studioStatus('放置工具：先在左侧选构件，再点画布'); return; }
       if (k === 't') { ED_setTool('paint'); studioStatus('地形工具：选择材质后绘制'); return; }
       if (k === 'h') { ED_setTool('pan'); studioStatus('平移：拖动画布'); return; }
+      if (k === 'l') { ED_setTool('light'); studioStatus('光源工具：点画布放置，拖动移动，右侧调高度'); return; }
     }
 
     /* 撤销 / 重做 */
@@ -143,7 +144,8 @@ function ED_bindKeys() {  addEventListener('keydown', e => {
       studioStatus('已取消');
     }
     if (e.key === 'Delete' || e.key === 'Backspace') {
-      if (ED_selectionList().length) { ED_deleteSelection(); e.preventDefault(); }
+      if (ED.selectedLight) { ED_deleteLight(); e.preventDefault(); }
+      else if (ED_selectionList().length) { ED_deleteSelection(); e.preventDefault(); }
     }
   if (ED_selectionList().length && e.key.startsWith('Arrow')) {
       const step = e.shiftKey ? .5 : .15;

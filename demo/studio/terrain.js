@@ -43,31 +43,37 @@ const TERRAIN = {
   mats: {
     grass: {
       name: '草地', base: [104, 132, 62], kind: KIND_GRASS,
+      absorb: 1.0,
       blend: { width: 0.45, jitter: 0.6 },
       detail: { clump: 0.45, speckle: 0.22 },   /* 苔藓斑块 + 杂点 */
     },
     soil: {
       name: '泥土', base: [176, 148, 104], kind: KIND_NONE,
+      absorb: 0.22,
       blend: { width: 0.55, jitter: 0.75 },     /* 泥土边界最松散 */
       detail: { pebble: 0.05, speckle: 0.3 },
     },
     sand: {
       name: '沙地', base: [200, 172, 130], kind: KIND_NONE,
+      absorb: 0.75,
       blend: { width: 0.6, jitter: 0.8 },       /* 沙会渗进邻格 */
       detail: { ripple: 0.5, speckle: 0.2 },
     },
     stone: {
       name: '石板', base: [150, 146, 138], kind: KIND_NONE,
+      absorb: 0.15,
       blend: { width: 0.2, jitter: 0.25 },      /* 人工铺装：边界利落 */
       detail: { seam: true, speckle: 0.12 },
     },
     water: {
       name: '水面', base: [58, 96, 122], kind: KIND_NONE,
+      absorb: 0.5,
       blend: { width: 0.35, jitter: 0.45 },
       detail: { wave: 0.6, speckle: 0.1 },
     },
     litter: {
       name: '落叶', base: [228, 172, 62], kind: KIND_NONE,
+      absorb: 0.85,
       blend: { width: 0.5, jitter: 0.7 },
       detail: { clump: 0.55, speckle: 0.35 },   /* 落叶团块 + 细碎颗粒 */
     },

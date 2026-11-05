@@ -114,6 +114,10 @@ function ED_render(t = 0) {
   PP_shadePoints();
   PP_applyGrade();
 
+  /* 太阳 gizmo 画在调色之后：它是操作控件，不该被场景色调影响 */
+  if (typeof ED_drawSun === 'function') ED_drawSun();
+  if (typeof ED_drawLightIcons === 'function') ED_drawLightIcons();   /* 光源图标（不被色调影响） */
+
   /* 直接将 engine.js 的全局 image 提交到画布 */
   ctx.putImageData(image, 0, 0);
 }
