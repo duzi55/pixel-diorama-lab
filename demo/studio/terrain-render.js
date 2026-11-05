@@ -19,6 +19,9 @@
  * 画家算法：按 (gx+gy) 从大到小画。
  * ------------------------------------------------------------------ */
 
+/* 边缘溶解用的边缘格集合（每次整帧渲染前重建一次） */
+let TERRAIN_EDGES = null;
+
 /* ---------------- 顶面 ---------------- */
 
 function terrainDrawTop(gx, gy) {
@@ -76,6 +79,7 @@ function terrainDrawTop(gx, gy) {
       + (hash(ix, iy) - .5) * .55 + (bayerAt(ix, iy) - .5) * .5;
     const lv = clamp(Math.floor(v), 0, 4);
 
+    if (TERRAIN_EDGES && terrainEdgeCut(TERRAIN_EDGES, gx, gy, g.x, g.y, ix, iy)) continue;
     pix[i] = terrainDetail(useId, useMat, g.x, g.y, ix, iy, useRamp, lv);
     zb[i] = d;
     ground[i] = 1;
@@ -148,6 +152,7 @@ function terrainRender(fast) {
 /* ---------------- 台阶渲染（quad + 侧壁） ---------------- */
 
 function terrainRenderQuad() {
+  TERRAIN_EDGES = terrainEdgeSet();
   const cells = [...TERRAIN.cells.values()].sort((a, b) => (b.gx + b.gy) - (a.gx + a.gy));
   for (const c of cells) terrainDrawWalls(c.gx, c.gy);
   for (const c of cells) terrainDrawTop(c.gx, c.gy);

@@ -224,3 +224,49 @@ function terrainPatchSeams() {
   }
 }
 
+
+/* ---------------- 地形边缘溶解 ----------------
+ *
+ * 参照秋日山村（village/terrain.js）的做法：
+ * 岛屿边缘不是硬切，而是用低频团块噪声 + 像素哈希逐点"啃掉"，
+ * 形成有机的、像手绘淡出纸面的边。
+ *
+ * Studio 的地形是格子系统，所以溶解只发生在**边缘格**（四邻缺失）
+ * 靠边的 0.42 格范围内；内部格完全不动。
+ * ------------------------------------------------------------------ */
+
+const TERRAIN_EDGE_KEY = (gx, gy) => (gx + 512) * 1024 + (gy + 512);
+
+/** 边缘格集合（渲染前算一次） */
+function terrainEdgeSet() {
+  const s = new Set();
+  for (const c of TERRAIN.cells.values()) {
+    if (!TERRAIN.get(c.gx + 1, c.gy) || !TERRAIN.get(c.gx - 1, c.gy) ||
+        !TERRAIN.get(c.gx, c.gy + 1) || !TERRAIN.get(c.gx, c.gy - 1)) {
+      s.add(TERRAIN_EDGE_KEY(c.gx, c.gy));
+    }
+  }
+  return s;
+}
+
+/**
+ * 边缘溶解判定：返回 true 表示这个像素不画（被"啃掉"）。
+ * @param {Set} edges 边缘格集合
+ * @param {number} gx,gy 格坐标
+ * @param {number} x,y 世界坐标（用于格内位置与低频团块）
+ * @param {number} ix,iy 屏幕像素（像素级哈希）
+ */
+function terrainEdgeCut(edges, gx, gy, x, y, ix, iy) {
+  if (!edges.has(TERRAIN_EDGE_KEY(gx, gy))) return false;
+
+  const u = x - gx, v = y - gy;
+  const d = Math.min(u, 1 - u, v, 1 - v);      /* 到格边距离 0..0.5 */
+  const band = 0.5;
+  if (d > band) return false;
+
+  const t = (band - d) / band;                 /* 0=内部 1=最外 */
+  /* 低频团块主导 + 少量像素抖动：缺口成片，像墨边淡出，不是均匀噪点 */
+  const clump = noise(x * 1.45 + 11.3, y * 1.45 + 4.1);
+  const grain = hash(ix * 1.71, iy * 2.13) * 0.28;
+  return clump * 0.72 + grain < t * 0.5;
+}

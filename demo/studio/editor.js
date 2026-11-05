@@ -15,6 +15,8 @@
 const ED = {
   tool: 'paint',
   mat: 'grass',
+  autoBlend: false,      /* 笔刷画到边缘格时自动换过渡材质 */
+  blendMat: 'soil',
   brush: 2,
   height: 0,
   objects: [],           /* { id, kind, x, y, z, rot, params, seed, collision } */
@@ -55,6 +57,7 @@ function ED_init() {
   ED_buildCats();
   ED_buildTools();
   ED_bindCanvas();
+  ED_bindBrushBlend();
   ED_bindPanels();
   ED_bindPanelTabs();
 
@@ -101,6 +104,18 @@ function ED_setTool(t) {
   ED.tool = t;
   for (const b of document.getElementById('tools').children)
     b.classList.toggle('on', b.dataset.tool === t);
+}
+
+function ED_bindBrushBlend() {
+  const chk = document.getElementById('auto-blend');
+  const sel = document.getElementById('blend-mat');
+  if (!chk || !sel) return;
+  const mats = Object.entries(TERRAIN.mats || {});
+  sel.innerHTML = mats.map(([id, m]) => `<option value="${id}">${ED_esc(m.name || id)}</option>`).join('');
+  sel.value = ED.blendMat;
+  chk.checked = ED.autoBlend;
+  chk.addEventListener('change', () => { ED.autoBlend = chk.checked; });
+  sel.addEventListener('change', () => { ED.blendMat = sel.value; });
 }
 
 function ED_buildTools() {
@@ -275,6 +290,12 @@ function ED_bindCanvas() {
   });
 
   const stopDrag = () => {
+    /* 笔刷自动过渡：抬笔时按最终形状算一次边缘（绘制中途邻居不全，不能边画边判） */
+    if (ED.painting && ED.tool === 'paint' && ED.autoBlend &&
+        ED.blendMat && ED.blendMat !== ED.mat && typeof terrainBlendEdges === 'function') {
+      terrainBlendEdges(ED.mat, ED.blendMat, 1.2);
+      ED.dirty = true;
+    }
     if (ED.marquee) {
       const m = ED.marquee;
       const list = ED_marqueeObjects(m.x0, m.y0, m.x1, m.y1);

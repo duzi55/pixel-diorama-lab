@@ -77,6 +77,10 @@
       <div class="sec" id="sec-mats">
         <h3>地形材质与笔刷</h3>
         <div class="pill-row" id="mats"></div>
+        <div class="row" style="margin-top:8px">
+          <label class="chk" style="flex:1"><input type="checkbox" id="auto-blend"> 笔刷自动过渡</label>
+          <select id="blend-mat" style="width:80px"></select>
+        </div>
         <div class="slider" style="margin-top:10px">
           <label>笔刷半径 <b id="v-brush">2.0</b></label>
           <input type="range" id="brush" min="0.5" max="6" step="0.5" value="2">
@@ -85,10 +89,12 @@
           <label>绘制高度 <b id="v-height">0.00</b></label>
           <input type="range" id="height" min="0" max="3" step="0.25" value="0">
         </div>
-        <div class="pill-row" style="margin-top:6px">
-          <button class="pill" id="preset-village" title="生成默认山坡石路村落">预设:山坡村落</button>
-          <button class="pill" id="preset-flat" title="生成平坦草地岛">预设:平坦草岛</button>
+        <div class="prop-sub">地形配方（主体 + 过渡 + 边缘）</div>
+        <select id="recipe-sel" style="width:100%"></select>
+        <div class="row" style="margin-top:6px">
+          <button id="btn-recipe-gen" class="primary" style="flex:1">按配方生成</button>
         </div>
+        <div class="hint" id="recipe-hint">生成后可用笔刷继续修边</div>
       </div>
 
       <div class="sec">
@@ -360,6 +366,7 @@ window.PP_W=520;window.PP_H=380;window.PP_SCALE=11;window.PP_ORIGIN_X=0;window.P
 <script src="terrain-render.js"></script>
 <script src="terrain-march.js"></script>
 <script src="terrain-shapes.js"></script>
+<script src="terrain-recipe.js"></script>
 <script src="editor-view.js"></script>
 <script src="editor-panels.js"></script>
 <script src="editor-history.js"></script>

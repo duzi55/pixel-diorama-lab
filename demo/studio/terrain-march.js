@@ -202,6 +202,7 @@ function terrainSlopeLight(x, y, h0) {
 /* ---------------- 主渲染 ---------------- */
 
 function terrainRenderMarch() {
+  TERRAIN_EDGES = terrainEdgeSet();
   terrainBuildHeightGrid();
   terrainComputeBox();
 
@@ -238,6 +239,7 @@ function terrainRenderMarch() {
         + (light - 0.58) * 2.1;
       const lv = clamp(Math.floor(v), 0, 4);
 
+      if (terrainEdgeCut(TERRAIN_EDGES, gx, gy, hit.x, hit.y, ix, iy)) continue;
       pix[i] = terrainDetail(bl.matId, useMat, hit.x, hit.y, ix, iy, useRamp, lv);
 
       /* 深度按交点算：d = (x+y)/R2*COS + z*SIN */
