@@ -195,6 +195,29 @@ function draw(t) {
 
 ---
 
+## 6b. 树表与 Studio 场景文件
+
+树的实例表有两份来源，**场景文件优先**：
+
+| 来源 | 坐标 | 何时用 |
+|------|------|--------|
+| `demo/scenes/village.json` | 世界坐标（`x/y`） | 文件存在且解析出至少一棵树 |
+| `FOL_TREE_SPECS`（写死在 `foliage.js`） | 路轴坐标（`t/lat`） | 没有场景文件 / `file://` 打开 / 读超时 |
+
+场景对象只要 `KIT.get(kind).category === 'tree'` 就会被收进树表，
+每个实例带完整的 `params`（`height/crownR/trunkH/density`）、`seed`、`rot`。
+换树形/换参数不需要改代码，改场景 JSON 即可。
+
+**推荐流程**：Studio → 场景 → 「场景底图」导入「秋日山村」→ 在底图上摆树 →
+保存为 `village`。底图保证世界坐标与地形/房屋对齐；如果场景是围着一小块
+局部坐标摆的（没抓底图），`loadSceneTrees()` 会把整组树平移到路中段。
+
+**启动时序**：`village.js` 的 `boot()` 先 `await loadSceneTrees()` 再 `bake()`。
+没有 `fetch` 的沙箱（`tools/render.mjs` / `village-test.mjs`）走同步分支，
+测试与无头渲染不受影响；浏览器里另有 1.5s 超时兜底，读不到也不会白屏。
+
+---
+
 ## 7. 验证
 
 ```bash

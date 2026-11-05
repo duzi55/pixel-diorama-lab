@@ -46,17 +46,19 @@ const treeSprites = [];
 let folPlaced = [];
 
 function folInst(sp, part) {
-  const p = sp.kind === 'cone-mast'
+  /* 场景实例（来自 Studio 场景文件）自带完整参数；手写树表只有 h/cr/tkH */
+  const p = sp.params || (sp.kind === 'cone-mast'
     ? { height: sp.h, crownR: sp.cr, trunkH: sp.tkH, layers: sp.layers }
-    : { height: sp.h, crownR: sp.cr, trunkH: sp.tkH };
-  return { id: 'tree_' + sp.seed, kind: sp.kind, x: sp.x, y: sp.y, z: 0, rot: 0,
+    : { height: sp.h, crownR: sp.cr, trunkH: sp.tkH });
+  return { id: 'tree_' + sp.seed, kind: sp.kind, x: sp.x, y: sp.y, z: 0, rot: sp.rot || 0,
     params: p, seed: sp.seed, part };
 }
 
 /* 第一遍：只画树干（静态，进底图） */
 function drawTreeTrunks() {
   folPlaced = FOL_TREE_SPECS.map(sp => {
-    const [x, y] = folAt(sp.t, sp.lat);
+    /* 场景文件里的实例是世界坐标，手写树表是路轴坐标 */
+    const [x, y] = sp.x != null ? [sp.x, sp.y] : folAt(sp.t, sp.lat);
     return { ...sp, x, y };
   }).sort((a, b) => b.y - a.y);          // 画家算法：远先画
   for (const sp of folPlaced) {
@@ -130,8 +132,49 @@ function growFoliage() {
 function castTreeShadows() {
   for (const t of folPlaced) {
     /* 晴天柔影：贴地、小半径、极轻 —— 大偏移的深椭圆会读作"泥坑" */
-    castShadow(t.x, t.y, 1.0, t.crownR * .55, 4, .85);
+    castShadow(t.x, t.y, 1.0, t.cr * .55, 4, .85);
     castShadow(t.x, t.y, 0, .28, 3, .85);
+  }
+}
+
+/* ---------------- 场景文件覆盖（可选） ----------------
+ * 在 Studio 编辑器里摆好树 → 保存为 demo/scenes/village.json →
+ * 山村优先用它布树；没有这个文件就用手写的路轴树表。
+ * 场景对象存的是世界坐标（建议先在编辑器里用"抓取底图"载入山村再摆，
+ * 坐标就和地形/房屋对齐）。
+ */
+async function loadSceneTrees() {
+  try {
+    const res = await fetch('../scenes/village.json', { cache: 'no-store' });
+    if (!res.ok) return false;
+    const scene = await res.json();
+    const objs = Array.isArray(scene.objects) ? scene.objects : [];
+    const specs = [];
+    for (const o of objs) {
+      const comp = KIT.get(o.kind);
+      if (!comp || comp.category !== 'tree') continue;
+      const p = KIT.resolve(o.kind, o.params);
+      specs.push({
+        kind: o.kind, x: +o.x || 0, y: +o.y || 0, rot: o.rot || 0,
+        h: p.height, cr: p.crownR, tkH: p.trunkH,
+        seed: o.seed == null ? 1 : o.seed, params: p,
+      });
+    }
+    if (!specs.length) return false;
+    /* 场景若是围着一小块局部坐标摆的（没抓底图），整体平移到路中段，
+       免得树全落在画布外的角落 */
+    const cx = specs.reduce((s, o) => s + o.x, 0) / specs.length;
+    const cy = specs.reduce((s, o) => s + o.y, 0) / specs.length;
+    const midX = (ROAD.ax + ROAD.bx) / 2, midY = (ROAD.ay + ROAD.by) / 2;
+    if (Math.hypot(cx - midX, cy - midY) > 30) {
+      const dx = midX - cx, dy = midY - cy;
+      for (const s of specs) { s.x += dx; s.y += dy; }
+    }
+    FOL_TREE_SPECS.length = 0;
+    FOL_TREE_SPECS.push(...specs);
+    return true;
+  } catch {
+    return false;   // file:// 打开 / 没有场景文件 → 用默认树表
   }
 }
 

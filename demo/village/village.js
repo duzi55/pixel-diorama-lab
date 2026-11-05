@@ -160,8 +160,24 @@ addEventListener('resize', () => {
 });
 
 // 初始化启动
-fit();
-bake();
-makeVillagers();
-makeCar();
-requestAnimationFrame(frame);
+/* 树表可以被 Studio 保存的场景文件覆盖（demo/scenes/village.json）。
+   浏览器里先异步读一次再烘焙；无 fetch 的沙箱/离线环境直接同步启动，
+   不改变测试和 file:// 打开的时序。 */
+(function boot() {
+  let started = false;
+  const start = () => {
+    if (started) return;
+    started = true;
+    fit();
+    bake();
+    makeVillagers();
+    makeCar();
+    requestAnimationFrame(frame);
+  };
+  if (typeof fetch === 'function' && typeof loadSceneTrees === 'function') {
+    loadSceneTrees().then(start, start);
+    setTimeout(start, 1500);     // 场景文件再慢也不能白屏
+  } else {
+    start();
+  }
+})();

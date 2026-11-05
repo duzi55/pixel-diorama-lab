@@ -12,6 +12,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { validateComponent } from './validate.mjs';
 
@@ -20,6 +21,33 @@ const REPO_DIR = path.resolve(__dirname, '..', '..');
 const KIT_DIR = path.join(REPO_DIR, 'demo', 'kit');
 const DOCS_KIT = path.join(REPO_DIR, 'docs', 'kit');
 const SCENE_DIR = path.join(REPO_DIR, 'demo', 'scenes');
+
+/* 构件是"类"，场景是"实例"：改构件会立刻影响所有引用它的场景。
+   所以落盘后必须跑场景冒烟；失败就回滚，不能把已保存的场景弄坏。 */
+const SMOKE_TESTS = [
+  ['山村场景', 'tools/village-test.mjs'],
+  ['场景编辑器', 'tools/editor-test.mjs'],
+];
+
+function runSceneSmoke() {
+  const failures = [];
+  for (const [label, script] of SMOKE_TESTS) {
+    const file = path.join(REPO_DIR, script);
+    if (!fs.existsSync(file)) continue;
+    try {
+      execFileSync(process.execPath, [file], {
+        cwd: REPO_DIR, timeout: 120_000, stdio: 'pipe', encoding: 'utf8',
+      });
+    } catch (e) {
+      const out = `${e.stdout || ''}\n${e.stderr || ''}`;
+      const hit = out.split('\n')
+        .filter(l => /✗|失败|ERROR|Error:|断言/.test(l) && !/^===/.test(l))
+        .slice(0, 3).join(' / ');
+      failures.push(`${label}：${hit || e.message.split('\n')[0]}`);
+    }
+  }
+  return failures;
+}
 
 /* 分类 → (代码模块文件, 文档篇目) —— 与 docs/kit/ 篇目一一对应 */
 const CATEGORY_MAP = {
@@ -65,16 +93,29 @@ export function saveComponent(body) {
   }
 
   /* 2. 注册表 */
-  const reg = upsertRegistry(fs.readFileSync(regPath, 'utf8'), c, map);
+  const reg0 = fs.readFileSync(regPath, 'utf8');
+  const reg = upsertRegistry(reg0, c, map);
 
   /* 3. 配方卡 */
-  const doc0 = fs.existsSync(docPath) ? fs.readFileSync(docPath, 'utf8') : `# ${map.label}\n`;
+  const docExisted = fs.existsSync(docPath);
+  const doc0 = docExisted ? fs.readFileSync(docPath, 'utf8') : `# ${map.label}\n`;
   const doc = upsertRecipeCard(doc0, c, map);
 
   /* 全部算好，一次落盘 */
   fs.writeFileSync(codePath, code, 'utf8');
   fs.writeFileSync(regPath, reg, 'utf8');
   fs.writeFileSync(docPath, doc, 'utf8');
+
+  /* 场景冒烟：构件代码一改，引用它的场景立刻受影响。
+     失败就恢复到落盘前，并告诉用户是哪条断言挂了。 */
+  const smoke = runSceneSmoke();
+  if (smoke.length) {
+    fs.writeFileSync(codePath, code0, 'utf8');
+    fs.writeFileSync(regPath, reg0, 'utf8');
+    if (docExisted) fs.writeFileSync(docPath, doc0, 'utf8');
+    else fs.rmSync(docPath, { force: true });
+    throw new Error(`场景冒烟失败，已回滚（构件未保存）：\n${smoke.join('\n')}`);
+  }
 
   return {
     ok: true,

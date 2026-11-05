@@ -376,7 +376,9 @@ $('#btn-save').addEventListener('click', async () => {
   if (!code || !state.meta) { $('#ai-status').textContent = '没有可保存的代码'; return; }
   const btn = $('#btn-save');
   btn.disabled = true;
-  $('#ai-status').textContent = '保存中…';
+  /* 服务端落盘后会跑山村/编辑器场景冒烟（约 10s）：构件一改，
+     所有引用它的场景立刻受影响，失败会回滚，所以这里要把等待说清楚 */
+  $('#ai-status').textContent = '保存并校验场景中…（约 10 秒）';
   try {
     const c = {
       id: state.meta.id, name: state.meta.name, category: state.meta.category,

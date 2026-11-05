@@ -63,7 +63,7 @@
 | 山村村民 | `demo/village/villagers.js` | **行为状态机**：走停 / 张望 / 招手 / 弯腰捡叶 / 看车；头顶锚点与点击拾取 | `docs/modules/villagers.md` |
 | 山村公路与车 | `demo/village/road.js` | 公路几何（切向/法向/投影/路坐标系）+ 黄色小甲壳虫（沿路行驶、警灯闪烁、动态阴影） | `docs/kit/props.md §8b` |
 | 山村路面绘制 | `demo/village/road-paint.js` | road.js 的兜底路面实现：沥青 + 路缘石 + 黄色虚线（terrain.js 已画路面时不要调） | `docs/kit/props.md §8b` |
-| **秋日山村场景** | `demo/village/` | **全屏画布 + 纸上微缩模型**：画布=窗口（1:1 像素），纯色纸背景 + 有机落叶岛（5 木屋 + 17 棵塔树），公路/地面延伸出基准画面后有机消散，车辆 Bayer 抖动淡入淡出 | `docs/modules/village.md` |
+| **秋日山村场景** | `demo/village/` | **全屏画布 + 纸上微缩模型**：画布=窗口（1:1 像素），纯色纸背景 + 有机落叶岛（5 木屋 + 17 棵塔树），公路/地面延伸出基准画面后有机消散，车辆 Bayer 抖动淡入淡出；**树表可被 `demo/scenes/village.json` 覆盖**（Studio 场景文件的树实例优先） | `docs/modules/village.md` |
 | **屋顶晾衣复刻** | `demo/laundry/` | 参考项目 Rooftop Laundry 的完整复刻：抹灰楼体 + 女儿墙 + 楼梯间/水塔/烟囱 + 21 件会摆动的衣物 + 藤篮 + 阵风/暴雨/闪电；拖拽收衣与计分 | `docs/modules/laundry.md` |
 | **像素大奖赛** | `demo/racetrack/` | 等距微缩赛车场：**oval 赛道（双直道 + 半圆弯）** + 主看台/维修区/记分塔 + 3 辆方程式赛车持续绕圈 + 50 名观众；观众按最近赛车的距离起身欢呼；600×340 画布，有机溶解岛缘 + 纸色过渡，内容四边距画布边 ≥12px；人高 1.6 / 车长 3.05 / 赛道宽 5.6 | `docs/modules/racetrack.md` |
 | **场景导航** | `demo/nav.js` | 每个 demo 页面左上角的场景切换菜单：本工作区 6 个场景 + 参考项目 5 个游戏（5300 端口）；自动识别当前页并下移原有 HUD | `docs/modules/nav.md` |
@@ -77,7 +77,7 @@
 | **构件库 Gallery** | `demo/kit/gallery.html` | **构件陈列页（Bootstrap 风格）**：按分类列出全部构件，实时预览 + 参数滑块 + seed 换形 + 一键复制调用代码；数据来自运行时注册表，新构件自动出现 | `docs/kit/README.md` |
 | 构件库·锥状树 | `demo/kit/conifers.js` | `cone-mast` / `cone-spire`：**叶簇团块**锥冠（plot 逐像素填充 + 簇内球面光照，规避球体深描边）+ 粗直干根爪；走 `ctx.screen/unproject`，旋转/缩放预览不会碎成黑点；`density` 控密度 | `docs/kit/trees.md §5.7-5.8` |
 | 构件库·地面 | `demo/kit/ground.js` | 5 种地面材质（草地/泥土/沙地/石板/水面） | `docs/kit/scene.md` |
-| **构件工坊 App** | `demo/studio/app.html` · `app.js` · `app-history.js` · `app-props.js` · `app-ai.js` · `app.css` | **统一工作台**：左构件列表 / 中动画预览(iframe 沙箱)+参数+代码 / 右 AI 编辑（改当前构件或新建）；属性面板（名称/ID/分类/描述/碰撞体可视化编辑，补丁写回代码）+ AI 编辑（含参考图粘贴/拖拽）；「场景」tab 内嵌编辑器，`#scene` 直达 | `docs/modules/studio.md` |
+| **构件工坊 App** | `demo/studio/app.html` · `app.js` · `app-history.js` · `app-props.js` · `app-ai.js` · `app.css` | **统一工作台**：左构件列表 / 中动画预览(iframe 沙箱)+参数+代码 / 右 AI 编辑（改当前构件或新建）；属性面板（名称/ID/分类/描述/碰撞体可视化编辑，补丁写回代码）+ AI 编辑（含参考图粘贴/拖拽）；「场景」tab 内嵌编辑器，`#scene` 直达；**保存构件后跑场景冒烟（village-test + editor-test），失败自动回滚** | `docs/modules/studio.md` |
 | **Studio 生成页** | `demo/studio/index.html` | 描述需求 → AI 按规范写代码 → 进度条 → 预览调参 → 确认保存；顶部可切换模型 | `docs/modules/studio.md` |
 | Studio AI 配置 | `demo/studio/config.mjs` · `studio.config.json` | 模型 / 思考强度 / 预算 / 超时；环境变量可覆盖 | `docs/modules/studio.md §2.2` |
 | Studio 地形生成 | `demo/studio/terrain-shapes.js` | 程序化地形原语：island / rect / path / hill，供 AI 预设与编辑器共用 | `docs/modules/studio.md §4.2b` |
