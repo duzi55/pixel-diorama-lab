@@ -12,38 +12,8 @@
 function ED_initLightingUI() {
   const amb = document.getElementById('lt-ambient');
   const vg = document.getElementById('lt-vignette');
-  const lz = document.getElementById('lt-z');
-  const lr = document.getElementById('lt-rot');
   const pts = document.getElementById('lt-points');
   if (!amb) return;
-
-  const syncDir = () => {
-    /* 方位角（水平面内的光来向）+ 高度角 → 光照向量。
-       0° = 光从屏幕左上（经典等距默认），顺时针旋转 */
-    const a = Number(lr.value) * Math.PI / 180;
-    const hz = Number(lz.value);
-    const horiz = Math.sqrt(Math.max(0, 1 - hz * hz));
-    LIGHT.dir.x = -Math.cos(a) * horiz;
-    LIGHT.dir.y = -Math.sin(a) * horiz;
-    LIGHT.dir.z = hz;
-    /* 阴影投向背光侧 = 光传播方向的水平投影（与 dir.xy 同向） */
-    LIGHT.shadow.x = 1.5 * LIGHT.dir.x / Math.max(.2, LIGHT.dir.z);
-    LIGHT.shadow.y = 1.5 * LIGHT.dir.y / Math.max(.2, LIGHT.dir.z);
-    document.getElementById('v-lightz').textContent = hz.toFixed(2);
-    document.getElementById('v-lightrot').textContent = lr.value + '°';
-    ED.dirty = true;
-  };
-
-  /* 初始化：用引擎当前的方向光回填滑块（否则滑块默认值会把 LIGHT.dir 改掉） */
-  {
-    const hz0 = Math.max(.15, Math.min(.95, LIGHT.dir.z));
-    let a0 = Math.atan2(-LIGHT.dir.y, -LIGHT.dir.x) * 180 / Math.PI;
-    a0 = ((a0 % 360) + 360) % 360;
-    lz.value = hz0.toFixed(2);
-    lr.value = String(Math.round(a0));
-    document.getElementById('v-lightz').textContent = hz0.toFixed(2);
-    document.getElementById('v-lightrot').textContent = Math.round(a0) + '°';
-  }
 
   amb.addEventListener('input', () => {
     LIGHT.ambient = Number(amb.value);
@@ -55,8 +25,6 @@ function ED_initLightingUI() {
     document.getElementById('v-vignette').textContent = Number(vg.value).toFixed(2);
     ED.dirty = true;
   });
-  lz.addEventListener('input', syncDir);
-  lr.addEventListener('input', syncDir);
   if (pts) pts.addEventListener('change', () => {
     /* 关掉点光源 = 清空收集（渲染时跳过） */
     ED.pointsEnabled = pts.checked;
@@ -250,82 +218,3 @@ function ED_renderLightPanel(info) {
 }
 
 
-/* ---------------- 太阳 gizmo：方向光可视化拖动 ----------------
- * 画布右上区域一个太阳，拖它 = 改方向光的方位角与高度角。
- * 方位：太阳相对画布中心的方向；高度：离中心越近越高（顶光）。
- * 与「光照」面板的两个滑块共用同一条 syncDir 通道。
- */
-
-function ED_sunPos() {
-  const cx = W / 2, cy = H / 2;
-  const maxR = Math.min(W, H) * .38;
-  const horiz = Math.hypot(LIGHT.dir.x, LIGHT.dir.y) || .001;
-  /* 光传播方向的反向 = 光源所在侧 */
-  const ux = -LIGHT.dir.x / horiz, uy = -LIGHT.dir.y / horiz;
-  /* 固定在视口外圈：顶光也离中心够远，不会被场景物体盖住 */
-  const dist = (0.62 + 0.38 * (1 - LIGHT.dir.z)) * maxR;
-  return { x: cx + ux * dist, y: cy + uy * dist, cx, cy, maxR };
-}
-
-function ED_drawSun() {
-  if (ED.tool === 'pan') return;
-  const p = ED_sunPos();
-  const glow = rgb(255, 210, 110), core = rgb(255, 246, 196);
-  const ink = rgb(26, 26, 32);
-  const px = Math.round(p.x), py = Math.round(p.y);
-
-  /* 方向虚线：从太阳指向场景中心（光传播方向），暗底 + 亮线，任何背景上都读得出来 */
-  const dx = p.cx - p.x, dy = p.cy - p.y;
-  const len = Math.hypot(dx, dy) || 1;
-  const ux = dx / len, uy = dy / len;
-  for (let t = 16; t < len - 14; t += 10) {
-    const x = Math.round(p.x + ux * t), y = Math.round(p.y + uy * t);
-    ED_plotScreen(x, y, ink);
-    ED_plotScreen(x, y + 1, glow);
-  }
-  /* 箭头（靠近中心一端） */
-  const ax = Math.round(p.x + ux * (len - 12)), ay = Math.round(p.y + uy * (len - 12));
-  for (let k = -2; k <= 2; k++) {
-    ED_plotScreen(ax - Math.round(uy * k), ay + Math.round(ux * k), glow);
-  }
-
-  /* 暗色外圈：把太阳从场景里"抠"出来 */
-  for (let dy2 = -7; dy2 <= 7; dy2++) for (let dx2 = -7; dx2 <= 7; dx2++) {
-    const d2 = dx2 * dx2 + dy2 * dy2;
-    if (d2 > 49 || d2 <= 25) continue;
-    ED_plotScreen(px + dx2, py + dy2, ink);
-  }
-  /* 太阳本体 */
-  for (let dy2 = -5; dy2 <= 5; dy2++) for (let dx2 = -5; dx2 <= 5; dx2++) {
-    const d2 = dx2 * dx2 + dy2 * dy2;
-    if (d2 > 24) continue;
-    ED_plotScreen(px + dx2, py + dy2, d2 <= 4 ? core : glow);
-  }
-  /* 光芒 */
-  for (let k = 0; k < 8; k++) {
-    const a = k / 8 * Math.PI * 2;
-    for (let r = 8; r <= 11; r++) {
-      ED_plotScreen(Math.round(px + Math.cos(a) * r), Math.round(py + Math.sin(a) * r), glow);
-    }
-  }
-}
-
-/** 命中太阳（屏幕坐标，半径 12px） */
-function ED_pickSun(sx, sy) {
-  const p = ED_sunPos();
-  return Math.hypot(sx - p.x, sy - p.y) < 12;
-}
-
-/** 拖动太阳 → 更新方向光方位/高度（复用滑块的 input 通道） */
-function ED_sunDragTo(sx, sy) {
-  const p = ED_sunPos();
-  const dx = sx - p.cx, dy = sy - p.cy;
-  const dist = Math.hypot(dx, dy);
-  const hz = Math.max(.08, Math.min(1, 1 - dist / p.maxR));
-  let aDeg = Math.atan2(dy, dx) * 180 / Math.PI;
-  aDeg = ((aDeg % 360) + 360) % 360;
-  const lr = document.getElementById('lt-rot');
-  const lz = document.getElementById('lt-z');
-  if (lr) { lr.value = String(Math.round(aDeg)); lr.dispatchEvent(new Event('input')); }
-  if (lz) { lz.value = String(hz.toFixed(2)); lz.dispatchEvent(new Event('input')); }
-}

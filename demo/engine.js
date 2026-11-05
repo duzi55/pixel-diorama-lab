@@ -1,11 +1,8 @@
 'use strict';
 /* ------------------------------------------------------------------
- * 最小等距像素渲染器
- * 参考 pixel-plays 的 engine.js，只保留最小闭环：
- * 等距投影 / 深度缓冲 / 球体+胶囊+盒子 / 5 级色阶 / Bayer 抖动 /
- * 投影阴影 / 深度边缘
- *
- * 引擎级设施：capture 像素缓存（风动基础）/ staticShadow 联动 / bakeOcclusion()。
+ * 最小等距像素渲染器（复刻 pixel-plays/engine.js）
+ * 等距投影 / 深度缓冲 / 球体+胶囊+盒子 / 5 级色阶 / Bayer 抖动 / 投影阴影 / 深度边缘
+ * 引擎级设施：capture 像素缓存（风动基础）/ staticShadow 联动 / bakeOcclusion()
  * ------------------------------------------------------------------ */
 
 /* 画布尺寸：PP_W/PP_H 覆盖；PP_FULLSCREEN=true 时铺满窗口（像素数 = 窗口 / PP_SCALE）。
@@ -18,9 +15,8 @@ let OY = H / 2 + (window.PP_ORIGIN_Y == null ? 18 : window.PP_ORIGIN_Y);
 
 /* 全局光照配置（兼容 Studio 光照系统，默认等距斜上方平行光） */
 const LIGHT = window.LIGHT || {
-  /* 方向光：x/y 光来自哪侧，z 高度角；构件不自己定义光源。阴影由它派生。 */
-  dir: { x: -0.22, y: -0.5, z: 0.84 },
-  shadow: { x: 0.39, y: 0.89 },
+  dir: { x: -0.55, y: -0.6, z: 0.58 },   // 参考项目的固定光照方向
+  shadow: { x: 1.3, y: -0.12 },
   tint: [1, 1, 1],
   ambient: 1,
   vignette: 0,
@@ -28,6 +24,7 @@ const LIGHT = window.LIGHT || {
 };
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
+const SHADOW_X = 1.3, SHADOW_Y = -0.12;   // 参考项目的固定阴影偏移
 /* 地面材质标记：KIND_GRASS 的像素才长草，球场/屋顶上自动没有草 */
 const KIND_NONE = 0, KIND_GRASS = 3;
 
@@ -63,7 +60,6 @@ window.PP_SCENE = { get W() { return W; }, get H() { return H; }, get pix() { re
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + .5) / 16);
 const COOL = [46, 38, 84], WARM = [255, 232, 180];
 const GRADIENT_Y = COS / (S * SIN), EDGE = .28;
-
 
 /* rim 模式：环带内径比例（外径=1）。越小描边越粗。
  * ★ 参考图（3× 放大实测）：树冠描边是**连续的深褐色闭合轮廓**，
@@ -121,11 +117,14 @@ function tint(i, r, g, b) {
 }
 
 /* 30° 正交等距投影 */
-/* 世界法线 → 色阶档位（0~4）。由 LIGHT.dir 驱动：光从哪边来，朝那边的面就亮。 */
+/* 面亮度查表 —— 复刻参考项目 box() 的固定设定：顶 3.4 / 正 2.3 / 右 1.2。 */
 function litLevel(nx, ny, nz) {
-  const d = LIGHT.dir;
-  const l = clamp(-(d.x * nx + d.y * ny) + d.z * nz, 0, 1);
-  return clamp(1.1 + 2.6 * Math.pow(l, 1.3), 0, 4);
+  if (nz > .85) return 3.4;
+  if (ny > .3) return 2.3;
+  if (ny < -.3) return 1.5;
+  if (nx > 0) return 1.2;
+  if (nx < 0) return 2.0;
+  return 2.3;
 }
 
 function project(x, y, z) {
@@ -162,7 +161,7 @@ function sphere(x, y, z, r, c, mode) {
     /* 深度检查对 capture 同样生效：被场景物体挡住的像素不进入缓存，
        否则回放时树叶会盖在树干前面 */
     if (d <= zb[i]) continue;
-    let l = clamp(-LIGHT.dir.x * dx - LIGHT.dir.y * dy + LIGHT.dir.z * nz, 0, 1);
+    let l = clamp(-.55 * dx - .6 * dy + .58 * nz, 0, 1);
     if (mode === 'rough') l += (hash(ix, iy) - .5) * .55;
     if (dy > .35) l = Math.max(l, .12 + dy * .24);   // 地面反弹的暖光
     if (capture) {
@@ -246,7 +245,7 @@ function box(x0, y0, z0, x1, y1, z1, c, seed = 0) {
 
 /* 投影阴影：把 (x,y,z) 沿光方向压到地面，写椭圆 mask */
 function castShadow(x, y, z, r, strength = 1, dither = .4) {
-  const p = project(x + LIGHT.shadow.x * z, y + LIGHT.shadow.y * z, 0);
+  const p = project(x + SHADOW_X * z, y + SHADOW_Y * z, 0);
   const rx = r * S * 1.05, ry = rx * SIN + 1;
   const y0 = Math.max(0, Math.floor(p.sy - ry)), y1 = Math.min(H - 1, Math.ceil(p.sy + ry));
   const x0 = Math.max(0, Math.floor(p.sx - rx)), x1 = Math.min(W - 1, Math.ceil(p.sx + rx));

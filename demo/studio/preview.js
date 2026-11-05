@@ -26,8 +26,6 @@ const PV = {
   lightOn: true,
   lightTone: 'warm',     // warm | cool | neutral
   /* 方向光：方位角（屏幕方向）+ 高度角（0~1），由预览区的太阳控件驱动 */
-  sunAz: Math.atan2(0.5, 0.22),
-  sunEl: 0.84,
 };
 
 /* 背景两套（地面圆盘色阶跟着背景走） */
@@ -142,7 +140,7 @@ function PV_makeCtx(p) {
     unproject: (ix, iy, z) => {
       if (!has3D) {
         const P0 = unprojectAt(ix + .5 - aX, iy + .5 - aY, z * sc + aZ);
-        return [(P0[0] * cZ - P0[1] * sZ) / sc, (P0[0] * sZ + P0[1] * cZ) / sc];
+        return [(P0[0] * cZ + P0[1] * sZ) / sc, (-P0[0] * sZ + P0[1] * cZ) / sc];
       }
       const P0 = unprojectAt(ix + .5 - aX, iy + .5 - aY, pivotZ + aZ);
       const kd = R2 / 2 * COS / SIN;
@@ -226,17 +224,7 @@ function PV_render() {
 /* 光源开关 + 色系：开关只改光的方向（关 → 顶光，明暗更平）；
    色系是整幅画面的 RGB 乘数（暖白/冷白/中性） */
 function PV_applyLight() {
-  const el = PV.sunEl;
-  const horiz = Math.sqrt(Math.max(0, 1 - el * el));
-  const dir = PV.lightOn
-    ? { x: -Math.cos(PV.sunAz) * horiz, y: -Math.sin(PV.sunAz) * horiz, z: el }
-    : { x: 0, y: 0, z: 1 };
-  if (typeof LIGHT !== 'undefined' && LIGHT.dir) {
-    LIGHT.dir.x = dir.x; LIGHT.dir.y = dir.y; LIGHT.dir.z = dir.z;
-    /* 阴影投向背光侧：与方向光的水平投影一致 */
-    LIGHT.shadow.x = 1.5 * dir.x / Math.max(.2, dir.z);
-    LIGHT.shadow.y = 1.5 * dir.y / Math.max(.2, dir.z);
-  }
+  /* 光照明暗是固定美术设定（复刻参考项目）；这里只做色系乘数 */
   const t = PV_LIGHT_TONES[PV.lightTone] || PV_LIGHT_TONES.neutral;
   const gain = PV.lightOn ? 1 : 1.08;              // 关灯时整体提亮一点，弥补失去的方向光
   if (t[0] === 1 && t[1] === 1 && t[2] === 1 && gain === 1) return;
@@ -366,13 +354,6 @@ window.addEventListener('message', e => {
   if (msg.type === 'rot') {
     const v = Number(msg.rot);
     PV.rot = Number.isFinite(v) ? v : 0;
-    PV_render();
-    return;
-  }
-  if (msg.type === 'sun') {
-    const az = Number(msg.az), el = Number(msg.el);
-    if (Number.isFinite(az)) PV.sunAz = az;
-    if (Number.isFinite(el)) PV.sunEl = Math.max(.12, Math.min(1, el));
     PV_render();
     return;
   }

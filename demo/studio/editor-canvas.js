@@ -41,13 +41,6 @@ function ED_bindCanvas() {
       }
     }
 
-    /* 太阳 gizmo 优先：拖它 = 转方向光，不影响地形/选择 */
-    if (typeof ED_pickSun === 'function' && ED_pickSun(sp.sx, sp.sy)) {
-      ED.sunDragging = true;
-      ED_sunDragTo(sp.sx, sp.sy);
-      e.preventDefault();
-      return;
-    }
     const w = toWorld(e);
     if (ED_toolLocked(ED.tool)) {
       studioStatus('底图模式下地形工具不可用（场景地面是烘焙产物）—— 构件放置/选择不受限', 'err');
@@ -113,11 +106,6 @@ function ED_bindCanvas() {
   });
 
   stageEl.addEventListener('pointermove', e => {
-    if (ED.sunDragging) {
-      const s0 = toScreen(e);
-      ED_sunDragTo(s0.sx, s0.sy);
-      return;
-    }
     const w = toWorld(e);
     const g = TERRAIN.toGrid(w.x, w.y);
     document.getElementById('pos').textContent =

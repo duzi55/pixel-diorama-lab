@@ -193,7 +193,8 @@ const KIT_RENDER = {
           /* 平面旋转：直接反解到该局部的 z 平面（旧行为） */
           const P0 = unprojectAt(ix + .5 - aX, iy + .5 - aY, pz + z * sc + aZ);
           const dx = P0[0] - ox, dy = P0[1] - oy;
-          return [ox + (dx * cZ - dy * sZ) / sc, oy + (dx * sZ + dy * cZ) / sc];
+          /* 逆旋转 = Rz 的转置：与正向 x' = x·c - y·s, y' = x·s + y·c 互逆 */
+          return [ox + (dx * cZ + dy * sZ) / sc, oy + (-dx * sZ + dy * cZ) / sc];
         }
         /* 三轴旋转：屏幕像素确定一条世界射线，求它与"局部 z 平面"的交点 */
         const P0 = unprojectAt(ix + .5 - aX, iy + .5 - aY, pivotZ + aZ);
