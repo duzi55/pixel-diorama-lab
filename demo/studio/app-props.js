@@ -121,3 +121,42 @@ $('#btn-save-defaults').addEventListener('click', () => {
   setStatus('参数默认值已写入代码（预览不变），可保存落盘');
 });
 
+
+/* ---------------- 保存当前代码（属性/参数面板共用，不经过 AI） ----------------
+ * 只写文件：POST /api/save。AI 只在「让 AI 修改」时调用。
+ */
+async function saveCurrent() {
+  const code = state.code || '';
+  if (!code || !state.meta) throw new Error('没有可保存的代码');
+  const c = {
+    id: state.meta.id, name: state.meta.name, category: state.meta.category,
+    desc: state.meta.desc, code, collision: state.meta.collision,
+  };
+  const res = await fetch('/api/save', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ component: c, overwrite: true }),
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || '保存失败');
+  await refreshKit();
+  select(state.byId.get(c.id) || state.current);
+  return data;
+}
+window.saveCurrent = saveCurrent;
+
+$('#btn-props-save').addEventListener('click', async () => {
+  const btn = $('#btn-props-save');
+  const old = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '保存中…';
+  try {
+    const data = await saveCurrent();
+    setStatus(`已保存：${data.files.join('、')}`);
+  } catch (e) {
+    setStatus('保存失败：' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = old;
+  }
+});

@@ -387,28 +387,17 @@ $('#btn-apply').addEventListener('click', () => {
 });
 
 $('#btn-save').addEventListener('click', async () => {
-  const code = state.code || ($('#ai-code').value || '').trim();
-  if (!code || !state.meta) { $('#ai-status').textContent = '没有可保存的代码'; return; }
+  /* 保存 = 写文件，不经过 AI。只有「让 AI 修改」才调模型。 */
+  if (!state.code && !($('#ai-code').value || '').trim()) {
+    $('#ai-status').textContent = '没有可保存的代码';
+    return;
+  }
   const btn = $('#btn-save');
   btn.disabled = true;
-  /* 服务端落盘后会跑山村/编辑器场景冒烟（约 10s）：构件一改，
-     所有引用它的场景立刻受影响，失败会回滚，所以这里要把等待说清楚 */
-  $('#ai-status').textContent = '保存并校验场景中…（约 10 秒）';
+  $('#ai-status').textContent = '保存中…';
   try {
-    const c = {
-      id: state.meta.id, name: state.meta.name, category: state.meta.category,
-      desc: state.meta.desc, code, collision: state.meta.collision,
-    };
-    const res = await fetch('/api/save', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ component: c, overwrite: true }),
-    });
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || '保存失败');
+    const data = await saveCurrent();
     $('#ai-status').textContent = `已保存（${data.files.length} 个文件）`;
-    await refreshKit();
-    select(state.byId.get(c.id) || state.current);
   } catch (e) {
     $('#ai-status').textContent = '保存失败：' + e.message;
   } finally {

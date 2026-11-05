@@ -86,7 +86,7 @@ function makeDrawSandbox() {
   return sb;
 }
 
-export function validateComponent(c) {
+export function validateComponent(c, helperSrc) {
   const code = String(c.code || '');
   if (!code.trim()) throw new Error(`构件 "${c.id}" 的代码是空的`);
 
@@ -110,6 +110,11 @@ export function validateComponent(c) {
     vm.runInContext(src.core, cx, { filename: 'kit/core.js' });
     vm.runInContext(src.palette, cx, { filename: 'kit/palette.js' });
     vm.runInContext(src.render, cx, { filename: 'kit/render.js' });
+    /* 同文件里的辅助函数（coneCanopy / kitWoodWall 等）先加载：
+       构件代码块本身不含它们，不先定义会误报 "xxx is not defined" */
+    if (helperSrc && helperSrc.trim()) {
+      vm.runInContext(helperSrc, cx, { filename: `helpers-${c.id}.js` });
+    }
     vm.runInContext(code, cx, { filename: `component-${c.id}.js` });
   } catch (e) {
     throw new Error(`构件 "${c.id}" 加载失败：${e.message}`);
