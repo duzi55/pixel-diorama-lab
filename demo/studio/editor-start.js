@@ -18,6 +18,8 @@ function ED_showEmpty() {
   const box = startEl('ed-empty');
   if (!box) return;
   box.hidden = false;
+  const dock = startEl('ed-dock');
+  if (dock) dock.hidden = true;
   if (document.body.classList) document.body.classList.add('ed-empty-mode');
   startLoadList();
   const input = startEl('ed-start-input');
@@ -27,6 +29,8 @@ function ED_showEmpty() {
 function ED_hideEmpty() {
   const box = startEl('ed-empty');
   if (box) box.hidden = true;
+  const dock = startEl('ed-dock');
+  if (dock) dock.hidden = false;
   if (document.body.classList) document.body.classList.remove('ed-empty-mode');
 }
 
@@ -201,6 +205,25 @@ function startInit() {
     ED_hideEmpty();
     studioStatus('空白场景 —— 直接画地形，或从左侧放置构件');
   });
+
+  /* 底部指令条：有场景后继续用一句话重建 */
+  const dockInput = startEl('ed-dock-input');
+  const dockGo = startEl('ed-dock-go');
+  const dockSubmit = () => {
+    const v = (dockInput.value || '').trim();
+    if (!v) return;
+    if (ED.objects.length && !confirm('这会重建整个场景，当前内容会被替换。继续？')) return;
+    dockInput.value = '';
+    ED_showEmpty();
+    startEl('ed-start-input').value = v;
+    startCompose();
+  };
+  if (dockGo) dockGo.addEventListener('click', dockSubmit);
+  if (dockInput) {
+    dockInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); dockSubmit(); }
+    });
+  }
 
   ED_showEmpty();
   startResume();

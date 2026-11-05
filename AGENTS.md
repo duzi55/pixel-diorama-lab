@@ -98,7 +98,7 @@
 | Studio 地形·共用 | `demo/studio/terrain-common.js` | 投影/归属/材质过渡混合/子项装饰/收边补洞 | `docs/modules/studio.md §4.2` |
 | Studio 地形·台阶 | `demo/studio/terrain-render.js` | 逐格 quad + 侧壁渲染（快，拖动时降级用） | `docs/modules/studio.md §4.2a` |
 | **Studio 地形·坡面** | `demo/studio/terrain-march.js` | 高度场 sphere tracing 光线步进：缓坡 + 坡度光照，默认渲染器 | `docs/modules/studio.md §4.2a` |
-| **Studio 编辑器** | `demo/studio/editor.html` | 场景为主的全屏画布 + 浮动面板；**新建场景**（尺寸/背景色/地形预设）；底图模式可编辑已有场景 | `docs/modules/studio.md §4` |
+| **Studio 编辑器** | `demo/studio/editor.html` | **纸面工作台**（`body.ed-paper`）：细顶栏（场景名/保存）+ 默认折叠的浮动面板 + 底部一句话指令条；空态不播种；新建场景（尺寸/背景/预设）；底图模式 | `docs/modules/studio.md §4` |
 | Studio·场景存取 | `demo/studio/editor-scene.js` | 场景 JSON 序列化（W/H/S/bg/origin）· 新建 · 保存载入 · 默认地形预设 | `docs/modules/studio.md §4.0c` |
 | Studio·渲染 | `demo/studio/editor-render.js` | 背景色统一（画布/舞台/页面）+ 帧循环 + 场景合成管线 | `docs/modules/studio.md §4.0c` |
 | **场景查看器** | `demo/scenes/view.html` · `viewer.js` | 读 `scenes/<name>.json` 复现尺寸/背景/光照；导航「我的场景」入口 | `docs/modules/studio.md §4.0c` |

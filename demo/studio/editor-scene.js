@@ -12,6 +12,16 @@
 /* ---------------- 场景 UI 绑定 ---------------- */
 
 function ED_bindSceneUI() {
+  /* 顶部栏：场景名同步 + 保存 */
+  const titleEl = document.getElementById('ed-scene-title');
+  const sceneNameEl = document.getElementById('scene-name');
+  if (titleEl && sceneNameEl) {
+    titleEl.value = sceneNameEl.value || '';
+    titleEl.addEventListener('input', () => { sceneNameEl.value = titleEl.value; });
+  }
+  const topSave = document.getElementById('ed-top-save');
+  if (topSave) topSave.addEventListener('click', () => document.getElementById('btn-save-scene').click());
+
   /* 新建场景 */
   document.getElementById('btn-new-scene').addEventListener('click', ED_newScene);
 
@@ -46,6 +56,10 @@ function ED_bindSceneUI() {
     try {
       const data = await studioPost('/api/scene', { action: 'load', name });
       ED_applyScene(data.scene);
+      const sn = document.getElementById('scene-name');
+      if (sn) sn.value = name;
+      const st = document.getElementById('ed-scene-title');
+      if (st) st.value = name;
       studioStatus('已载入 ' + name, 'ok');
     } catch (e) {
       studioStatus('载入失败：' + e.message, 'err');
@@ -210,6 +224,8 @@ function ED_newScene() {
   else if (preset === 'village') ED_terrainVillage();
 
   document.getElementById('scene-name').value = name;
+  const titleEl = document.getElementById('ed-scene-title');
+  if (titleEl) titleEl.value = name;
   const link = document.getElementById('scene-view-link');
   if (link) link.style.display = 'none';
 

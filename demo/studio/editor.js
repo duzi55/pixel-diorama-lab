@@ -27,7 +27,7 @@ const ED = {
   showGrid: false,
   showBox: true,
   crowdMode: '',
-  bg: '#16161c',          /* 画布背景色：保存进场景，查看器页面共用 */
+  bg: '#f7f2e7',          /* 画布背景色：保存进场景，查看器页面共用 */
   baseMap: null,          /* 底图模式：{ url, W, H, pix, z, ground, groundZ } */
   view: { scale: 1, ox: 0, oy: 0 },   /* 画布视图：Ctrl+滚轮缩放、中键/空格拖拽平移 */
   painting: false,
@@ -39,6 +39,11 @@ const ED = {
 /* ---------------- 初始化与自适应缩放 ---------------- */
 
 function ED_init() {
+  /* 被 app.html 用 iframe 嵌入时隐藏自己的 tab，避免双层导航 */
+  try {
+    if (window.top && window.self !== window.top) document.body.classList.add('is-embedded');
+  } catch { /* 跨域读取 top 会抛，说明确实是嵌入态但无妨 */ }
+
   canvas.width = W;
   canvas.height = H;
   ED.canvas = canvas;

@@ -6,13 +6,15 @@
 <link rel="stylesheet" href="studio.css">
 <style>body{overflow:hidden}</style>
 </head>
-<body>
-<header class="bar">
+<body class="ed-paper">
+<header class="bar ed-top">
   <nav class="tabs">
     <a class="tab" href="index.html">1. 素材生成与确认</a>
     <a class="tab active" href="editor.html">2. 场景与地形编辑器</a>
   </nav>
+  <input id="ed-scene-title" class="ed-scene-title" placeholder="未命名场景" spellcheck="false">
   <div class="bar-note" id="status">就绪</div>
+  <button id="ed-top-save" class="primary ed-top-save">保存</button>
 </header>
 
 <main class="ed-full">
@@ -39,7 +41,7 @@
   </div>
 
   <!-- 浮动：左侧工具箱 -->
-  <aside class="float-panel fp-left" id="fp-left">
+  <aside class="float-panel fp-left fp-collapsed" id="fp-left">
     <div class="fp-head">
       <span>工具箱</span>
       <button class="fp-collapse" id="tg-left">–</button>
@@ -129,7 +131,7 @@
   </aside>
 
   <!-- 浮动：右侧属性 -->
-  <aside class="float-panel fp-right" id="fp-right">
+  <aside class="float-panel fp-right fp-collapsed" id="fp-right">
     <div class="fp-head">
       <span>属性</span>
       <button class="fp-collapse" id="tg-right">–</button>
@@ -151,12 +153,12 @@
           </div>
           <div class="row">
             <label class="mini" style="flex:1">背景色
-              <input type="color" id="new-scene-bg" value="#16161c" style="flex:1;height:26px;padding:0">
+              <input type="color" id="new-scene-bg" value="#f7f2e7" style="flex:1;height:26px;padding:0">
             </label>
           </div>
           <div class="pill-row" id="bg-presets">
-            <button class="pill" data-bg="#16161c">深灰</button>
-            <button class="pill" data-bg="#f4efe4">纸白</button>
+            <button class="pill" data-bg="#f7f2e7">纸白</button>
+            <button class="pill" data-bg="#f4efe4">米白</button>
             <button class="pill" data-bg="#f7e9c8">米黄</button>
             <button class="pill" data-bg="#1b2433">夜蓝</button>
             <button class="pill" data-bg="#1e2a20">墨绿</button>
@@ -265,6 +267,11 @@
       <label class="chk"><input type="checkbox" id="showgrid"> 网格</label>
       <label class="chk"><input type="checkbox" id="showbox" checked> 碰撞体</label>
     </span>
+  </div>
+  <!-- 常驻指令条：有场景之后继续用一句话改/建 -->
+  <div class="ed-dock" id="ed-dock" hidden>
+    <input id="ed-dock-input" placeholder="一句话重建场景，例如：雪夜山顶小屋，一盏亮着的路灯" autocomplete="off">
+    <button id="ed-dock-go">重建</button>
   </div>
 </main>
 

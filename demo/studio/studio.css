@@ -528,3 +528,223 @@ body.ed-empty-mode .float-panel {
   opacity: 0; pointer-events: none; transition: opacity .2s ease;
 }
 body.ed-empty-mode #fp-toggle { display: none; }
+
+/* ============================================================
+ * 编辑器 · 纸面主题（参考 shwn.design 的极简 + 秋日山村的纸色）
+ * 作用域限定在 .ed-paper，不影响生成页与工坊
+ * ============================================================ */
+body.ed-paper {
+  --bg: #f7f2e7;
+  --bg-2: rgba(255, 252, 245, .88);
+  --bg-3: #efe7d5;
+  --line: rgba(42, 33, 24, .10);
+  --fg: #2a2118;
+  --fg-dim: #8a7d6b;
+  --accent: #b06f2a;
+  --accent-2: #3f7286;
+  --ok: #5d8a52;
+  --err: #b4553f;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+/* ---- 顶栏 ---- */
+body.ed-paper .bar {
+  background: rgba(247, 242, 231, .84);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+body.ed-paper .tab { color: var(--fg-dim); }
+body.ed-paper .tab.active { color: var(--fg); border-color: var(--accent); }
+body.ed-paper .bar-note { color: var(--fg-dim); }
+body.ed-paper .bar-note.ok { color: var(--ok); }
+body.ed-paper .bar-note.err { color: var(--err); }
+body.ed-paper .bar-note.busy { color: var(--accent); }
+
+.ed-scene-title {
+  flex: 0 1 300px;
+  margin: 0 auto;
+  border: 0; border-bottom: 1px solid transparent;
+  background: transparent;
+  font: inherit; font-size: 13px; text-align: center;
+  color: var(--fg); padding: 5px 10px;
+}
+.ed-scene-title:hover { border-bottom-color: var(--line); }
+.ed-scene-title:focus { outline: none; border-bottom-color: var(--accent); }
+.ed-top-save { padding: 5px 16px; border-radius: 8px; font-size: 12px; }
+
+/* ---- 浮动面板：纸色玻璃 ---- */
+body.ed-paper .float-panel {
+  background: rgba(255, 252, 245, .84);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 8px 30px rgba(42, 33, 24, .08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: var(--fg);
+}
+body.ed-paper .fp-head { color: var(--fg); border-bottom: 1px solid var(--line); }
+body.ed-paper .fp-head .fp-collapse { color: var(--fg-dim); }
+body.ed-paper .fp-collapse { color: var(--fg-dim); }
+body.ed-paper .sec h3 { color: var(--fg-dim); }
+body.ed-paper .hint, body.ed-paper .empty-note { color: var(--fg-dim); }
+
+body.ed-paper .float-panel input[type="text"],
+body.ed-paper .float-panel input[type="number"],
+body.ed-paper .float-panel select,
+body.ed-paper .float-panel textarea {
+  background: #fffdf8;
+  border: 1px solid var(--line);
+  color: var(--fg);
+  border-radius: 8px;
+}
+body.ed-paper .float-panel input:focus,
+body.ed-paper .float-panel select:focus {
+  outline: none; border-color: var(--accent);
+}
+
+body.ed-paper button.primary {
+  background: var(--accent); color: #fffdf5; border: 1px solid var(--accent);
+  border-radius: 8px;
+}
+body.ed-paper button.ghost {
+  background: transparent; border: 1px solid var(--line); color: var(--fg-dim);
+  border-radius: 8px;
+}
+body.ed-paper .pill {
+  background: #fffdf8; border: 1px solid var(--line); color: var(--fg-dim);
+  border-radius: 999px;
+}
+body.ed-paper .pill.on { background: var(--fg); color: #f7f2e7; border-color: var(--fg); }
+body.ed-paper input[type="range"] { accent-color: var(--accent); }
+body.ed-paper input[type="checkbox"] { accent-color: var(--accent); }
+body.ed-paper .list-row { color: var(--fg); }
+body.ed-paper .list-row:hover { background: rgba(42, 33, 24, .045); }
+body.ed-paper .list-row .pos { color: var(--fg-dim); }
+body.ed-paper .chk { color: var(--fg-dim); }
+
+/* ---- 底部状态条 ---- */
+body.ed-paper .float-status {
+  background: rgba(255, 252, 245, .84);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--fg-dim);
+  box-shadow: 0 4px 18px rgba(42, 33, 24, .07);
+  backdrop-filter: blur(12px);
+}
+body.ed-paper .float-status select {
+  background: #fffdf8; border: 1px solid var(--line); color: var(--fg); border-radius: 6px;
+}
+
+/* ---- 空态：直接印在纸上，不要卡片 ---- */
+body.ed-paper .ed-empty {
+  background: radial-gradient(ellipse at 50% 44%, rgba(247, 242, 231, .10), rgba(247, 242, 231, .96) 74%);
+}
+body.ed-paper .ed-empty-card {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  text-align: center;
+  padding: 0 8px;
+}
+body.ed-paper .ed-empty-kicker { color: var(--fg-dim); }
+body.ed-paper .ed-empty-card h1 {
+  font-size: 34px; font-weight: 600; letter-spacing: .005em; margin: 14px 0 24px;
+}
+body.ed-paper .ed-empty-input input {
+  background: #fffdf8;
+  border: 1px solid var(--line);
+  color: var(--fg);
+  border-radius: 12px;
+  box-shadow: 0 4px 18px rgba(42, 33, 24, .06);
+  font-size: 14px;
+}
+body.ed-paper .ed-empty-input input:focus { border-color: var(--accent); }
+body.ed-paper .ed-empty-input button { border-radius: 12px; }
+body.ed-paper .ed-empty-hint { color: var(--fg-dim); }
+body.ed-paper .ed-empty-alt select {
+  background: #fffdf8; border: 1px solid var(--line); color: var(--fg); border-radius: 8px;
+}
+
+/* ---- 底部指令条 ---- */
+.ed-dock {
+  position: absolute; left: 50%; bottom: 54px; transform: translateX(-50%);
+  width: min(560px, calc(100vw - 160px));
+  display: flex; gap: 8px; padding: 8px;
+  background: rgba(255, 252, 245, .92);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 10px 34px rgba(42, 33, 24, .10);
+  backdrop-filter: blur(16px);
+  z-index: 12;
+}
+.ed-dock[hidden] { display: none; }
+.ed-dock input {
+  flex: 1; border: 0; background: transparent; color: var(--fg);
+  font: inherit; font-size: 13px; outline: none; padding: 6px 10px;
+}
+.ed-dock button {
+  border: 0; border-radius: 10px; background: var(--accent); color: #fffdf5;
+  padding: 6px 16px; cursor: pointer; font: inherit; font-size: 12px;
+}
+.ed-dock button:disabled { opacity: .5; cursor: default; }
+
+/* ---- 模态框：纸面 ---- */
+body.ed-paper .modal { background: rgba(42, 33, 24, .32); }
+body.ed-paper .modal-box {
+  background: #fffdf8; border-color: var(--line);
+  box-shadow: 0 24px 70px rgba(42, 33, 24, .22);
+}
+body.ed-paper .modal-head { border-color: var(--line); color: var(--fg); }
+body.ed-paper .modal-close { color: var(--fg-dim); }
+body.ed-paper .recon-drop { border-color: var(--line); background: rgba(42, 33, 24, .02); }
+body.ed-paper #recon-drop-hint { color: var(--fg-dim); }
+body.ed-paper .recon-progress { color: var(--fg-dim); }
+body.ed-paper .recon-cands .cand {
+  background: #fffdf8; border-color: var(--line); color: var(--fg);
+}
+body.ed-paper .recon-cands .cand.on { background: var(--accent-2); color: #fff; border-color: var(--accent-2); }
+body.ed-paper .recon-actions button {
+  background: #fffdf8; border-color: var(--line); color: var(--fg);
+}
+body.ed-paper .recon-actions button.primary { background: var(--accent); color: #fffdf5; border-color: var(--accent); }
+body.ed-paper .recon-missing { border-color: var(--line); }
+body.ed-paper .recon-missing-head .why { color: var(--fg-dim); }
+
+/* 画布阴影在纸面上更轻 */
+body.ed-paper .ed-stage canvas {
+  box-shadow: 0 1px 0 rgba(42, 33, 24, .06), 0 14px 44px rgba(42, 33, 24, .12);
+}
+
+/* 嵌入 app.html 时隐藏编辑器自己的 tab（避免双层导航） */
+body.is-embedded .ed-top .tabs { display: none; }
+
+/* 空态：画布不可见，避免浮起一块纸片 */
+body.ed-empty-mode .ed-stage canvas { opacity: 0; box-shadow: none; }
+body.ed-paper .ed-stage canvas { transition: opacity .2s ease; }
+
+/* 折叠状态：按钮显示 ＋ */
+.fp-collapsed .fp-collapse { font-size: 0; }
+.fp-collapsed .fp-collapse::after { content: '＋'; font-size: 14px; }
+
+/* 折叠后的面板收窄成胶囊 */
+.fp-collapsed { width: auto; min-width: 116px; }
+
+/* 顶栏 tab：纸面下改成轻量下划线，不要色块 */
+body.ed-paper .tab {
+  background: transparent;
+  border-radius: 0;
+  padding: 6px 10px;
+  border-bottom: 2px solid transparent;
+  color: var(--fg-dim);
+}
+body.ed-paper .tab:hover { background: transparent; color: var(--fg); }
+body.ed-paper .tab.active {
+  background: transparent;
+  color: var(--fg);
+  border-bottom-color: var(--accent);
+}
+body.ed-paper .bar { padding-top: 4px; padding-bottom: 4px; }

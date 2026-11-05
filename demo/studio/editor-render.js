@@ -11,14 +11,14 @@
 /** '#rrggbb' → engine 打包像素（非法值退回默认深灰） */
 function ED_bgPacked() {
   const m = /^#?([0-9a-f]{6})$/i.exec(ED.bg || '');
-  if (!m) return rgb(22, 22, 27);
+  if (!m) return rgb(247, 242, 231);
   const n = parseInt(m[1], 16);
   return rgb((n >> 16) & 255, (n >> 8) & 255, n & 255);
 }
 
 /** 设置场景背景色：画布清屏、舞台底色、页面底色三者统一 */
 function ED_setBg(color) {
-  ED.bg = /^#[0-9a-f]{6}$/i.test(color || '') ? color : '#16161c';
+  ED.bg = /^#[0-9a-f]{6}$/i.test(color || '') ? color : '#f7f2e7';
   const stage = document.getElementById('stage');
   if (stage) stage.style.background = ED.bg;
   const full = document.querySelector('.ed-full');
