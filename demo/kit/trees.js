@@ -120,6 +120,10 @@ KIT.register({
     spots:    { def: 1,    min: 0,    max: 2,    step: 0.1,  desc: '树干黑斑密度' },
   },
   collision: { type: 'cylinder', radius: 0.3, height: 5.4 },
+  behavior: {
+    default: [{ id: 'sway', params: { amp: 1.2 } }],
+    allow: ['sway', 'chop', 'shake'],
+  },
 
   draw(ctx, inst) {
     const p = ctx.params;
@@ -209,6 +213,10 @@ KIT.register({
     droop:   { def: 1.0, min: 0.4, max: 1.6, step: 0.05, desc: '垂枝下垂长度系数，>1 更接近地面' }
   },
   collision: { type: 'cylinder', radius: 0.42, height: 4.4 },
+  behavior: {
+    default: [{ id: 'sway', params: { amp: 1.2 } }],
+    allow: ['sway', 'chop', 'shake'],
+  },
 
   draw(ctx, inst) {
     const P = ctx.params;
@@ -291,6 +299,10 @@ KIT.register({
     blush:     { def: 0.5, min: 0,   max: 1,   step: 0.05, desc: '花色深浅：0 近白，1 深粉' }
   },
   collision: { type: 'cylinder', radius: 0.3, height: 3.4 },
+  behavior: {
+    default: [{ id: 'sway', params: { amp: 1.2 } }],
+    allow: ['sway', 'chop', 'shake'],
+  },
   draw(ctx, inst) {
     const p = ctx.params;
     const H = p.height, S = p.spread;

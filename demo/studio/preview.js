@@ -120,36 +120,45 @@ function PV_drawCollision() {
 }
 
 function PV_makeCtx(p) {
-  const rot = PV.rot || 0;
+  /* 行为动画：KIT_BEHAVIOR.tick 写进 PV.inst.anim，这里叠加到所有原语 */
+  const anim = (PV.inst && PV.inst.anim) || null;
+  const aX = anim ? (anim.dx || 0) : 0;
+  const aY = anim ? (anim.dy || 0) : 0;
+  const aZ = anim ? (anim.z || 0) : 0;
+  const aRot = anim ? (anim.rot || 0) : 0;
+  const aScale = anim && Number.isFinite(anim.scale) && anim.scale > 0 ? anim.scale : 1;
+
+  const rot = (PV.rot || 0) + aRot;
   const cs = Math.cos(rot), sn = Math.sin(rot);
   const un = (x, y) => [x * cs + y * sn, -x * sn + y * cs];
   const wrapP = p2 => { const q = un(p2[0], p2[1]); return [q[0], q[1], p2[2]]; };
 
-  const sc = (PV.scale == null || !Number.isFinite(PV.scale) || PV.scale <= 0) ? 1 : PV.scale;
+  const sc = ((PV.scale == null || !Number.isFinite(PV.scale) || PV.scale <= 0) ? 1 : PV.scale) * aScale;
   const ox = 0, oy = 0;
   const unScaled = (x, y) => {
     const dx = x * sc, dy = y * sc;
     if (rot) {
       const rx = dx * cs + dy * sn, ry = -dx * sn + dy * cs;
-      return [ox + rx, oy + ry];
+      return [ox + rx + aX, oy + ry + aY];
     }
-    return [ox + dx, oy + dy];
+    return [ox + dx + aX, oy + dy + aY];
   };
-  const wrapPScaled = p2 => { const q = unScaled(p2[0], p2[1]); return [q[0], q[1], p2[2] * sc]; };
+  const zAt = z => z * sc + aZ;
+  const wrapPScaled = p2 => { const q = unScaled(p2[0], p2[1]); return [q[0], q[1], zAt(p2[2])]; };
 
   return {
-    x: 0, y: 0, z: 0, params: p, seed: 7, rot, scale: sc,
+    x: 0, y: 0, z: 0, params: p, seed: 7, rot, scale: sc, anim: anim || null,
     /* ★ 只保留带缩放的版本：重复定义会被后者覆盖，
        导致 PV.scale（预览缩放）完全失效 —— 曾经的 bug */
-    sphere: (x, y, z, r, c, mode) => { const q = unScaled(x, y); sphere(q[0], q[1], z * sc, r * sc, c, mode); },
+    sphere: (x, y, z, r, c, mode) => { const q = unScaled(x, y); sphere(q[0], q[1], zAt(z), r * sc, c, mode); },
     capsule: (a, b, r0, r1, f, mode) => capsule(wrapPScaled(a), wrapPScaled(b), r0 * sc, r1 * sc, f, mode),
-    plot: (x, y, z, c) => { const q = unScaled(x, y); plot(q[0], q[1], z * sc, c); },
+    plot: (x, y, z, c) => { const q = unScaled(x, y); plot(q[0], q[1], zAt(z), c); },
     /* 局部坐标 → 屏幕像素（含旋转/缩放）。逐像素绘制（树冠叶簇）用它定位包围盒，
        否则包围盒按未旋转位置取、像素却画在旋转后位置，叶簇会被裁成碎片。 */
-    screen: (x, y, z) => { const q = unScaled(x, y); return project(q[0], q[1], z * sc); },
+    screen: (x, y, z) => { const q = unScaled(x, y); return project(q[0], q[1], zAt(z)); },
     /* 屏幕像素 → 局部坐标（screen 的逆）。返回 [x, y]，可直接喂回 plot。 */
     unproject: (ix, iy, z) => {
-      const g = unprojectAt(ix + .5, iy + .5, z * sc);
+      const g = unprojectAt(ix + .5 - aX, iy + .5 - aY, zAt(z));
       const dx = g[0] - ox, dy = g[1] - oy;
       return [ox + (dx * cs - dy * sn) / sc, oy + (dx * sn + dy * cs) / sc];
     },
@@ -190,7 +199,13 @@ function PV_render() {
   if (PV.drawFn) {
     try {
       const p = KIT.resolve(PV.id, PV.params);
-      PV.drawFn(PV_makeCtx(p), {});
+      if (PV.inst) { PV.inst.kind = PV.id; PV.inst.params = p; }
+      const inst = PV.inst || { id: 'pv', kind: PV.id, x: 0, y: 0, z: 0, rot: 0, params: p, seed: 7 };
+      const cx = PV_makeCtx(p);
+      /* hidden：行为要求整件不画；__stump__：外形被行为接管（砍倒后只画树桩） */
+      const takenOver = inst.anim && inst.anim.kind === '__stump__';
+      if (!inst.anim || (!inst.anim.hidden && !takenOver)) PV.drawFn(cx, inst);
+      if (typeof KIT_BEHAVIOR !== 'undefined') KIT_BEHAVIOR.draw(cx, inst, KIT_BH_WORLD);
     } catch (e) {
       const msg = String((e && e.message) || e);
       if (PV.error !== msg) {
@@ -279,12 +294,29 @@ window.addEventListener('message', e => {
     PV.id = c.id;
     PV.drawFn = c.draw;
     if (!PV.collision && c.collision) PV.collision = { ...c.collision };
+    /* 新实例：行为状态全部重置（切构件不该带着上一棵树的砍伐进度） */
+    PV.inst = {
+      id: 'pv', kind: PV.id, x: 0, y: 0, z: 0, rot: 0,
+      params: {}, seed: 7,
+      behaviorSpec: Array.isArray(msg.behaviors) ? msg.behaviors : undefined,
+    };
+    if (typeof KIT_BEHAVIOR !== 'undefined') {
+      KIT_BEHAVIOR.attach(PV.inst);
+      parent.postMessage({
+        type: 'behavior-info',
+        behaviors: (PV.inst.behaviors || []).map(b => ({ id: b.id, params: b.params })),
+        allowed: KIT_BEHAVIOR.allowed(c).map(d => ({
+          id: d.id, label: d.label, category: d.category, desc: d.desc, params: d.params,
+        })),
+      }, '*');
+    }
 
     try {
       PV.lastStep = -1;
       const p = KIT.resolve(PV.id, PV.params);
       PV_drawGround();
-      PV.drawFn(PV_makeCtx(p), {});
+      PV.inst.params = p;
+      PV.drawFn(PV_makeCtx(p), PV.inst);
       bakeOcclusion();
       staticShadow.set(shadowMask);
       applyShadows(groundZ);
@@ -350,6 +382,26 @@ window.addEventListener('message', e => {
     return;
   }
   if (msg.type === 'box') { PV.showBox = !!msg.on; PV_render(); return; }
+  if (msg.type === 'click') {
+    if (PV.inst && typeof KIT_BEHAVIOR !== 'undefined') {
+      /* 点击点反解到实例局部坐标，flee/wander 用它决定方向 */
+      const g = unprojectAt(msg.sx == null ? W / 2 : msg.sx,
+                            msg.sy == null ? H / 2 : msg.sy, 1);
+      KIT_BEHAVIOR.event(PV.inst, { type: 'click', x: g[0], y: g[1] }, KIT_BH_WORLD);
+      PV_render();
+    }
+    return;
+  }
+  if (msg.type === 'behaviors') {
+    if (PV.inst) {
+      PV.inst.behaviorSpec = Array.isArray(msg.list) ? msg.list : [];
+      PV.inst.behaviors = null;
+      PV.inst.state = {};
+      if (typeof KIT_BEHAVIOR !== 'undefined') KIT_BEHAVIOR.attach(PV.inst);
+      PV_render();
+    }
+    return;
+  }
 });
 
 /* 构件包围盒测量：先画地面取快照，再以原尺寸画构件做像素 diff，
@@ -404,8 +456,19 @@ PV_fit();
 function PV_frame(now) {
   const step = Math.floor(now / 1000 * 12);
   if (step !== PV.lastStep) {
+    const dt = PV.lastStep < 0 ? 1 / 12 : Math.min(.25, (step - PV.lastStep) / 12);
     PV.lastStep = step;
     if (PV.spin) PV.rot = (PV.rot + .06) % (Math.PI * 2);
+    /* 行为：全局风势 + 实例状态机 */
+    if (PV.inst && typeof KIT_BEHAVIOR !== 'undefined') {
+      KIT_BH_WORLD.t += dt;
+      KIT_BH_WORLD.dt = dt;
+      const t = KIT_BH_WORLD.t;
+      KIT_BH_WORLD.wind.strength =
+        .35 + .25 * Math.sin(t * .62 + .4) + .15 * Math.sin(t * 1.55);
+      KIT_BH_WORLD.wind.gust = Math.sin(t * .62 + .4) * .55 + Math.sin(t * 1.55) * .3;
+      KIT_BEHAVIOR.tick(PV.inst, dt, KIT_BH_WORLD);
+    }
     PV_render();
   }
   requestAnimationFrame(PV_frame);

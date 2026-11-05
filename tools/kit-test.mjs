@@ -92,6 +92,8 @@ const files = [
   'demo/kit/stoneworks.js',
   'demo/kit/cart.js',
   'demo/kit/props.js',
+  'demo/kit/ref-buildings.js',
+  'demo/kit/ref-structures.js',
 ];
 for (const f of files) {
   const p = path.join(REPO, f);

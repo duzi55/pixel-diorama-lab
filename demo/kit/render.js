@@ -88,8 +88,16 @@ const KIT_RENDER = {
     const params = KIT.resolve(o.kind, o.params);
     const seed = o.seed == null ? 1 : o.seed;
     const ox = o.x, oy = o.y;
-    const rot = o.rot || 0;
-    const sc = (o.scale == null || !Number.isFinite(o.scale) || o.scale <= 0) ? 1 : o.scale;
+    /* 行为动画：tick 写入 inst.anim，绘制时叠加到所有原语上。
+       rot 绕实例原点、dx/dy 是世界单位平移、z 抬升、scale 整体缩放。 */
+    const anim = o.anim || null;
+    const arot = anim ? (anim.rot || 0) : 0;
+    const aScale = anim && Number.isFinite(anim.scale) && anim.scale > 0 ? anim.scale : 1;
+    const aX = anim ? (anim.dx || 0) : 0;
+    const aY = anim ? (anim.dy || 0) : 0;
+    const aZ = anim ? (anim.z || 0) : 0;
+    const rot = (o.rot || 0) + arot;
+    const sc = ((o.scale == null || !Number.isFinite(o.scale) || o.scale <= 0) ? 1 : o.scale) * aScale;
     const cs = Math.cos(rot), sn = Math.sin(rot);
     /* 构件坐标是「世界坐标」（ctx.x + 偏移 的形式），
        所以缩放必须绕实例原点 (ox,oy) 做 —— ox + (x-ox)*sc。
@@ -98,26 +106,28 @@ const KIT_RENDER = {
     const un = (x, y) => {
       const dx = (x - ox) * sc, dy = (y - oy) * sc;
       if (rot) {
-        return [ox + dx * cs + dy * sn, oy - dx * sn + dy * cs];
+        return [ox + dx * cs + dy * sn + aX, oy - dx * sn + dy * cs + aY];
       }
-      return [ox + dx, oy + dy];
+      return [ox + dx + aX, oy + dy + aY];
     };
-    const wrapPoint = p => { const q = un(p[0], p[1]); return [q[0], q[1], (o.z || 0) + p[2] * sc]; };
+    const zAt = z => (o.z || 0) + z * sc + aZ;
+    const wrapPoint = p => { const q = un(p[0], p[1]); return [q[0], q[1], zAt(p[2])]; };
 
     return {
       x: ox, y: oy, z: o.z || 0,
       params, seed,
       rot, scale: sc,
+      anim: anim || null,
       sphere(x, y, z, r, c, mode) {
         const q = un(x, y);
-        sphere(q[0], q[1], (o.z || 0) + z * sc, r * sc, c, mode);
+        sphere(q[0], q[1], zAt(z), r * sc, c, mode);
       },
       capsule(a, b, r0, r1, colorOf, mode) {
         const qa = wrapPoint(a), qb = wrapPoint(b);
         capsule(qa, qb, r0 * sc, r1 * sc, colorOf, mode);
       },
       box(x0, y0, z0, x1, y1, z1, c, seed2 = 0) {
-        const zz0 = (o.z || 0) + z0 * sc, zz1 = (o.z || 0) + z1 * sc;
+        const zz0 = zAt(z0), zz1 = zAt(z1);
         if (!rot) {
           const [ax, ay] = un(x0, y0), [bx, by] = un(x1, y1);
           box(Math.min(ax, bx), Math.min(ay, by), zz0,
@@ -151,15 +161,15 @@ const KIT_RENDER = {
       },
       plot(x, y, z, color) {
         const q = un(x, y);
-        plot(q[0], q[1], (o.z || 0) + z * sc, color);
+        plot(q[0], q[1], zAt(z), color);
       },
-      /* 局部坐标 → 屏幕像素（含旋转/缩放）。
+      /* 局部坐标 → 屏幕像素（含旋转/缩放/行为动画）。
          逐像素绘制的构件（树冠叶簇）用它算包围盒，否则包围盒按未旋转
          位置取、像素却画在旋转后的位置，叶簇会被裁成碎片。 */
-      screen(x, y, z) { const q = un(x, y); return project(q[0], q[1], (o.z || 0) + z * sc); },
+      screen(x, y, z) { const q = un(x, y); return project(q[0], q[1], zAt(z)); },
       /* 屏幕像素 → 局部坐标（screen 的逆），返回 [x, y] 可喂回 plot */
       unproject(ix, iy, z) {
-        const g = unprojectAt(ix + .5, iy + .5, (o.z || 0) + z * sc);
+        const g = unprojectAt(ix + .5 - aX, iy + .5 - aY, zAt(z));
         const dx = g[0] - ox, dy = g[1] - oy;
         return [ox + (dx * cs - dy * sn) / sc, oy + (dx * sn + dy * cs) / sc];
       },
@@ -169,7 +179,7 @@ const KIT_RENDER = {
       },
       shadowAt: (x, y, z, r, strength, dither) => {
         const q = un(x, y);
-        castShadow(q[0], q[1], (o.z || 0) + z * sc, r * sc, strength, dither);
+        castShadow(q[0], q[1], zAt(z), r * sc, strength, dither);
       },
     };
   },

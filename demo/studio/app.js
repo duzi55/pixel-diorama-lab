@@ -10,8 +10,11 @@
  * 「生成」和「场景」两个 tab 直接复用既有的 index.html / editor.html。
  * ------------------------------------------------------------------ */
 
-const CAT_NAME = { tree: '树', building: '建筑', plant: '草木', prop: '道具', figure: '人物' };
-const CAT_ORDER = ['tree', 'building', 'plant', 'prop', 'figure', 'other'];
+const CAT_NAME = {
+  tree: '树', plant: '草木', building: '建筑', structure: '结构',
+  prop: '道具', vehicle: '载具', figure: '人物', animal: '动物', effect: '特效',
+};
+const CAT_ORDER = ['tree', 'plant', 'building', 'structure', 'prop', 'vehicle', 'figure', 'animal', 'effect', 'other'];
 
 const $ = s => document.querySelector(s);
 const el = (tag, cls, text) => {
@@ -33,6 +36,8 @@ const state = {
   meta: null,             // { name, id, category, desc, collision }
   refImages: [],          // 参考图 dataURL（最多 3 张，随 /api/generate 一起发送）
   ready: false,           // 预览 iframe 是否就绪
+  behaviors: [],          // 当前实例已挂的行为（来自 preview 的 behavior-info）
+  allowedBehaviors: [],   // 构件允许挂的行为定义
 };
 
 const pv = $('#pv');
@@ -49,7 +54,9 @@ const pv = $('#pv');
     renderList();
     setAiMode('edit');
     setStatus(`${state.items.length} 个构件`);
-    if (state.items.length) select(state.items[0]);
+    /* 支持 catalog.html 的深链：app.html?select=cone-mast */
+    const want = new URLSearchParams(location.search).get('select');
+    if (state.items.length) select(state.byId.get(want) || state.items[0]);
   } catch (e) {
     setStatus('无法连接 Studio 服务：' + e.message);
   }
@@ -94,6 +101,9 @@ $('#search').addEventListener('input', () => {
 function select(item) {
   state.current = item;
   state.params = {};
+  state.behaviors = [];
+  state.allowedBehaviors = [];
+  if (window.BehaviorPanel) BehaviorPanel.render(state);
   /* 参考图属于"这一次生成"，切构件即清空 */
   state.refImages = [];
   renderThumbs();
@@ -137,6 +147,11 @@ window.addEventListener('message', e => {
   } else if (msg.type === 'bbox') {
     /* 沙箱量出构件包围盒 → 自动取景 */
     if (msg.W === PV_BASE_W) fitView(msg.bbox);
+  } else if (msg.type === 'behavior-info') {
+    /* 沙箱报告当前实例挂了哪些行为、构件允许哪些行为 */
+    state.behaviors = msg.behaviors || [];
+    state.allowedBehaviors = msg.allowed || [];
+    if (window.BehaviorPanel) BehaviorPanel.render(state);
   } else if (msg.type === 'preview-error') {
     $('#params').innerHTML = '';
     const warn = el('div', 'param');
@@ -281,20 +296,36 @@ pvShield.addEventListener('wheel', e => {
 
 let pvDrag = null;
 pvShield.addEventListener('pointerdown', e => {
-  pvDrag = { x: e.clientX, y: e.clientY, px: view.px, py: view.py };
+  pvDrag = { x: e.clientX, y: e.clientY, px: view.px, py: view.py, moved: false };
   pvWrap.classList.add('dragging');
   pvShield.setPointerCapture(e.pointerId);
 });
 pvShield.addEventListener('pointermove', e => {
   if (!pvDrag) return;
+  if (Math.hypot(e.clientX - pvDrag.x, e.clientY - pvDrag.y) > 4) pvDrag.moved = true;
   view.px = pvDrag.px + (e.clientX - pvDrag.x);
   view.py = pvDrag.py + (e.clientY - pvDrag.y);
   sendView();
 });
-['pointerup', 'pointercancel'].forEach(ev => pvShield.addEventListener(ev, () => {
+['pointerup', 'pointercancel'].forEach(ev => pvShield.addEventListener(ev, e => {
+  const wasDrag = pvDrag && pvDrag.moved;
   pvDrag = null;
   pvWrap.classList.remove('dragging');
+  /* 没拖动 = 点击：转发给沙箱，触发构件的交互行为（砍树、招手…） */
+  if (ev === 'pointerup' && !wasDrag) {
+    const p = pvPointToCanvas(e.clientX, e.clientY);
+    pv.contentWindow.postMessage({ type: 'click', sx: p.sx, sy: p.sy }, '*');
+  }
 }));
+
+/* 父页坐标 → 沙箱画布像素坐标（与 PV_applyView 的 transform 互逆） */
+function pvPointToCanvas(clientX, clientY) {
+  const r = pvWrap.getBoundingClientRect();
+  const mx = clientX - r.left, my = clientY - r.top;
+  const left = r.width / 2 + view.px - PV_BASE_W * view.z / 2;
+  const top = r.height / 2 + view.py - PV_BASE_H * view.z / 2;
+  return { sx: (mx - left) / view.z, sy: (my - top) / view.z };
+}
 
 /* 代码块收起/展开 */
 $('#btn-code-toggle').addEventListener('click', () => {

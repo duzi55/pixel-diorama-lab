@@ -112,6 +112,7 @@ KIT.register({
     height: { def: .55, min: .2, max: 1.4, step: .05, desc: '高' },
   },
   collision: { type: 'box', w: .6, d: .6, h: .55 },
+  behavior: { default: [], allow: ['shake', 'burn'] },
   draw(ctx, inst) {
     const s = ctx.params.size, h = ctx.params.height;
     const wood = [134, 100, 66];
@@ -146,6 +147,10 @@ KIT.register({
     weathered: { def: 0.45, min: 0.0, max: 1.0, step: 0.05, desc: '铁件锈斑比例' },
   },
   collision: { type: 'cylinder', radius: 0.28, height: 4.2 },
+  behavior: {
+    default: [{ id: 'flicker', params: {} }],
+    allow: ['flicker', 'sway'],
+  },
 
   draw(ctx) {
     const P = ctx.params, S = ctx.seed;
@@ -260,6 +265,10 @@ KIT.register({
     base: { def: 0.34, min: 0, max: 0.6, step: 0.02, desc: '底座半径，0 为无底座' },
   },
   collision: { type: 'cylinder', radius: 0.24, height: 4 },
+  behavior: {
+    default: [{ id: 'flicker', params: {} }],
+    allow: ['flicker', 'sway'],
+  },
   draw(ctx, inst) {
     const X = ctx.x, Y = ctx.y;
     const H = ctx.params.height, HR = ctx.params.headR, BASE = ctx.params.base;

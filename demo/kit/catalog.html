@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>素材总目录 · Asset Catalog</title>
+<style>
+  /* ------------------------------------------------------------------
+   * 素材总目录 —— 构件库的文字索引
+   * 配色沿用 Studio 令牌；不渲染任何预览画布，保证几十个构件也秒开。
+   * ------------------------------------------------------------------ */
+  :root {
+    --bg: #16161a;
+    --bg-2: #1e1e24;
+    --bg-3: #26262e;
+    --line: #33333d;
+    --fg: #e6e4df;
+    --fg-dim: #9a98a3;
+    --accent: #e8b64c;
+    --ok: #7fc98a;
+    --err: #e07a6a;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --topbar-h: 52px;
+    --sidebar-w: 208px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 13px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  [hidden] { display: none !important; }
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+
+  /* ---------- 顶栏 ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 20; height: var(--topbar-h);
+    display: flex; align-items: center; gap: 18px; padding: 0 20px;
+    background: rgba(30, 30, 36, .96); border-bottom: 1px solid var(--line);
+    backdrop-filter: blur(8px);
+  }
+  .topbar h1 {
+    margin: 0; font-size: 15px; font-weight: 600; letter-spacing: .02em;
+    white-space: nowrap;
+  }
+  .topbar h1 span {
+    margin-left: 8px; color: var(--fg-dim); font-size: 10.5px;
+    font-weight: 400; letter-spacing: .12em; text-transform: uppercase;
+  }
+  .nav { display: flex; gap: 2px; flex: none; }
+  .nav a {
+    padding: 5px 11px; border-radius: 6px; color: var(--fg-dim);
+    font-size: 12.5px; text-decoration: none; white-space: nowrap;
+  }
+  .nav a:hover { background: var(--bg-3); color: var(--fg); }
+  .nav a.on { background: rgba(232, 182, 76, .12); color: var(--accent); }
+  .search { margin-left: auto; display: flex; }
+  #search {
+    width: min(330px, 32vw); padding: 6px 11px;
+    border: 1px solid var(--line); border-radius: 7px;
+    background: var(--bg-3); color: var(--fg); font: inherit; font-size: 12px;
+    outline: none;
+  }
+  #search::placeholder { color: var(--fg-dim); }
+  #search:focus { border-color: var(--accent); }
+  .status { color: var(--fg-dim); font-size: 11.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  /* ---------- 脚本失败提示 ---------- */
+  .warn {
+    padding: 9px 20px; background: rgba(224, 122, 106, .12);
+    border-bottom: 1px solid rgba(224, 122, 106, .35);
+    color: #f0b0a4; font-size: 12px; line-height: 1.6;
+  }
+
+  /* ---------- 布局 ---------- */
+  .layout { position: relative; display: flex; align-items: flex-start; }
+  /* 左栏底贯通整页：长列表滚动到后面时栏底不会断在半空 */
+  .layout::before {
+    content: ''; position: absolute; top: 0; bottom: 0; left: 0;
+    width: var(--sidebar-w); background: var(--bg-2);
+    border-right: 1px solid var(--line); pointer-events: none;
+  }
+  .sidebar {
+    position: sticky; top: var(--topbar-h); z-index: 1; flex: none;
+    width: var(--sidebar-w); height: calc(100vh - var(--topbar-h));
+    overflow: auto; padding: 16px 10px 36px;
+  }
+  .side-title {
+    margin: 0 10px 8px; color: var(--fg-dim); font-size: 10.5px;
+    font-weight: 500; letter-spacing: .14em; text-transform: uppercase;
+  }
+  .cat {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 7px 10px; margin: 1px 0; border: 0; border-radius: 7px;
+    background: transparent; color: var(--fg); font: inherit; font-size: 12.5px;
+    text-align: left; cursor: pointer;
+  }
+  .cat:hover { background: var(--bg-3); }
+  .cat.on { background: rgba(232, 182, 76, .12); color: var(--accent); }
+  .cat.zero { opacity: .42; }
+  .cat .dot {
+    width: 7px; height: 7px; flex: none; border-radius: 50%;
+    background: var(--dot, var(--fg-dim));
+  }
+  .cat .n {
+    margin-left: auto; color: var(--fg-dim); font: 11px var(--mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .cat.on .n { color: var(--accent); }
+  .side-tip {
+    margin: 18px 10px 0; padding-top: 14px; border-top: 1px solid var(--line);
+    color: var(--fg-dim); font-size: 10.5px; line-height: 1.7;
+  }
+  .side-tip kbd {
+    padding: 0 4px; border: 1px solid var(--line); border-radius: 4px;
+    background: var(--bg-3); font: 10px var(--mono);
+  }
+
+  /* ---------- 主区 ---------- */
+  .main { flex: 1; min-width: 0; padding: 18px 24px 72px; }
+  .toolbar { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+  .crumb { margin: 0; font-size: 13.5px; font-weight: 600; }
+  .result {
+    margin-left: auto; color: var(--fg-dim); font: 11.5px var(--mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .grid {
+    display: grid; gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
+  }
+  .card {
+    --cat-color: var(--fg-dim);
+    position: relative; display: flex; flex-direction: column; gap: 8px;
+    min-height: 132px; padding: 13px 14px 12px 16px;
+    background: var(--bg-2); border: 1px solid var(--line);
+    border-radius: 10px; color: inherit; text-decoration: none;
+    transition: background .12s, border-color .12s, transform .12s;
+  }
+  .card::before {
+    content: ''; position: absolute; left: 0; top: 12px; bottom: 12px;
+    width: 3px; border-radius: 0 3px 3px 0;
+    background: var(--cat-color); opacity: .55;
+  }
+  .card:hover {
+    background: var(--bg-3); border-color: var(--accent); transform: translateY(-1px);
+  }
+  .card:hover::before { opacity: 1; }
+  .card-head { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  .card-name {
+    font-size: 14px; font-weight: 600; letter-spacing: .01em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .card-id {
+    color: var(--fg-dim); font: 10.5px var(--mono);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .badge {
+    margin-left: auto; flex: none; padding: 1px 7px;
+    border: 1px solid var(--line); border-radius: 99px;
+    color: var(--cat-color); font-size: 10px; line-height: 1.5;
+  }
+  .card-desc {
+    margin: 0; color: var(--fg-dim); font-size: 11.5px; line-height: 1.5;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .card-desc.dim { opacity: .6; }
+  .card-meta {
+    display: flex; align-items: baseline; gap: 14px; margin-top: auto;
+    padding-top: 2px; color: var(--fg-dim); font-size: 11px;
+  }
+  .card-meta b { color: var(--fg); font: 11.5px var(--mono); font-weight: 500; }
+  .card-meta .go { margin-left: auto; color: var(--accent); opacity: 0; transition: opacity .12s; }
+  .card:hover .go, .card:focus-visible .go { opacity: .9; }
+
+  .empty { padding: 90px 0; text-align: center; color: var(--fg-dim); }
+  .empty p { margin: 0 0 16px; }
+  .empty button {
+    padding: 6px 16px; border: 1px solid var(--line); border-radius: 7px;
+    background: var(--bg-3); color: var(--fg); font: inherit; font-size: 12px;
+    cursor: pointer;
+  }
+  .empty button:hover { border-color: var(--accent); color: var(--accent); }
+
+  @media (max-width: 760px) {
+    .topbar { height: auto; min-height: var(--topbar-h); flex-wrap: wrap; gap: 8px 12px; padding: 10px 14px; }
+    .search { margin-left: 0; width: 100%; }
+    #search { width: 100%; }
+    .status { margin-left: auto; }
+    .layout { display: block; }
+    .layout::before { display: none; }
+    .sidebar {
+      position: static; width: auto; height: auto;
+      padding: 10px; border-bottom: 1px solid var(--line);
+    }
+    #cats { display: flex; flex-wrap: wrap; gap: 2px; }
+    .cat { width: auto; }
+    .cat .n { margin-left: 4px; }
+    .side-tip { display: none; }
+    .main { padding: 14px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .card { transition: none; }
+    .card:hover { transform: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 脚本加载失败记录器：必须在任何外部脚本之前 -->
+<script>
+  window.__KIT_LOAD_ERRORS = [];
+  window.__kitScriptFail = function (node) {
+    var src = node && node.getAttribute ? (node.getAttribute('src') || '未知脚本') : '未知脚本';
+    window.__KIT_LOAD_ERRORS.push(src);
+  };
+  window.addEventListener('error', function (ev) {
+    /* 资源加载错误由各 script 的 onerror 记录，这里只记运行期异常 */
+    if (ev.target && ev.target.tagName === 'SCRIPT') return;
+    var file = ev.filename ? String(ev.filename).split('/').pop() : '';
+    var msg = ev.message || '脚本执行出错';
+    window.__KIT_LOAD_ERRORS.push(file ? file + '：' + msg : msg);
+  }, true);
+</script>
+
+<header class="topbar">
+  <h1>素材总目录<span>Asset Catalog</span></h1>
+  <nav class="nav" aria-label="页面导航">
+    <a href="catalog.html" class="on" aria-current="page">总目录</a>
+    <a href="../studio/app.html">构件工坊</a>
+    <a href="gallery.html">陈列页</a>
+    <a href="../studio/editor.html">场景</a>
+  </nav>
+  <label class="search">
+    <span class="sr-only">搜索构件</span>
+    <input id="search" type="search" placeholder="搜索 id / 名称 / 描述…" autocomplete="off" spellcheck="false">
+  </label>
+  <span class="status" id="status">加载中…</span>
+</header>
+
+<div class="warn" id="warn" role="alert" hidden></div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <h2 class="side-title">分类</h2>
+    <div id="cats"></div>
+    <p class="side-tip">
+      点击卡片在构件工坊中打开。<br>
+      按 <kbd>/</kbd> 聚焦搜索，<kbd>Esc</kbd> 清空。
+    </p>
+  </aside>
+
+  <main class="main">
+    <div class="toolbar">
+      <h2 class="crumb" id="crumb">全部构件</h2>
+      <span class="result" id="result"></span>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="empty" id="empty" hidden>
+      <p>没有匹配的构件。</p>
+      <button type="button" id="clear">清除筛选</button>
+    </div>
+  </main>
+</div>
+
+<noscript>
+  <div class="warn">这个页面需要 JavaScript 才能读取构件注册表。</div>
+</noscript>
+
+<!-- 引擎只用来提供 rgb() 等全局助手；目录不渲染，画布保持极小且隐藏 -->
+<canvas id="c" hidden></canvas>
+<script>
+  window.PP_W = 64;
+  window.PP_H = 64;
+  window.PP_SCALE = 4;
+</script>
+<script src="../engine.js" onerror="__kitScriptFail(this)"></script>
+<script src="core.js" onerror="__kitScriptFail(this)"></script>
+<script src="palette.js" onerror="__kitScriptFail(this)"></script>
+<script src="render.js" onerror="__kitScriptFail(this)"></script>
+<script src="behavior.js" onerror="__kitScriptFail(this)"></script>
+<script src="behavior-extra.js" onerror="__kitScriptFail(this)"></script>
+<!-- 构件文件：新增 demo/kit 构件模块时，在这里追加一行（core → palette → render → 构件） -->
+<script src="trees.js" onerror="__kitScriptFail(this)"></script>
+<script src="plants.js" onerror="__kitScriptFail(this)"></script>
+<script src="buildings.js" onerror="__kitScriptFail(this)"></script>
+<script src="stoneworks.js" onerror="__kitScriptFail(this)"></script>
+<script src="props.js" onerror="__kitScriptFail(this)"></script>
+<script src="cart.js" onerror="__kitScriptFail(this)"></script>
+<script src="conifers.js" onerror="__kitScriptFail(this)"></script>
+<script src="ref-buildings.js" onerror="__kitScriptFail(this)"></script>
+<script src="ref-structures.js" onerror="__kitScriptFail(this)"></script>
+
+<script>
+'use strict';
+/* ------------------------------------------------------------------
+ * 素材总目录 —— 只读 KIT 注册表的文字目录
+ *
+ * · 数据：加载构件脚本后读 KIT.list()，不请求 /api/kit，静态打开也能用
+ * · 无预览画布：卡片只有名称 / id / 分类 / 计数 / 描述，几十个也不卡
+ * · 过滤：左栏分类 + 顶部搜索（id / 名称 / 描述）叠加生效
+ * · 容错：任何脚本加载或执行失败都只在顶部提示，页面继续可用
+ * ------------------------------------------------------------------ */
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const warnEl = $('warn');
+  const statusEl = $('status');
+  const gridEl = $('grid');
+  const catsEl = $('cats');
+  const crumbEl = $('crumb');
+  const resultEl = $('result');
+  const emptyEl = $('empty');
+  const searchEl = $('search');
+
+  /* 分类顺序与名称都读 core.js；core 没加载时给一份兜底，保证页面不崩 */
+  const CAT_FALLBACK = ['tree', 'plant', 'building', 'structure', 'prop', 'vehicle', 'figure', 'animal', 'effect'];
+  const CAT_ORDER = (typeof KIT_CATEGORY_ORDER !== 'undefined' && Array.isArray(KIT_CATEGORY_ORDER))
+    ? KIT_CATEGORY_ORDER.slice() : CAT_FALLBACK;
+  const CAT_LABEL = (typeof KIT_CATEGORY !== 'undefined' && KIT_CATEGORY) || {};
+  const CAT_COLOR = {
+    tree: '#7fc98a', plant: '#a8cc72', building: '#e8b64c', structure: '#b9a6e0',
+    prop: '#6fa8dc', vehicle: '#e08a6a', figure: '#e6a8c8', animal: '#c9a27a',
+    effect: '#8fd8d2',
+  };
+
+  const state = { cat: 'all', q: '' };
+  const cards = [];
+
+  const catLabel = (cat) => CAT_LABEL[cat] || cat;
+  const catColor = (cat) => CAT_COLOR[cat] || 'var(--fg-dim)';
+  const make = (tag, cls, text) => {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  };
+
+  function showWarn(msg) {
+    warnEl.textContent = msg;
+    warnEl.hidden = false;
+  }
+
+  /* 行为列表：契约见 core.js 的 behavior 字段 */
+  function behaviorsOf(def) {
+    return def.behavior && Array.isArray(def.behavior.default) ? def.behavior.default : [];
+  }
+
+  function behaviorTitle(def) {
+    const list = behaviorsOf(def);
+    if (!list.length) return '无默认行为';
+    return '行为：' + list.map((b) => {
+      const id = b && b.id ? b.id : '';
+      const meta = (typeof KIT_BEHAVIOR !== 'undefined' && KIT_BEHAVIOR.get) ? KIT_BEHAVIOR.get(id) : null;
+      return meta && meta.label ? meta.label + '（' + id + '）' : id;
+    }).join('、');
+  }
+
+  /* ---------------- 左栏 ---------------- */
+
+  function makeCatButton(key, count) {
+    const btn = make('button', 'cat');
+    btn.type = 'button';
+    btn.dataset.cat = key;
+    btn.style.setProperty('--dot', key === 'all' ? 'var(--accent)' : catColor(key));
+    btn.appendChild(make('span', 'dot'));
+    btn.appendChild(make('span', 'label', key === 'all' ? '全部' : catLabel(key)));
+    btn.appendChild(make('span', 'n', String(count)));
+    if (!count) btn.classList.add('zero');
+    btn.addEventListener('click', () => {
+      state.cat = key;
+      syncCats();
+      apply();
+    });
+    return btn;
+  }
+
+  function syncCats() {
+    for (const btn of catsEl.querySelectorAll('.cat')) {
+      const on = btn.dataset.cat === state.cat;
+      btn.classList.toggle('on', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  }
+
+  /* ---------------- 卡片 ---------------- */
+
+  function buildCard(def) {
+    const node = make('a', 'card');
+    node.href = '../studio/app.html?select=' + encodeURIComponent(def.id);
+    node.dataset.id = def.id;
+    node.dataset.cat = def.category;
+    node.dataset.search = [def.id, def.name, def.desc || ''].join(' ').toLowerCase();
+    node.title = '在构件工坊中打开「' + def.name + '」';
+    node.style.setProperty('--cat-color', catColor(def.category));
+
+    const head = make('div', 'card-head');
+    head.appendChild(make('span', 'card-name', def.name));
+    head.appendChild(make('code', 'card-id', def.id));
+    head.appendChild(make('span', 'badge', catLabel(def.category)));
+    node.appendChild(head);
+
+    const desc = make('p', 'card-desc', def.desc || '（暂无描述）');
+    if (!def.desc) desc.classList.add('dim');
+    node.appendChild(desc);
+
+    const paramKeys = Object.keys(def.params || {});
+    const behaviorList = behaviorsOf(def);
+
+    const meta = make('div', 'card-meta');
+    const paramStat = make('span');
+    paramStat.title = paramKeys.length ? '参数：' + paramKeys.join('、') : '无参数';
+    paramStat.appendChild(document.createTextNode('参数 '));
+    paramStat.appendChild(make('b', null, String(paramKeys.length)));
+
+    const behaviorStat = make('span');
+    behaviorStat.title = behaviorTitle(def);
+    behaviorStat.appendChild(document.createTextNode('行为 '));
+    behaviorStat.appendChild(make('b', null, String(behaviorList.length)));
+
+    meta.appendChild(paramStat);
+    meta.appendChild(behaviorStat);
+    meta.appendChild(make('span', 'go', '打开 ›'));
+    node.appendChild(meta);
+
+    return node;
+  }
+
+  /* ---------------- 过滤 ---------------- */
+
+  function apply() {
+    let visible = 0;
+    for (const card of cards) {
+      const okCat = state.cat === 'all' || card.def.category === state.cat;
+      const okQ = !state.q || card.node.dataset.search.indexOf(state.q) !== -1;
+      const show = okCat && okQ;
+      card.node.hidden = !show;
+      if (show) visible++;
+    }
+    gridEl.hidden = visible === 0;
+    emptyEl.hidden = visible !== 0;
+    crumbEl.textContent = state.cat === 'all' ? '全部构件' : catLabel(state.cat) + '构件';
+    resultEl.textContent = '显示 ' + visible + ' / ' + cards.length;
+  }
+
+  /* ---------------- 初始化 ---------------- */
+
+  function init() {
+    const base = KIT.list();
+    const orderRank = new Map(base.map((d, i) => [d.id, i]));
+    const catRank = new Map(CAT_ORDER.map((c, i) => [c, i]));
+
+    /* 按分类顺序聚拢，同类内保持登记顺序 */
+    const all = base.slice().sort((a, b) => {
+      const ra = catRank.has(a.category) ? catRank.get(a.category) : CAT_ORDER.length;
+      const rb = catRank.has(b.category) ? catRank.get(b.category) : CAT_ORDER.length;
+      if (ra !== rb) return ra - rb;
+      return orderRank.get(a.id) - orderRank.get(b.id);
+    });
+
+    const counts = { all: all.length };
+    for (const def of all) counts[def.category] = (counts[def.category] || 0) + 1;
+
+    /* 全部 + 9 个分类全量展示（数量为 0 也保留），再补 KIT 里出现的未登记分类 */
+    const cats = ['all'].concat(CAT_ORDER);
+    for (const def of all) {
+      if (cats.indexOf(def.category) === -1) cats.push(def.category);
+    }
+    const catFrag = document.createDocumentFragment();
+    for (const cat of cats) catFrag.appendChild(makeCatButton(cat, counts[cat] || 0));
+    catsEl.appendChild(catFrag);
+
+    const gridFrag = document.createDocumentFragment();
+    for (const def of all) {
+      const node = buildCard(def);
+      cards.push({ def, node });
+      gridFrag.appendChild(node);
+    }
+    gridEl.appendChild(gridFrag);
+
+    statusEl.textContent = all.length + ' 个构件 · ' + CAT_ORDER.length + ' 个分类';
+    if (!all.length) showWarn('构件列表为空：构件脚本已加载，但 KIT.register 没有登记任何构件。');
+
+    syncCats();
+    apply();
+  }
+
+  /* ---------------- 交互 ---------------- */
+
+  searchEl.addEventListener('input', () => {
+    state.q = searchEl.value.trim().toLowerCase();
+    apply();
+  });
+
+  searchEl.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') {
+      searchEl.value = '';
+      state.q = '';
+      apply();
+    }
+  });
+
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === '/' && document.activeElement !== searchEl) {
+      ev.preventDefault();
+      searchEl.focus();
+    }
+  });
+
+  $('clear').addEventListener('click', () => {
+    state.cat = 'all';
+    state.q = '';
+    searchEl.value = '';
+    syncCats();
+    apply();
+    searchEl.focus();
+  });
+
+  /* ---------------- 启动与容错 ---------------- */
+
+  (function boot() {
+    if (typeof KIT === 'undefined' || !KIT || typeof KIT.list !== 'function') {
+      statusEl.textContent = '加载失败';
+      showWarn('构件运行时未就绪：core.js 未能加载，请检查 demo/kit/core.js 是否存在。');
+      return;
+    }
+    try {
+      init();
+    } catch (err) {
+      statusEl.textContent = '加载失败';
+      showWarn('目录初始化失败：' + (err && err.message ? err.message : err));
+      console.error(err);
+      return;
+    }
+    const errors = (window.__KIT_LOAD_ERRORS || []).filter((v, i, a) => a.indexOf(v) === i);
+    if (errors.length) {
+      showWarn('有 ' + errors.length + ' 个脚本未能加载：' + errors.join('；')
+        + '。已加载 ' + KIT.list().length + ' 个构件，目录可能不完整。');
+    }
+  })();
+})();
+</script>
+</body>
+</html>

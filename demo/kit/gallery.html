@@ -13,8 +13,26 @@
   html, body { margin: 0; background: var(--paper); color: var(--ink);
     font: 13px/1.5 ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace; }
   a { color: var(--accent); }
+  /* 顶部导航条：与素材总目录 / 构件工坊保持一致的工作区入口 */
+  body { padding-top: 30px; }
+  .worknav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 11; height: 30px;
+    display: flex; align-items: center; gap: 2px; padding: 0 16px;
+    background: #16161a; border-bottom: 1px solid #33333d;
+    font: 12px/1 ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace;
+    overflow-x: auto; white-space: nowrap;
+  }
+  .worknav .brand {
+    margin-right: 10px; color: #9a98a3; font-size: 10px;
+    letter-spacing: .12em; text-transform: uppercase;
+  }
+  .worknav a {
+    padding: 4px 10px; border-radius: 5px; color: #9a98a3; text-decoration: none;
+  }
+  .worknav a:hover { background: #26262e; color: #e6e4df; }
+  .worknav a.on { background: rgba(232, 182, 76, .12); color: #e8b64c; }
   header {
-    position: sticky; top: 0; z-index: 10;
+    position: sticky; top: 30px; z-index: 10;
     display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
     padding: 12px 20px; background: color-mix(in srgb, var(--paper) 92%, white);
     border-bottom: 1px solid var(--line); backdrop-filter: blur(6px);
@@ -28,7 +46,7 @@
   }
   header input:focus { border-color: var(--accent); }
   nav {
-    position: fixed; left: 0; top: 53px; bottom: 0; width: 168px; overflow: auto;
+    position: fixed; left: 0; top: 83px; bottom: 0; width: 168px; overflow: auto;
     padding: 14px 10px 40px; border-right: 1px solid var(--line); background: var(--paper);
   }
   nav a { display: block; padding: 5px 10px; border-radius: 6px; color: var(--ink); text-decoration: none; font-size: 12px; }
@@ -78,6 +96,14 @@
 </head>
 <body>
 
+<div class="worknav" role="navigation" aria-label="页面导航">
+  <span class="brand">像素微缩实验室</span>
+  <a href="catalog.html">总目录</a>
+  <a href="../studio/app.html">构件工坊</a>
+  <a href="gallery.html" class="on" aria-current="page">陈列页</a>
+  <a href="../studio/editor.html">场景</a>
+</div>
+
 <header>
   <h1>构件库 · Kit Gallery</h1>
   <span class="count" id="count"></span>
@@ -107,6 +133,8 @@
 <script src="cart.js"></script>
 <script src="props.js"></script>
 <script src="conifers.js"></script>
+<script src="ref-buildings.js"></script>
+<script src="ref-structures.js"></script>
 
 <script>
 'use strict';

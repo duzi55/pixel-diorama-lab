@@ -7,7 +7,8 @@
  * ------------------------------------------------------------------ */
 
 const KIT_CATEGORY = {
-  tree: '树', building: '建筑', plant: '草木', prop: '道具', figure: '人物',
+  tree: '树', plant: '草木', building: '建筑', structure: '结构',
+  prop: '道具', vehicle: '载具', figure: '人物', animal: '动物', effect: '特效',
 };
 
 const KIT = {
@@ -40,6 +41,7 @@ const KIT = {
       params,
       draw: def.draw,
       collision: def.collision || null,
+      behavior: def.behavior || null,
     };
     KIT.order.push(def.id);
     return KIT.components[def.id];

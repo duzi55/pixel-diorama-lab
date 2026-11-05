@@ -15,14 +15,24 @@
  * 唯一全局名：KIT。其余一律 KIT_ 前缀。
  * ------------------------------------------------------------------ */
 
-/* 构件分类 —— 与 docs/kit/registry.md 的分节一一对应 */
+/* 构件分类 —— 与 docs/kit/registry.md 的分节对应
+ * 前缀越大越"人造"：自然物 → 人造物 → 角色 → 特效 */
 const KIT_CATEGORY = {
   tree: '树',
-  building: '建筑',
   plant: '草木',
-  prop: '道具',
+  building: '建筑',
+  structure: '结构',      // 桥 / 围栏 / 梯子 / 平台 / 台阶
+  prop: '道具',           // 可搬可摆的小物件
+  vehicle: '载具',        // 车 / 船 / 推车
   figure: '人物',
+  animal: '动物',
+  effect: '特效',         // 烟雾 / 光晕 / 粒子源
 };
+
+/* 分类显示顺序（列表、gallery、编辑器共用一份） */
+const KIT_CATEGORY_ORDER = [
+  'tree', 'plant', 'building', 'structure', 'prop', 'vehicle', 'figure', 'animal', 'effect',
+];
 
 const KIT = {
   /* id → 构件定义 */
@@ -79,6 +89,9 @@ const KIT = {
       params,
       draw: def.draw,
       collision: def.collision || null,
+      /* 行为声明：{ default: [{id,params}], allow: [id] }
+         运行时由 KIT_BEHAVIOR 解释，见 docs/modules/behavior.md */
+      behavior: def.behavior || null,
       /* 来源标记：由 studio 保存时写入，用于文档溯源 */
       source: def.source || null,
     };

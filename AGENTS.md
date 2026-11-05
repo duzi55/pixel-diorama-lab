@@ -22,6 +22,7 @@
 | Studio AI 配置 | `demo/studio/studio.config.json`（模型/思考强度/预算/超时，环境变量可覆盖） |
 | 编辑器冒烟测试 | `node tools/editor-test.mjs`（渲染并断言，导出 `docs/editor-screenshot.png`） |
 | **构件库全量实画测试** | `node tools/kit-test.mjs`（沙箱实画每个构件：崩溃/位置/像素数/极端参数） |
+| **构件行为回归测试** | `node tools/behavior-test.mjs`（行为定义 / 构件引用 / 60 帧实跑 / sway·chop 效果断言） |
 | 人群模块测试 | `node tools/crowd-test.mjs`（避让/CLEARANCE/站桩断言） |
 | **批量补齐变体** | `node tools/fill-variants.mjs [id…]`（照 docs/kit/ 规格 AI 实现 + 三道闸落盘） |
 | 无头渲染 | `node tools/render.mjs <html> <out.png> [帧数]` |
@@ -75,7 +76,10 @@
 | 构件库·构件 | `demo/kit/trees.js` · `demo/kit/plants.js` | 树 / 草木灌木构件（与 docs/kit/ 篇目对齐） | `docs/kit/registry.md` |
 | 构件库·构件 | `demo/kit/buildings.js` · `demo/kit/stoneworks.js` · `demo/kit/props.js` · `demo/kit/cart.js` | 建筑 / 石砌 / 道具 / 载具构件（AI 生成物按分类落对应模块） | `docs/kit/registry.md` |
 | **构件库 Gallery** | `demo/kit/gallery.html` | **构件陈列页（Bootstrap 风格）**：按分类列出全部构件，实时预览 + 参数滑块 + seed 换形 + 一键复制调用代码；数据来自运行时注册表，新构件自动出现 | `docs/kit/README.md` |
-| 构件库·锥状树 | `demo/kit/conifers.js` | `cone-mast` / `cone-spire`：**叶簇团块**锥冠（plot 逐像素填充 + 簇内球面光照，规避球体深描边）+ 粗直干根爪；走 `ctx.screen/unproject`，旋转/缩放预览不会碎成黑点；`density` 控密度 | `docs/kit/trees.md §5.7-5.8` |
+| 构件库·锥状树 | `demo/kit/conifers.js` | `cone-mast` / `cone-spire`：**叶簇团块**锥冠（plot 逐像素填充 + 簇内球面光照，规避球体深描边）+ 粗直干根爪；走 `ctx.screen/unproject`，旋转/缩放预览不会碎成黑点；`density` 控密度；绑定 `sway` + `chop` 行为 | `docs/kit/trees.md §5.7-5.8` |
+| **构件行为运行时** | `demo/kit/behavior.js` · `demo/kit/behavior-extra.js` | **行为 = 构件的逻辑层**：`KIT_BEHAVIOR.register` 注册可复用行为（sway/chop/flicker/wander/flee/greet/spin + burn/bob/open/patrol/grow/shake），构件用 `behavior.default/allow` 声明；`tick` 改 `inst.anim`（dx/dy/rot/scale/z/hidden），渲染器叠加到所有原语 | `docs/modules/behavior.md` |
+| **Studio 逻辑面板** | `demo/studio/app-behavior.js` | 行为编辑器：列出已挂行为 + 参数滑块（中英对照）+ 移除/添加（只从构件 `allow` 里选）；改动实时发预览沙箱 | `docs/modules/behavior.md §5` |
+| **素材总目录** | `demo/kit/catalog.html` | 全部构件按 9 分类浏览 + 搜索 + 参数/行为计数；卡片直达 Studio（`app.html?select=<id>`） | `docs/kit/README.md` |
 | 构件库·地面 | `demo/kit/ground.js` | 5 种地面材质（草地/泥土/沙地/石板/水面） | `docs/kit/scene.md` |
 | **构件工坊 App** | `demo/studio/app.html` · `app.js` · `app-history.js` · `app-props.js` · `app-ai.js` · `app.css` | **统一工作台**：左构件列表 / 中动画预览(iframe 沙箱)+参数+代码 / 右 AI 编辑（改当前构件或新建）；属性面板（名称/ID/分类/描述/碰撞体可视化编辑，补丁写回代码）+ AI 编辑（含参考图粘贴/拖拽）；「场景」tab 内嵌编辑器，`#scene` 直达；**保存构件后跑场景冒烟（village-test + editor-test），失败自动回滚** | `docs/modules/studio.md` |
 | **Studio 生成页** | `demo/studio/index.html` | 描述需求 → AI 按规范写代码 → 进度条 → 预览调参 → 确认保存；顶部可切换模型 | `docs/modules/studio.md` |

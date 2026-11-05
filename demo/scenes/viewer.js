@@ -19,7 +19,9 @@ const SCRIPTS = [
   '../kit/core.js',
   '../kit/palette.js',
   '../kit/render.js',
+  '../kit/behavior.js',
   '../kit/trees.js',
+  '../kit/conifers.js',
   '../kit/plants.js',
   '../kit/buildings.js',
   '../kit/stoneworks.js',
@@ -30,6 +32,13 @@ const SCRIPTS = [
   '../studio/terrain-common.js',
   '../studio/terrain-render.js',
   '../studio/terrain-march.js',
+];
+
+/* 可选构件/行为文件：不存在时不拖垮整个查看器 */
+const OPTIONAL_SCRIPTS = [
+  '../kit/behavior-extra.js',
+  '../kit/ref-buildings.js',
+  '../kit/ref-structures.js',
 ];
 
 function viewerFail(msg) {
@@ -103,8 +112,16 @@ function renderScene() {
   for (const o of objs) {
     const comp = KIT.get(o.kind);
     if (!comp) { console.warn('[viewer] 未知构件', o.kind); continue; }
-    try { comp.draw(KIT_RENDER.makeCtx(o), o); }
-    catch (e) { console.warn('[viewer] 构件绘制失败', o.kind, e); }
+    if (o.anim && o.anim.hidden) continue;
+    /* 外形被行为接管（砍倒 → 树桩）：不画原构件，只让行为自己画 */
+    if (!(o.anim && o.anim.kind === '__stump__')) {
+      try { comp.draw(KIT_RENDER.makeCtx(o), o); }
+      catch (e) { console.warn('[viewer] 构件绘制失败', o.kind, e); }
+    }
+    if (typeof KIT_BEHAVIOR !== 'undefined') {
+      try { KIT_BEHAVIOR.draw(KIT_RENDER.makeCtx(o), o, KIT_BH_WORLD); }
+      catch (e) { console.warn('[viewer] 行为绘制失败', o.kind, e); }
+    }
   }
 
   if (!VIEW.baseMap) {
@@ -159,6 +176,10 @@ async function boot() {
     try { await loadScript(src); }
     catch (e) { return viewerFail(e.message); }
   }
+  for (const src of OPTIONAL_SCRIPTS) {
+    try { await loadScript(src); }
+    catch { console.warn('[viewer] 可选脚本未加载', src); }
+  }
 
   if (scene.baseMap && scene.baseMap.png) {
     try { VIEW.baseMap = await decodeBaseMap(scene.baseMap); }
@@ -168,9 +189,68 @@ async function boot() {
   applyLighting(scene);
   if (scene.terrain) TERRAIN.fromJSON(scene.terrain);
 
+  /* 行为：给每个实例挂上构件声明的默认行为（场景可用 behaviors 覆盖） */
+  if (typeof KIT_BEHAVIOR !== 'undefined') {
+    for (const o of scene.objects || []) {
+      if (Array.isArray(o.behaviors)) o.behaviorSpec = o.behaviors;
+      try { KIT_BEHAVIOR.attach(o); } catch (e) { console.warn('[viewer] 行为挂载失败', o.kind, e); }
+    }
+  }
+
   renderScene();
   fitView();
   addEventListener('resize', fitView);
+  canvas.addEventListener('pointerdown', onPick);
+  if (typeof KIT_BEHAVIOR !== 'undefined') startLoop();
+  else { /* 无行为模块：保持静态渲染 */ }
+}
+
+/* ---------------- 行为循环（12fps，与项目其他场景一致） ---------------- */
+
+const VIEW_LOOP = { last: 0, acc: 0, t: 0, running: false };
+
+function startLoop() {
+  if (VIEW_LOOP.running) return;
+  VIEW_LOOP.running = true;
+  const step = 1 / 12;
+  const frame = now => {
+    if (!VIEW_LOOP.last) VIEW_LOOP.last = now;
+    VIEW_LOOP.acc += (now - VIEW_LOOP.last) / 1000;
+    VIEW_LOOP.last = now;
+    if (VIEW_LOOP.acc >= step) {
+      const dt = Math.min(.25, VIEW_LOOP.acc);
+      VIEW_LOOP.acc = 0;
+      VIEW_LOOP.t += dt;
+      const w = KIT_BH_WORLD;
+      w.t = VIEW_LOOP.t; w.dt = dt;
+      w.wind.strength = .35 + .25 * Math.sin(w.t * .62 + .4) + .15 * Math.sin(w.t * 1.55);
+      w.wind.gust = Math.sin(w.t * .62 + .4) * .55 + Math.sin(w.t * 1.55) * .3;
+      for (const o of VIEW.scene.objects || []) {
+        try { KIT_BEHAVIOR.tick(o, dt, w); } catch (e) { /* 单个行为出错不拖垮整场 */ }
+      }
+      renderScene();
+    }
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+}
+
+/* 点击拾取：按底部中心的屏幕距离找最近实例 */
+function onPick(e) {
+  if (typeof KIT_BEHAVIOR === 'undefined') return;
+  const r = canvas.getBoundingClientRect();
+  const sx = (e.clientX - r.left) / r.width * W;
+  const sy = (e.clientY - r.top) / r.height * H;
+  let best = null, bd = 30;
+  for (const o of VIEW.scene.objects || []) {
+    const p = project(o.x, o.y, 0);
+    const d = Math.hypot(p.sx - sx, p.sy - sy);
+    if (d < bd) { bd = d; best = o; }
+  }
+  if (best) {
+    KIT_BEHAVIOR.event(best, { type: 'click', x: best.x, y: best.y }, KIT_BH_WORLD);
+    renderScene();
+  }
 }
 
 boot().catch(e => viewerFail(String(e && e.message || e)));

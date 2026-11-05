@@ -28,6 +28,8 @@
 | 篇目 | 内容 | 何时读 |
 |------|------|--------|
 | **[registry.md](registry.md)** | **变体注册表**（活索引） | **每次动手前先查** |
+| **[../modules/behavior.md](../modules/behavior.md)** | **构件行为系统**：`KIT_BEHAVIOR` 契约、13 个内置行为、Studio 逻辑面板 | 让构件"会动/可点/被砍" |
+| **浏览器打开 `demo/kit/catalog.html`** | **素材总目录**：9 分类 + 搜索 + 行为计数，卡片直达 Studio | 找素材/看全貌 |
 | [scene.md](scene.md) | 地面贴图协议、岛边界、材质分区、地面痕迹 | 做场景地基 |
 | [trees.md](trees.md) | 树变体配方卡（8 种） | 放树 |
 | [plants.md](plants.md) | 花草灌木配方卡（10 种） | 放花草 |

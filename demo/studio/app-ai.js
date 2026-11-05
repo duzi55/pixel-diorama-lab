@@ -1,6 +1,20 @@
 'use strict';
 /* 构件工坊 · AI 编辑面板：生成/修改、参考图、应用预览与保存 */
 
+/** 给 AI 的行为契约摘要：让它知道"会动/可点/被砍"该挂哪个行为，而不是硬写进 draw
+ *  数据来自预览沙箱的 behavior-info（父页面没有引擎与行为运行时） */
+function behaviorBrief() {
+  const list = state.allowedBehaviors || [];
+  if (!list.length) return '';
+  return `\n\n【行为系统】构件 = 外形（draw）+ 行为（behavior）。`
+    + `凡是"会动、可点击、被砍、发光、游荡"这类逻辑，一律声明在 behavior 字段里，不要写死在 draw：\n`
+    + `behavior: { default: [{ id: 'sway', params: { amp: 1.5 } }], allow: ['sway','chop'] }\n`
+    + `可用行为：\n`
+    + list.map(d => `- ${d.id}（${d.label} / ${d.category}）：${d.desc}；参数 ${Object.keys(d.params).join('、') || '无'}`).join('\n')
+    + `\n现有行为不够时，可以额外写一个 KIT_BEHAVIOR.register({ id, label, category, desc, params, tick(inst, bh, dt, world) })`
+    + ` 追加新行为（tick 里只改 inst.anim 或 inst.x/inst.y）。`;
+}
+
 /* ---------------- AI 编辑 ---------------- */
 
 $('#ai-mode').addEventListener('click', e => {
@@ -271,9 +285,10 @@ async function runAi() {
     prompt = `请**修改**现有构件「${cur.name}」（id: ${cur.id}，分类 ${cur.category}）。\n`
            + `修改要求：${instruction}\n\n`
            + `现有代码：\n\`\`\`js\n${code}\n\`\`\`\n\n`
-           + `请返回修改后的**完整**构件（id 保持 "${cur.id}" 不变，仍按 KIT.register 规范）。`;
+           + behaviorBrief()
+           + `\n请返回修改后的**完整**构件（id 保持 "${cur.id}" 不变，仍按 KIT.register 规范）。`;
   } else {
-    prompt = instruction;
+    prompt = instruction + behaviorBrief();
   }
 
   let result = null, error = null;

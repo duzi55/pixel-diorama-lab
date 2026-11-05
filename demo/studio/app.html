@@ -85,6 +85,7 @@
       <button data-tab="ai" class="on">AI</button>
       <button data-tab="props">属性</button>
       <button data-tab="params">参数</button>
+      <button data-tab="behavior">逻辑</button>
       <button data-tab="hist">记录</button>
     </div>
 
@@ -154,10 +155,14 @@
         <label>分类
           <select id="p-cat">
             <option value="tree">树 tree</option>
-            <option value="building">建筑 building</option>
             <option value="plant">草木 plant</option>
+            <option value="building">建筑 building</option>
+            <option value="structure">结构 structure</option>
             <option value="prop">道具 prop</option>
+            <option value="vehicle">载具 vehicle</option>
             <option value="figure">人物 figure</option>
+            <option value="animal">动物 animal</option>
+            <option value="effect">特效 effect</option>
           </select>
         </label>
         <label class="wide">描述<input id="p-desc" type="text"></label>
@@ -187,6 +192,11 @@
       <div class="params" id="params"></div>
     </section>
 
+    <!-- 逻辑（行为编辑器） -->
+    <section class="rpanel" data-panel="behavior">
+      <div id="behavior-body"></div>
+    </section>
+
     <!-- 记录 -->
     <section class="rpanel" data-panel="hist">
       <div class="block-head"><span>修改记录</span><span class="mini" id="hist-count">0</span></div>
@@ -202,5 +212,6 @@
 <script src="app-history.js"></script>
 <script src="app-props.js"></script>
 <script src="app-ai.js"></script>
+<script src="app-behavior.js"></script>
 </body>
 </html>

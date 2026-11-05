@@ -109,6 +109,13 @@ KIT.register({
     density: { def: 380, min: 160, max: 520, step: 10, desc: '叶簇数量（越大越密实）' },
   },
   collision: { type: 'cylinder', radius: .9, height: 24 },
+  behavior: {
+    default: [
+      { id: 'sway', params: { amp: 1.8 } },
+      { id: 'chop', params: { hits: 4 } },
+    ],
+    allow: ['sway', 'chop', 'flicker'],
+  },
   draw(ctx, inst) {
     const h = ctx.params.height, cr = ctx.params.crownR;
     const tkH = Math.min(ctx.params.trunkH, h * .45);
@@ -147,6 +154,13 @@ KIT.register({
     density: { def: 240, min: 100, max: 380, step: 10, desc: '叶簇数量' },
   },
   collision: { type: 'cylinder', radius: .6, height: 17 },
+  behavior: {
+    default: [
+      { id: 'sway', params: { amp: 1.4 } },
+      { id: 'chop', params: { hits: 3 } },
+    ],
+    allow: ['sway', 'chop', 'flicker'],
+  },
   draw(ctx, inst) {
     const h = ctx.params.height, cr = ctx.params.crownR;
     const tkH = Math.min(ctx.params.trunkH, h * .35);
