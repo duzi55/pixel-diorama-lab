@@ -17,6 +17,13 @@ const TERRAIN_RECIPES = {
   'autumn-island': {
     id: 'autumn-island',
     name: '秋日落叶岛',
+    core: 'litter',
+    blend: 'soil',
+    blendWidth: 1.6,
+  },
+  'grass-island': {
+    id: 'grass-island',
+    name: '草地岛',
     core: 'grass',
     blend: 'soil',
     blendWidth: 1.6,
@@ -154,10 +161,29 @@ function initTerrainRecipeUI() {
   sel.innerHTML = Object.values(TERRAIN_RECIPES)
     .map(r => `<option value="${r.id}">${r.name}</option>`).join('');
 
+  /* 过渡材质：跟随配方 / 无过渡 / 指定材质 */
+  const blendSel = document.getElementById('recipe-blend');
+  if (blendSel) {
+    const mats = Object.entries(TERRAIN.mats || {});
+    blendSel.innerHTML = '<option value="__auto__">过渡：跟随配方</option>'
+      + '<option value="__none__">过渡：无（纯主体）</option>'
+      + mats.map(([id, m]) => `<option value="${id}">过渡：${m.name || id}</option>`).join('');
+    blendSel.value = '__auto__';
+  }
+
   btn.addEventListener('click', () => {
-    const recipe = TERRAIN_RECIPES[sel.value];
-    if (!recipe) return;
-    ED_snapshot('地形配方：' + recipe.name);
+    const base = TERRAIN_RECIPES[sel.value];
+    if (!base) return;
+
+    /* 过渡材质覆盖 */
+    let recipe = base;
+    if (blendSel && blendSel.value === '__none__') {
+      recipe = { ...base, blend: null, blendWidth: 0 };
+    } else if (blendSel && blendSel.value !== '__auto__') {
+      recipe = { ...base, blend: blendSel.value, blendWidth: base.blendWidth || 1.2 };
+    }
+
+    ED_snapshot('地形配方：' + base.name);
     const res = terrainApplyRecipe(recipe);
     if (res) {
       const hint = document.getElementById('recipe-hint');

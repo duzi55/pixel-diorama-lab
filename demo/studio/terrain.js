@@ -66,6 +66,11 @@ const TERRAIN = {
       blend: { width: 0.35, jitter: 0.45 },
       detail: { wave: 0.6, speckle: 0.1 },
     },
+    litter: {
+      name: '落叶', base: [228, 172, 62], kind: KIND_NONE,
+      blend: { width: 0.5, jitter: 0.7 },
+      detail: { clump: 0.55, speckle: 0.35 },   /* 落叶团块 + 细碎颗粒 */
+    },
   },
 
   /* 网格数据：key = (gy + R) * (2R+1) + (gx + R) */

@@ -243,7 +243,8 @@ const TERRAIN_EDGE_MODES = {
   grain:   { name: '细密砂边', band: .40, strength: .55, curve: 2.0, clumpFreq: 10.0, clumpAmp: .10, grain: 1.00 },
   fade:    { name: '渐变淡出', band: 1.00, strength: .72, curve: .60, clumpFreq: 1.2, clumpAmp: .30, grain: .85 },
   chunk:   { name: '块状碎裂', band: .90, strength: .62, curve: 1.8, clumpFreq: .45, clumpAmp: .95, grain: .05 },
-  off:     { name: '关闭（硬边）', band: 0, strength: 0, curve: 1, clumpFreq: 1, clumpAmp: 0, grain: 0 },
+  autumn:  { name: '秋日落叶（散点）', band: .60, strength: .66, curve: .90, clumpFreq: 1.8, clumpAmp: .55, grain: .75 },
+  off:     { name: '无过渡（硬边）', band: 0, strength: 0, curve: 1, clumpFreq: 1, clumpAmp: 0, grain: 0 },
 };
 
 /** 应用一种溶解预设到 TERRAIN.edge */
