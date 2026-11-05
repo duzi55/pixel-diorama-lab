@@ -106,6 +106,9 @@
 | 场景导入 | `demo/studio/scene-import.js` | 同源 iframe 抓取已有场景烘焙底图，进入底图编辑模式 | `docs/modules/studio.md §4.0b` |
 | **Studio·图片还原** | `demo/studio/editor-recon.js` | 粘贴场景截图 → AI 用现有构件摆位（u/v 反投影）→ 缺的素材选替代或生成入库 | `docs/modules/studio.md §4.0d` |
 | **Studio·空态/一句话建场景** | `demo/studio/editor-start.js` | 进入不默认播种；一句话描述 → `compose` 任务 → 地形+物体；图片还原/载入/空白三个入口 | `docs/modules/studio.md §4.0e` |
+| **Studio·选择** | `demo/studio/editor-select.js` | 单选/Shift 加选/框选/多选拖拽/复制/删除 | `docs/modules/studio.md §4.1` |
+| **Studio·图层** | `demo/studio/editor-layers.js` | 对象=图层：显示隐藏、锁定、↑↓ 层级、点击选中 | `docs/modules/studio.md §4.1` |
+| **Studio·属性** | `demo/studio/editor-props.js` | 位置/朝向/缩放/层级 + 构件参数全量 + 行为逻辑 | `docs/modules/studio.md §4.1` |
 | **Studio·构件库** | `demo/studio/editor-kit.js` | 搜索 + 分类计数 + 缩略图网格：主引擎渲染后立即恢复画面，结果缓存，滚动到可见才渲染 | `docs/modules/studio.md §4.1` |
 | **Studio·AI 任务表** | `demo/studio/jobs.mjs` | 后台任务（关页面不丢）+ jobId 恢复 + dedupeKey 幂等 + 并发上限 + SSE 订阅 | `docs/modules/studio.md §4.0f` |
 | Studio 服务端 | `demo/studio/server.mjs` | 静态服务 + AI 桥 + 落盘器（零依赖，只用 node: 内置模块）；`/api/kit` 用**注释/字符串感知扫描器**切构件块（只数括号会被注释里的 `)` 截断） | `docs/modules/studio.md §6` |

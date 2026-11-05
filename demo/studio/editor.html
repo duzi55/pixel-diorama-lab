@@ -85,7 +85,8 @@
           <button class="pill" data-tool="raise">抬高</button>
           <button class="pill" data-tool="lower">降低</button>
           <button class="pill" data-tool="place">放置</button>
-          <button class="pill" data-tool="select">选择/拖拽</button>
+          <button class="pill" data-tool="select">选择</button>
+          <button class="pill" data-tool="pan">平移</button>
         </div>
       </div>
 
@@ -135,12 +136,31 @@
   </aside>
 
   <!-- 浮动：右侧属性 -->
-  <aside class="float-panel fp-right fp-collapsed" id="fp-right">
+  <aside class="float-panel fp-right" id="fp-right">
     <div class="fp-head">
       <span>属性</span>
       <button class="fp-collapse" id="tg-right">–</button>
     </div>
     <div class="fp-body">
+      <div class="sec" id="sel-sec">
+        <h3>选中对象属性</h3>
+        <div id="sel-info"><div class="empty-note">用「选择」工具点物体；空白拖拽框选，Shift 加选</div></div>
+      </div>
+
+      <div class="sec" id="col-sec" style="display:none">
+        <h3>碰撞体积（手动 / AI）</h3>
+        <div id="col-info"></div>
+        <div class="row" style="margin-top:8px">
+          <button id="btn-col-ai">✨ AI 推断</button>
+          <button id="btn-col-reset" class="ghost">重置默认</button>
+        </div>
+      </div>
+
+      <div class="sec">
+        <h3>场景物体列表 <span id="obj-count" style="opacity:.6"></span></h3>
+        <div id="obj-list" style="max-height:280px;overflow-y:auto"></div>
+      </div>
+
       <div class="sec">
         <h3>新建场景</h3>
         <div class="stack">
@@ -234,24 +254,7 @@
         <label class="chk"><input type="checkbox" id="lt-points" checked> 亮着的灯照亮周围</label>
       </div>
 
-      <div class="sec" id="sel-sec">
-        <h3>选中对象属性</h3>
-        <div id="sel-info"><div class="empty-note">用「选择/拖拽」工具点选物体</div></div>
-      </div>
 
-      <div class="sec" id="col-sec" style="display:none">
-        <h3>碰撞体积（手动 / AI）</h3>
-        <div id="col-info"></div>
-        <div class="row" style="margin-top:8px">
-          <button id="btn-col-ai">✨ AI 推断</button>
-          <button id="btn-col-reset" class="ghost">重置默认</button>
-        </div>
-      </div>
-
-      <div class="sec">
-        <h3>场景物体列表 <span id="obj-count" style="opacity:.6"></span></h3>
-        <div id="obj-list" style="max-height:180px;overflow-y:auto"></div>
-      </div>
     </div>
   </aside>
 
@@ -335,6 +338,9 @@ window.PP_W=520;window.PP_H=380;window.PP_SCALE=11;window.PP_ORIGIN_X=0;window.P
 <script src="terrain-shapes.js"></script>
 <script src="editor-view.js"></script>
 <script src="editor-panels.js"></script>
+<script src="editor-select.js"></script>
+<script src="editor-layers.js"></script>
+<script src="editor-props.js"></script>
 <script src="editor-scene.js"></script>
 <script src="editor-render.js"></script>
 <script src="editor-light.js"></script>

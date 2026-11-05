@@ -56,9 +56,12 @@ function ED_drawCollision(o, isSelected) {
 
 function ED_drawAllCollisions() {
   for (const o of ED.objects) {
-  if (o !== ED.selected) ED_drawCollision(o, false);
+    if (o.hidden) continue;
+    if (!ED_isSelected(o)) ED_drawCollision(o, false);
   }
-  if (ED.selected) ED_drawCollision(ED.selected, true);
+  for (const o of ED_selectionList()) {
+    if (!o.hidden) ED_drawCollision(o, true);
+  }
 }
 
 function ED_drawGhost() {
@@ -91,6 +94,30 @@ function ED_esc(s) {
 
 function ED_bindKeys() {  addEventListener('keydown', e => {
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+
+    /* 工具快捷键：V 选择 / B 放置 / T 地形 / H 平移 */
+    const k = e.key.toLowerCase();
+    if (!e.metaKey && !e.ctrlKey) {
+      if (k === 'v') { ED_setTool('select'); studioStatus('选择工具：点选、Shift 加选、空白拖拽框选'); return; }
+      if (k === 'b') { ED_setTool('place'); studioStatus('放置工具：先在左侧选构件，再点画布'); return; }
+      if (k === 't') { ED_setTool('paint'); studioStatus('地形工具：选择材质后绘制'); return; }
+      if (k === 'h') { ED_setTool('pan'); studioStatus('平移：拖动画布'); return; }
+    }
+
+    /* 复制所选 */
+    if ((e.metaKey || e.ctrlKey) && k === 'd') {
+      e.preventDefault();
+      ED_duplicateSelection();
+      return;
+    }
+
+    /* 全选 */
+    if ((e.metaKey || e.ctrlKey) && k === 'a') {
+      e.preventDefault();
+      ED_selectMany([...ED.objects].filter(o => !o.hidden && !o.locked), false);
+      return;
+    }
+
     if (e.key === 'Escape') {
       ED.placing = null;
       ED.ghost = null;
@@ -100,16 +127,17 @@ function ED_bindKeys() {  addEventListener('keydown', e => {
       studioStatus('已取消');
     }
     if (e.key === 'Delete' || e.key === 'Backspace') {
-      if (ED.selected) { ED_deleteSelected(); e.preventDefault(); }
+      if (ED_selectionList().length) { ED_deleteSelection(); e.preventDefault(); }
     }
-  if (ED.selected && e.key.startsWith('Arrow')) {
+  if (ED_selectionList().length && e.key.startsWith('Arrow')) {
       const step = e.shiftKey ? .5 : .15;
-      const s = ED.selected;
-      if (e.key === 'ArrowLeft') s.x -= step;
-      if (e.key === 'ArrowRight') s.x += step;
-      if (e.key === 'ArrowUp') s.y -= step;
-      if (e.key === 'ArrowDown') s.y += step;
-      s.z = ED.baseMap ? 0 : TERRAIN.heightAt(s.x, s.y);
+      for (const s of ED_selectionList()) {
+        if (e.key === 'ArrowLeft') s.x -= step;
+        if (e.key === 'ArrowRight') s.x += step;
+        if (e.key === 'ArrowUp') s.y -= step;
+        if (e.key === 'ArrowDown') s.y += step;
+        s.z = ED.baseMap ? 0 : TERRAIN.heightAt(s.x, s.y);
+      }
       ED.dirty = true;
       ED_refreshSel();
       ED_refreshObjects();

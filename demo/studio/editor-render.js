@@ -74,7 +74,14 @@ function ED_render(t = 0) {
   /* 静态物体：层级（zOrder，大 = 上层）优先，同层按 y 画家算法 */
   const objs = [...ED.objects].sort((a, b) =>
     ((a.zOrder || 0) - (b.zOrder || 0)) || (b.y - a.y));
-  for (const o of objs) ED_drawObject(o);
+  for (const o of objs) {
+    if (o.hidden) continue;
+    /* 行为推进（sway/chop/flicker…），失败不影响渲染 */
+    if (typeof KIT_BEHAVIOR !== 'undefined') {
+      try { KIT_BEHAVIOR.tick(o, 1 / 12); } catch { /* 忽略单个构件的行为异常 */ }
+    }
+    ED_drawObject(o);
+  }
 
   /* 动态人群 AI */
   if (ED.crowdMode && typeof KIT_CROWD !== 'undefined') {
@@ -93,6 +100,7 @@ function ED_render(t = 0) {
   if (ED.showGrid) terrainDrawGrid();
   if (ED.showBox) ED_drawAllCollisions();
   if (ED.ghost && ED.placing) ED_drawGhost();
+  if (ED.marquee) ED_drawMarquee();
 
   /* 选中物体的头顶浮动像素箭头 */
   if (ED.selected) {

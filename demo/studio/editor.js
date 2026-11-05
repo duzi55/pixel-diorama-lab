@@ -18,7 +18,10 @@ const ED = {
   brush: 2,
   height: 0,
   objects: [],           /* { id, kind, x, y, z, rot, params, seed, collision } */
-  selected: null,
+  selected: null,        /* 主选中（兼容旧代码） */
+  selection: new Set(),  /* 多选集合 */
+  marquee: null,         /* 框选矩形 {x0,y0,x1,y1,additive} */
+  drag: null,            /* 多选拖拽 {startX,startY,items} */
   draggingObj: false,
   nextId: 1,
   placing: null,         /* 正在放置的构件 kind */
@@ -173,18 +176,22 @@ function ED_buildTools() {
 /* ---------------- 画布交互 ---------------- */
 
 function ED_bindCanvas() {
-  const toWorld = e => {
+  const toScreen = e => {
     const r = canvas.getBoundingClientRect();
-    /* 视图平移在 transform 里，getBoundingClientRect 已包含它 —— 直接换算 */
-    const sx = (e.clientX - r.left) / r.width * W;
-    const sy = (e.clientY - r.top) / r.height * H;
-    return unproject(sx, sy);
+    return {
+      sx: (e.clientX - r.left) / r.width * W,
+      sy: (e.clientY - r.top) / r.height * H,
+    };
+  };
+  const toWorld = e => {
+    const s = toScreen(e);
+    return unproject(s.sx, s.sy);
   };
 
   /* 视图平移：中键拖拽 或 空格+左键拖拽 */
   let panning = false, panStart = null;
   canvas.addEventListener('pointerdown', e => {
-    if (e.button === 1 || ED.spaceHeld) {
+    if (e.button === 1 || ED.spaceHeld || ED.tool === 'pan') {
       panning = true;
       panStart = { x: e.clientX, y: e.clientY, ox: ED.view.ox, oy: ED.view.oy };
       canvas.setPointerCapture(e.pointerId);
@@ -204,8 +211,19 @@ function ED_bindCanvas() {
       return;
     }
     if (ED.tool === 'select') {
-      ED_selectAt(w.x, w.y);
-      if (ED.selected) ED.draggingObj = true;
+      const hit = ED_pickAt(w.x, w.y);
+      if (hit) {
+        if (e.shiftKey) ED_select(hit, { additive: true });
+        else if (!ED_isSelected(hit)) ED_select(hit);
+        if (ED_isSelected(hit)) {
+          const s0 = toScreen(e);
+          ED_beginDrag(s0.sx, s0.sy);
+        }
+      } else {
+        if (!e.shiftKey) ED_clearSelection();
+        const s0 = toScreen(e);
+        ED.marquee = { x0: s0.sx, y0: s0.sy, x1: s0.sx, y1: s0.sy, additive: e.shiftKey };
+      }
       return;
     }
     ED_applyTool(w);
@@ -217,12 +235,15 @@ function ED_bindCanvas() {
     document.getElementById('pos').textContent =
       `x=${w.x.toFixed(1)} y=${w.y.toFixed(1)} 格(${g.gx},${g.gy}) 高=${TERRAIN.heightAt(w.x, w.y).toFixed(2)}`;
 
-    if (ED.draggingObj && ED.selected && ED.tool === 'select') {
-      ED.selected.x = Math.round(w.x * 4) / 4;
-      ED.selected.y = Math.round(w.y * 4) / 4;
-      ED.selected.z = ED.baseMap ? 0 : TERRAIN.heightAt(ED.selected.x, ED.selected.y);
-      ED_refreshSel();
-      ED_refreshObjects();
+    if (ED.drag) {
+      const s0 = toScreen(e);
+      ED_updateDrag(s0.sx, s0.sy);
+      return;
+    }
+    if (ED.marquee) {
+      const s0 = toScreen(e);
+      ED.marquee.x1 = s0.sx;
+      ED.marquee.y1 = s0.sy;
       ED.dirty = true;
       return;
     }
@@ -246,7 +267,19 @@ function ED_bindCanvas() {
     }
   });
 
-  const stopDrag = () => { ED.painting = false; ED.draggingObj = false; panning = false; };
+  const stopDrag = () => {
+    if (ED.marquee) {
+      const m = ED.marquee;
+      const list = ED_marqueeObjects(m.x0, m.y0, m.x1, m.y1);
+      if (list.length) ED_selectMany(list, m.additive);
+      ED.marquee = null;
+      ED.dirty = true;
+    }
+    ED_endDrag();
+    ED.painting = false;
+    ED.draggingObj = false;
+    panning = false;
+  };
   canvas.addEventListener('pointerup', stopDrag);
   canvas.addEventListener('pointerleave', () => {
     stopDrag();
@@ -323,35 +356,6 @@ function ED_placeObject(kind, x, y) {
   ED.dirty = true;
   studioStatus(`已放置「${comp.name}」`);
 }
-
-function ED_selectAt(x, y) {
-  let best = null, bestD = 2.2;
-  const sorted = [...ED.objects].sort((a, b) => b.y - a.y);
-  for (const o of sorted) {
-    const d = Math.hypot(o.x - x, o.y - y);
-    if (d < bestD) { bestD = d; best = o; }
-  }
-  ED_select(best);
-}
-
-function ED_select(o) {
-  ED.selected = o;
-  ED_refreshSel();
-  ED_refreshObjects();
-  ED_collectLights();
-  ED.dirty = true;
-}
-
-function ED_deleteSelected() {
-  if (!ED.selected) return;
-  ED.objects = ED.objects.filter(o => o !== ED.selected);
-  ED_collectLights();
-  ED_select(null);
-  ED_refreshObjects();
-  ED.dirty = true;
-  studioStatus('已删除选中物体');
-}
-
 
 /* ---------------- 启动 ---------------- */
 
