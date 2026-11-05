@@ -15,6 +15,7 @@
     <button data-view="scene">场景</button>
   </nav>
   <button id="btn-sidebar" class="mini" title="收起 / 展开构件列表">☰ 构件库</button>
+  <button id="btn-ai-settings" class="mini" title="AI 模型 / 预算 / API 密钥">⚙ AI 设置</button>
   <span class="status" id="status">加载中…</span>
 </header>
 
@@ -40,8 +41,13 @@
 
     <div class="pv-toolbar">
       <label class="chk"><input type="checkbox" id="pv-spin"> 自动旋转</label>
-      <input type="range" id="pv-rot" min="0" max="720" step="1" value="23" title="旋转角度（0~720°，720° = 两整圈）">
+      <input type="range" id="pv-rot" min="0" max="720" step="1" value="23" title="Z 轴：绕竖轴（0~720°）">
       <span class="pv-rot-val" id="pv-rot-val">23°</span>
+      <span class="lbl" title="俯仰：绕 X 轴">X</span>
+      <input type="range" id="pv-rotx" class="rot3" min="-180" max="180" step="1" value="0" title="俯仰（绕 X 轴，-180~180°）">
+      <span class="lbl" title="翻滚：绕 Y 轴">Y</span>
+      <input type="range" id="pv-roty" class="rot3" min="-180" max="180" step="1" value="0" title="翻滚（绕 Y 轴，-180~180°）">
+      <button class="mini" id="pv-rot-reset" title="三轴归零">归零</button>
       <span class="sep"></span>
       <span class="lbl">背景</span>
       <div class="seg small" id="pv-bg">
@@ -209,10 +215,50 @@
 <!-- ============ 场景：复用既有编辑器 ============ -->
 <section class="embed" id="view-scene"><iframe src="editor.html" title="场景编辑器"></iframe></section>
 
+
+<!-- ============ AI 设置 ============ -->
+<dialog id="ai-settings" class="ai-settings">
+  <form method="dialog">
+    <h3>AI 设置</h3>
+    <p class="hint">保存到 <code>studio.config.json</code>；API Key 单独存 <code>studio.secret.json</code>（不进仓库）。下次生成生效，无需重启。</p>
+
+    <label>模型
+      <input id="set-model" type="text" placeholder="留空 = CLI 默认；可填 sonnet / opus / 模型全名">
+    </label>
+    <label>思考强度
+      <select id="set-effort">
+        <option value="">默认</option>
+        <option value="low">low（最快）</option>
+        <option value="medium">medium</option>
+        <option value="high">high</option>
+        <option value="xhigh">xhigh</option>
+        <option value="max">max（最慢最认真）</option>
+      </select>
+    </label>
+    <label>单次预算（美元）
+      <input id="set-budget" type="number" min="0.5" step="0.5">
+    </label>
+    <label>API Key
+      <input id="set-key" type="password" autocomplete="off" placeholder="留空 = 使用 CLI 登录态">
+    </label>
+    <p class="hint" id="set-key-hint"></p>
+    <label>Base URL
+      <input id="set-baseurl" type="text" placeholder="留空 = 官方端点；自建代理填完整地址">
+    </label>
+
+    <div class="actions">
+      <span class="set-status" id="set-status"></span>
+      <button value="cancel" class="mini">取消</button>
+      <button id="set-save" value="default" class="primary">保存</button>
+    </div>
+  </form>
+</dialog>
+
 <script src="app.js"></script>
 <script src="app-history.js"></script>
 <script src="app-props.js"></script>
 <script src="app-ai.js"></script>
+<script src="app-settings.js"></script>
 <script src="app-behavior.js"></script>
 </body>
 </html>

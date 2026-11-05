@@ -20,12 +20,16 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CFG_PATH = path.join(__dirname, 'studio.config.json');
+/* 密钥单独存放，不进仓库（.gitignore） */
+const SECRET_PATH = path.join(__dirname, 'studio.secret.json');
 
 const DEFAULTS = {
   model: '',
   effort: '',
   maxBudgetUsd: 6,
   timeoutMs: 300_000,
+  baseUrl: '',
+  apiKey: '',
 };
 
 let _cache = null;
@@ -35,8 +39,10 @@ export function getConfig() {
 
   let file = {};
   try { file = JSON.parse(fs.readFileSync(CFG_PATH, 'utf8')); } catch { /* 无配置文件用默认 */ }
+  let secret = {};
+  try { secret = JSON.parse(fs.readFileSync(SECRET_PATH, 'utf8')); } catch { /* 没有密钥文件 */ }
 
-  const merged = { ...DEFAULTS, ...file };
+  const merged = { ...DEFAULTS, ...file, apiKey: secret.apiKey || '', baseUrl: secret.baseUrl || file.baseUrl || '' };
 
   /* 环境变量覆盖（只覆盖非空项） */
   if (process.env.STUDIO_MODEL) merged.model = process.env.STUDIO_MODEL;
@@ -61,6 +67,16 @@ export function setConfig(patch) {
   }
   /* 保留 _说明 字段 */
   fs.writeFileSync(CFG_PATH, JSON.stringify(next, null, 2) + '\n', 'utf8');
+
+  /* API Key / Base URL 写独立密钥文件（已在 .gitignore） */
+  if (patch.apiKey !== undefined || patch.baseUrl !== undefined) {
+    let secret = {};
+    try { secret = JSON.parse(fs.readFileSync(SECRET_PATH, 'utf8')); } catch { /* 首次 */ }
+    if (patch.apiKey !== undefined) secret.apiKey = String(patch.apiKey || '');
+    if (patch.baseUrl !== undefined) secret.baseUrl = String(patch.baseUrl || '');
+    fs.writeFileSync(SECRET_PATH, JSON.stringify(secret, null, 2) + '\n', 'utf8');
+  }
+
   _cache = null;                      /* 清缓存，下次 getConfig 重新读 */
   return getConfig();
 }
@@ -73,5 +89,9 @@ export function describeConfig() {
     effort: c.effort || '默认',
     maxBudgetUsd: c.maxBudgetUsd,
     timeoutMs: c.timeoutMs,
+    baseUrl: c.baseUrl || '',
+    /* 不返回明文密钥，只告诉前端有没有设置 */
+    hasApiKey: !!c.apiKey,
+    apiKeyHint: c.apiKey ? c.apiKey.slice(0, 6) + '…' + c.apiKey.slice(-4) : '',
   };
 }

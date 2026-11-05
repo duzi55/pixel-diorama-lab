@@ -60,7 +60,12 @@ export function runClaude(prompt, schema, onEvent, images) {
       : '';
     const fullPrompt = prompt + imageNote;
 
-    const child = spawn('claude', args.slice(0, args.indexOf('-p') + 1).concat([fullPrompt], args.slice(args.indexOf('-p') + 1)), { cwd: REPO_DIR, env: { ...process.env } });
+        /* API Key / Base URL：写在 studio.secret.json，注入到 CLI 子进程环境
+       （不落进命令行参数，避免出现在进程列表里） */
+    const env = { ...process.env };
+    if (cfg.apiKey) env.ANTHROPIC_API_KEY = cfg.apiKey;
+    if (cfg.baseUrl) env.ANTHROPIC_BASE_URL = cfg.baseUrl;
+    const child = spawn('claude', args.slice(0, args.indexOf('-p') + 1).concat([fullPrompt], args.slice(args.indexOf('-p') + 1)), { cwd: REPO_DIR, env });
 
     const timer = setTimeout(() => {
       child.kill('SIGKILL');

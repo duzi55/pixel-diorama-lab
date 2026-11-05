@@ -17,7 +17,7 @@
 
 const PV = {
   code: '', id: null, params: {}, collision: null,
-  spin: true, showBox: true, rot: 0.4, rotX: 0, rotY: 0, lastStep: -1,
+  spin: false, showBox: true, rot: 0.4, rotX: 0, rotY: 0, lastStep: -1,
   scale: 1,
   drawFn: null, error: null,
   groundR: 3.2,          // 地面圆盘半径（按构件大小自适应）
