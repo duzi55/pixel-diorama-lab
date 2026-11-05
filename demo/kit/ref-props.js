@@ -178,12 +178,13 @@ KIT.register({
       }
     }
 
-    /* 编织纹：z 方向 6 档 × 周向 7 档，两组条纹交错（props.md §4.1） */
+    /* 编织纹：z 方向 6 档 × 周向 7 档，两组条纹交错（props.md §4.1）。
+       柱面亮度不再写死 (-.5, .85)，按该点的世界法线取档，编织 ±1 档照旧。 */
     for (let t = 0; t < 6.2832; t += .02) {
       const nx = Math.cos(t), ny = Math.sin(t), band = Math.floor(t * 7);
       for (let z = 0; z <= H; z += .045) {
         const weave = (Math.floor(z / H * 6) + band) % 2;
-        let lv = Math.round(2.6 - .5 * nx + .85 * ny) + weave - 1;
+        let lv = Math.round(ctx.lit(nx, ny, 0)) + weave - 1;
         if (z > H - .08) lv += 1;              // 篮口包边提亮
         ctx.plot(X + nx * R, Y + ny * R, Z + z, ramp[ctx.clamp(lv, 0, 4)]);
       }
@@ -192,7 +193,7 @@ KIT.register({
     /* 篮口包边：外圈 + 内圈两道，篮子才有厚度 */
     for (let t = 0; t < 6.2832; t += .015) {
       const nx = Math.cos(t), ny = Math.sin(t);
-      const lv = ctx.clamp(Math.round(2.7 - .5 * nx + .85 * ny) + 1, 0, 4);
+      const lv = ctx.clamp(Math.round(ctx.lit(nx, ny, 0)) + 1, 0, 4);
       ctx.plot(X + nx * R, Y + ny * R, Z + H + .015, ramp[lv]);
       ctx.plot(X + nx * (R - .045), Y + ny * (R - .045), Z + H + .03, dark[2]);
     }
@@ -241,6 +242,8 @@ KIT.register({
     const topZ = Z + P.top;
     const phase = ctx.hash(1, ctx.seed) * 6.2832;
     const step = .055;
+    /* 布面朝 +y：整幅按正面法线取档，褶皱的 ±1 档明暗照旧 */
+    const lvY = Math.round(ctx.lit(0, 1, 0));
 
     /* 挂绳：略微下垂的细线，两端比中间高（抛物线垂弧，props.md §5.5） */
     const rope = ctx.rgb(RP_CLOTH_LINE[0], RP_CLOTH_LINE[1], RP_CLOTH_LINE[2]);
@@ -259,7 +262,7 @@ KIT.register({
         const px = X + u + v * sinT;
         const py = Y + s * .08 * reach;
         const pz = Math.max(Z + .03, topZ - v * cosT);
-        const lv = ctx.clamp(3 + Math.round(c * 1.1), 0, 4);
+        const lv = ctx.clamp(lvY + Math.round(c * 1.1), 0, 4);
         const striped = P.stripe >= .5 && Math.floor((kind === 0 ? u * 2.4 : v * 5) + 40) % 2;
         ctx.plot(px, py, pz, (striped ? alt : ramp)[lv]);
       }
@@ -298,7 +301,10 @@ KIT.register({
     const frameBase = rpPick(RP_RACKET_FRAME, P.color);
     const faceRamp = ctx.rampOf(rpPick(RP_RACKET_FACE, P.color));
     const frameRamp = ctx.rampOf(frameBase);
-    const stringInk = ctx.rgb(RP_STRING[0], RP_STRING[1], RP_STRING[2]);
+    /* 球拍平放：拍面是顶面，按 (0,0,1) 取档；拍面比拍框暗一档的固有关系保留 */
+    const lvTop = Math.round(ctx.lit(0, 0, 1));
+    /* 拍线是顶面上的纹理：网格不变，底色跟着拍面档走（否则在暗光下像贴上去的） */
+    const stringInk = ctx.rampOf(RP_STRING)[lvTop];
 
     /* 1. 拍面：填满椭圆，外圈 R*.09 是拍框；内部深色衬底让拍线跳出来 */
     const rimW = Math.max(.035, R * .09);
@@ -310,10 +316,10 @@ KIT.register({
         const edge = R - Math.sqrt(d2);
         let c;
         if (edge < rimW) {
-          const lv = ctx.clamp(3 + Math.round((-u * .45 + v * .7) / Math.max(.001, R) * 1.2), 1, 4);
+          const lv = ctx.clamp(lvTop + Math.round((-u * .45 + v * .7) / Math.max(.001, R) * 1.2), 1, 4);
           c = frameRamp[lv];
         } else {
-          c = faceRamp[ctx.clamp(2 + Math.round(v / Math.max(.001, R)), 1, 3)];
+          c = faceRamp[ctx.clamp(lvTop - 1 + Math.round(v / Math.max(.001, R)), 1, 3)];
         }
         ctx.plot(cxF + u, Y + v, zf, c);
       }

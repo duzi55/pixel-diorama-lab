@@ -82,21 +82,37 @@ KIT.register({
   draw(ctx, inst) {
     const h = ctx.params.height;
     const stone = [146, 140, 126];
+    const stoneRamp = rampOf(stone);
     const w = .17;
+    /* 面亮度跟随方向光：顶面 +z / 右面 +x / 正面 +y 各取一档。
+       体素式方块是逐点铺满的，内部点本来就被外表面挡住，只按外露面取档。 */
+    const lvTop = Math.round(ctx.lit(0, 0, 1));
+    const lvY = Math.round(ctx.lit(0, 1, 0));
+    const lvX = Math.round(ctx.lit(1, 0, 0));
+    const shaftTop = h * .72;
+    const chamberTop = shaftTop + Math.floor((h * .92 - shaftTop) / .05 + 1e-9) * .05;
+    const faceLv = (a, z, xr, zTop) => z >= zTop - 1e-4 ? lvTop
+      : a >= ctx.x + xr - 1e-6 ? lvX : lvY;
+
+    /* 基座：单层厚板只露顶面，比顶盖暗一档 */
+    const baseRamp = stoneRamp[Math.max(0, lvTop - 1)];
     for (let a = ctx.x - w * 1.5; a <= ctx.x + w * 1.5; a += .05)
       for (let b = ctx.y - w * 1.5; b <= ctx.y + w * 1.5; b += .05)
-        ctx.plot(a, b, .08, rampOf(stone)[2]);
+        ctx.plot(a, b, .08, baseRamp);
     for (let a = ctx.x - w; a <= ctx.x + w; a += .05)
       for (let b = ctx.y - w; b <= ctx.y + w; b += .05)
-        for (let z = .1; z <= h * .72; z += .05)
-          ctx.plot(a, b, z, rampOf(stone)[2]);
+        for (let z = .1; z <= shaftTop; z += .05)
+          ctx.plot(a, b, z, stoneRamp[faceLv(a, z, w, shaftTop)]);
     for (let a = ctx.x - w * 1.3; a <= ctx.x + w * 1.3; a += .05)
       for (let b = ctx.y - w * 1.3; b <= ctx.y + w * 1.3; b += .05)
-        for (let z = h * .72; z <= h * .92; z += .05)
-          ctx.plot(a, b, z, ctx.params.lit >= 1 ? rgb(255, 222, 130) : rampOf(stone)[3]);
+        for (let z = shaftTop; z <= h * .92; z += .05)
+          ctx.plot(a, b, z, ctx.params.lit >= 1
+            ? ctx.rgb(255, 222, 130)              /* emissive：点亮的灯室不随光 */
+            : stoneRamp[faceLv(a, z, w * 1.3, chamberTop)]);
+    /* 顶盖：出檐的顶面，受光档 */
     for (let a = ctx.x - w * 1.8; a <= ctx.x + w * 1.8; a += .05)
       for (let b = ctx.y - w * 1.8; b <= ctx.y + w * 1.8; b += .05)
-        ctx.plot(a, b, h, rampOf(stone)[3]);
+        ctx.plot(a, b, h, stoneRamp[lvTop]);
     ctx.shadow(.35, 1, .4);
   },
 });
@@ -116,17 +132,24 @@ KIT.register({
   draw(ctx, inst) {
     const s = ctx.params.size, h = ctx.params.height;
     const wood = [134, 100, 66];
+    const woodRamp = rampOf(wood);
+    const trimRamp = rampOf(KIT_WOOD_DARK);
     const x0 = ctx.x - s / 2, x1 = ctx.x + s / 2;
     const y0 = ctx.y - s / 2, y1 = ctx.y + s / 2;
+    /* 三面各自按法线受光；奇偶木纹是在受光档上叠的色差，不另设光源 */
+    const lvTop = Math.round(ctx.lit(0, 0, 1));
+    const lvY = Math.round(ctx.lit(0, 1, 0));
+    const lvX = Math.round(ctx.lit(1, 0, 0));
     for (let a = x0; a <= x1; a += .04) for (let z = 0; z <= h; z += .04)
-      ctx.plot(a, y1, z, rampOf(wood)[3 + (Math.floor(a * 5) % 2 ? 0 : -1)]);
+      ctx.plot(a, y1, z, woodRamp[ctx.clamp(lvY + (Math.floor(a * 5) % 2 ? 0 : -1), 0, 4)]);
     for (let a = y0; a <= y1; a += .04) for (let z = 0; z <= h; z += .04)
-      ctx.plot(x1, a, z, rampOf(wood)[2 + (Math.floor(a * 5) % 2 ? 0 : -1)]);
+      ctx.plot(x1, a, z, woodRamp[ctx.clamp(lvX + (Math.floor(a * 5) % 2 ? 0 : -1), 0, 4)]);
     for (let a = x0; a <= x1; a += .04) for (let b = y0; b <= y1; b += .04)
-      ctx.plot(a, b, h, rampOf(wood)[4]);
+      ctx.plot(a, b, h, woodRamp[lvTop]);
+    const trimLv = ctx.clamp(lvY - 1, 0, 4);
     for (let a = x0; a <= x1; a += .04) {
-      ctx.plot(a, y1 + .01, h * .12, rampOf(KIT_WOOD_DARK)[2]);
-      ctx.plot(a, y1 + .01, h * .86, rampOf(KIT_WOOD_DARK)[2]);
+      ctx.plot(a, y1 + .01, h * .12, trimRamp[trimLv]);
+      ctx.plot(a, y1 + .01, h * .86, trimRamp[trimLv]);
     }
     ctx.shadow(s * .8, 1, .4);
   },
@@ -205,6 +228,7 @@ KIT.register({
     const gy = lz - h * 2 - LS * 0.30;
     const gr = LS * 0.40;
     if (P.lit > 0.5) {
+      /* emissive：灯泡与灯芯，保持固定暖色不受方向光影响 */
       ctx.sphere(lx, Y, gy, gr * 1.10, WARM_MID, 'gloss');
       ctx.sphere(lx, Y, gy, gr, WARM_HI, 'gloss');
       ctx.sphere(lx - gr * 0.20, Y - gr * 0.16, gy + gr * 0.20, gr * 0.5, CORE, 'gloss');
@@ -225,6 +249,7 @@ KIT.register({
     ctx.shadow(0.45 + ARM * 0.4, 1, 0.5);
 
     if (P.lit > 0.5 && P.glow > 0.02) {
+      /* emissive：空中光晕 + 地面光斑，是光源本身，不参与方向光 */
       const n = 16 + Math.round(P.glow * 20);
       for (let i = 0; i < n; i++) {
         const a = ctx.hash(i * 3 + 1, S) * 6.2832;
@@ -291,9 +316,11 @@ KIT.register({
     );
 
     const headZ = H + HR * 0.62;
+    /* emissive：灯罩点亮时自发光，熄灭时才是受光的玻璃球 */
     ctx.sphere(X, Y, headZ, HR, lit ? GLASS_LIT : GLASS_OFF, lit ? 'gloss' : 'solid');
 
     if (lit) {
+      /* emissive：灯罩外的光点 */
       const N = 24;
       for (let i = 0; i < N; i++) {
         const a = (i / N) * Math.PI * 2 + ctx.hash(i * 5 + 1, ctx.seed) * 0.35;
@@ -336,6 +363,9 @@ KIT.register({
     const cz = H + BH * 0.5 - BH * 0.18, cy = Y + 0.09;
     const BOARD = [70, 58, 44], BOARD_TOP = [86, 72, 54];
     const TRIM = [148, 126, 92], TEXT = [222, 210, 182], EDGE = [104, 88, 66];
+    /* 牌面是朝 +y 的平面：整面按正面法线取档；顶部一档亮是木牌的固有分色 */
+    const boardRamp = ctx.rampOf(BOARD), boardTopRamp = ctx.rampOf(BOARD_TOP);
+    const lvY = Math.round(ctx.lit(0, 1, 0));
 
     const x0 = -W * 0.5, x1 = W * 0.5;
     const z0 = cz - BH * 0.5, z1 = cz + BH * 0.5;
@@ -344,8 +374,8 @@ KIT.register({
     for (let sx = x0; sx <= x1 + 1e-6; sx += stepX) {
       for (let sz = z0; sz <= z1 + 1e-6; sz += stepZ) {
         const t = (sz - z0) / BH;
-        const shade = t > 0.82 ? BOARD_TOP : BOARD;
-        ctx.plot(X + sx, cy, cz + (sz - cz), ctx.rgb(shade[0], shade[1], shade[2]));
+        const shade = t > 0.82 ? boardTopRamp : boardRamp;
+        ctx.plot(X + sx, cy, cz + (sz - cz), shade[lvY]);
       }
     }
     for (let sx = x0; sx <= x1 + 1e-6; sx += stepX) {

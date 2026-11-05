@@ -32,36 +32,44 @@ function refMix(ctx, a, b, t) {
   ];
 }
 
-/* 砌体：错缝砖石 + 灰缝 + 每块砖色差（structures.md §1） */
+/* 砌体：错缝砖石 + 灰缝 + 每块砖色差（structures.md §1）
+   base 可能来自 ctx.lit() 的浮点档位，索引色阶前必须取整。 */
 function refMasonry(ctx, a, z, base, ramp) {
   const fz = z * 1.6, course = Math.floor(fz);
   const fa = a * 1.2 + (course % 2) * .5, block = Math.floor(fa);
   const mortar = fz - course < .14 || fa - block < .1;
   const tone = ctx.hash(block * 7 + course * 131, ctx.seed);
-  return ramp[ctx.clamp(base + (tone > .75 ? 1 : tone < .2 ? -1 : 0) - (mortar ? 1 : 0), 0, 4)];
+  const lv = Math.round(base + (tone > .75 ? 1 : tone < .2 ? -1 : 0) - (mortar ? 1 : 0));
+  return ramp[ctx.clamp(lv, 0, 4)];
 }
 
-/* 双坡屋面：横向瓦行 + 近坡亮/远坡暗 + 随机缺片（buildings.md §5）
-   row 按屏幕投影高度分行（每行约 3.6px），小屋顶也读得出瓦行 */
+/* 双坡屋面：横向瓦行 + 随机缺片（buildings.md §5）
+   坡面法线 = 沿 y 的坡度分量 + 朝上分量（按 rise/half 归一化），
+   近坡/远坡各喂一次方向光。row 按屏幕投影高度分行（每行约 3.6px），
+   小屋顶也读得出瓦行。 */
 function refRoof(ctx, x0, y0, x1, y1, z, rise, ramp, rows, seed) {
   const yc = (y0 + y1) / 2, half = Math.max(.01, (y1 - y0) / 2), step = .04;
   const perY = (SIN / R2 + rise / half * COS) * S;
+  const k = 1 / Math.hypot(rise / half, 1);
+  const nSlope = (rise / half) * k, nUp = k;
+  const litNear = Math.round(ctx.lit(0, nSlope, nUp)), litFar = Math.round(ctx.lit(0, -nSlope, nUp));
   for (let x = x0; x <= x1; x += step) for (let y = y0; y <= y1; y += step) {
     const q = Math.abs(y - yc) / half;
     const row = Math.floor(Math.abs(y - yc) * perY * rows / 12.24) % 2;
     const wear = ctx.hash(((x * 3) | 0) + seed, (y * 9) | 0) > .85 ? 1 : 0;
-    const lv = ctx.clamp((y > yc ? 3 : 1) - (row ? 1 : 0) - wear, 1, 4);
+    const lv = ctx.clamp((y > yc ? litNear : litFar) - (row ? 1 : 0) - wear, 1, 4);
     ctx.plot(x, y, z + rise * (1 - q), ramp[lv]);
   }
 }
 
-/* 山墙三角：必须画在出檐外缘（buildings.md §5 坑） */
+/* 山墙三角：必须画在出檐外缘（buildings.md §5 坑）；xFace 是 +x 端面 */
 function refGable(ctx, xFace, y0, y1, z, rise, ramp) {
   const yc = (y0 + y1) / 2, half = Math.max(.01, (y1 - y0) / 2), step = .045;
+  const litX = Math.round(ctx.lit(1, 0, 0));
   for (let y = y0; y <= y1; y += step) {
     const q = Math.abs(y - yc) / half;
     for (let h = 0; h <= rise * (1 - q); h += step)
-      ctx.plot(xFace, y, z + h, refMasonry(ctx, y, z + h, 2, ramp));
+      ctx.plot(xFace, y, z + h, refMasonry(ctx, y, z + h, litX, ramp));
   }
 }
 
@@ -95,11 +103,12 @@ KIT.register({
     const dark = ctx.rampOf(REF_DARK);
     const roof = ctx.rampOf(refMix(ctx, REF_SLATE, REF_TILE, p.roofWarm));
 
-    /* 两面可见墙：正面 base 3、侧面 base 2 */
+    /* 两面可见墙：正面按 +y 法线、侧面按 +x 法线取光照档位 */
+    const litY = Math.round(ctx.lit(0, 1, 0)), litX = Math.round(ctx.lit(1, 0, 0));
     for (let a = x0; a <= x1; a += step) for (let z = 0; z <= p.height; z += step)
-      ctx.plot(a, y1, z0 + z, refMasonry(ctx, a, z, 3, stone));
+      ctx.plot(a, y1, z0 + z, refMasonry(ctx, a, z, litY, stone));
     for (let a = y0; a <= y1; a += step) for (let z = 0; z <= p.height; z += step)
-      ctx.plot(x1, a, z0 + z, refMasonry(ctx, a, z, 2, stone));
+      ctx.plot(x1, a, z0 + z, refMasonry(ctx, a, z, litX, stone));
 
     /* 规则排窗：凸出墙面 .14，否则被墙吃掉 */
     const nw = p.windows | 0;
@@ -142,10 +151,12 @@ KIT.register({
     const dark = ctx.rampOf(REF_DARK);
     const roof = ctx.rampOf(refMix(ctx, REF_SLATE, REF_TILE, p.roofWarm));
 
+    const litY = Math.round(ctx.lit(0, 1, 0)), litX = Math.round(ctx.lit(1, 0, 0));
+    const litTop = Math.round(ctx.lit(0, 0, 1));
     for (let a = x0; a <= x1; a += step) for (let z = 0; z <= p.height; z += step)
-      ctx.plot(a, y1, z0 + z, refMasonry(ctx, a, z, 3, stone));
+      ctx.plot(a, y1, z0 + z, refMasonry(ctx, a, z, litY, stone));
     for (let a = y0; a <= y1; a += step) for (let z = 0; z <= p.height; z += step)
-      ctx.plot(x1, a, z0 + z, refMasonry(ctx, a, z, 2, stone));
+      ctx.plot(x1, a, z0 + z, refMasonry(ctx, a, z, litX, stone));
 
     /* 三个窗在两个高度上交错 → 更像塔 */
     const spots = [[.35, .3], [.65, .55], [.35, .78], [.7, .2], [.25, .62]];
@@ -157,7 +168,7 @@ KIT.register({
         for (let z = cz - .4; z <= cz + .4; z += step)
           ctx.plot(a, y1 + .14, z0 + z, dark[1]);
       for (let a = cx - .26; a <= cx + .26; a += step)
-        ctx.plot(a, y1 + .15, z0 + cz - .44, stone[4]);   // 窗台
+        ctx.plot(a, y1 + .15, z0 + cz - .44, stone[litTop]);   // 窗台（朝上的面）
     }
 
     refRoof(ctx, x0 - .15, y0 - .15, x1 + .15, y1 + .15, z0 + p.height, p.rise, roof, 3.4, ctx.seed);
@@ -188,21 +199,21 @@ KIT.register({
     const dark = ctx.rampOf(REF_DARK);
     const roof = ctx.rampOf(refMix(ctx, REF_SLATE, REF_TILE, p.roofWarm));
 
-    /* 圆柱整圈都画，靠深度缓冲自动遮挡（不要只画前半圈） */
+    /* 圆柱整圈都画，靠深度缓冲自动遮挡（不要只画前半圈）。
+       径向法线直接喂方向光，整圈明暗随光源走。 */
     for (let t = 0; t < 6.283; t += .016) {
       const nx = Math.cos(t), ny = Math.sin(t);
-      const base = ctx.clamp(Math.round(2.4 + (-.5 * nx + .85 * ny) * 1.3), 1, 4);
+      const base = ctx.clamp(Math.round(ctx.lit(nx, ny, 0)), 1, 4);
       for (let z = 0; z <= p.height; z += step)
         ctx.plot(cx + nx * r, cy + ny * r, z0 + z, refMasonry(ctx, t * r, z, base, stone));
     }
 
-    /* 锥顶：半径线性收缩 + 横向环纹 */
+    /* 锥顶：半径线性收缩 + 横向环纹；法线 = 径向分量 + 朝上分量 */
     for (let t = 0; t < 6.283; t += .02) {
       const nx = Math.cos(t), ny = Math.sin(t);
-      const l = -.5 * nx + .85 * ny;
       for (let q = 0; q <= 1; q += .012) {
         const rr = (r + .2) * (1 - q);
-        const lv = ctx.clamp(Math.round(2.4 + l * 1.4 + (Math.floor(q * 12) % 2) * .4), 1, 4);
+        const lv = ctx.clamp(Math.round(ctx.lit(nx * .7, ny * .7, .7) + (Math.floor(q * 12) % 2) * .4), 1, 4);
         ctx.plot(cx + nx * rr, cy + ny * rr, z0 + p.height + q * p.roofRise, roof[lv]);
       }
     }

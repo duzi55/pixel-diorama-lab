@@ -238,6 +238,8 @@ KIT.register({
       [104, 126, 62], [136, 148, 72], [98, 116, 78],
     ][idx];
     const ramp = ctx.rampOf(BASE);
+    /* 苔藓是贴地面：以顶面法线取光照档，默认 3 档为基准偏移 0 */
+    const litTop = Math.round(ctx.lit(0, 0, 1));
 
     /* 屏幕包围盒：世界圆投影成宽 2*size*S、高 size*S 的椭圆。
        逐屏幕像素反解世界坐标 —— 不用逐格点 plot，否则格点之间的
@@ -272,13 +274,13 @@ KIT.register({
 
         /* 斑驳：中频噪声 + 高频 hash，五档色阶都要用上 */
         const mottle = ctx.noise(w[0] * 3.7 + 5.1, w[1] * 3.7 + 9.4);
-        const lv = ctx.clamp(Math.round(mottle * 3 + fine * 1.4 - .4), 0, 4);
+        const lv = ctx.clamp(Math.round(mottle * 3 + fine * 1.4 - .4) + litTop - 3, 0, 4);
         ctx.plot(w[0], w[1], .02, ramp[lv]);
 
         /* 绒面：稀疏的亮像素抬高一层（小球在 1px 尺度上会画出
            一圈深色球面暗部，读成破洞） */
         if (fine > .93 && d < edge - .12) {
-          ctx.plot(w[0], w[1], .04, ramp[4]);
+          ctx.plot(w[0], w[1], .04, ramp[ctx.clamp(litTop + 1, 0, 4)]);
         }
       }
     }

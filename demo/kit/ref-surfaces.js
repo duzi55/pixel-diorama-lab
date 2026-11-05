@@ -78,20 +78,27 @@ KIT.register({
     const x0 = ctx.x - p.width / 2, x1 = ctx.x + p.width / 2;
     const y0 = ctx.y - p.depth / 2, y1 = ctx.y + p.depth / 2;
 
+    /* 面亮度 = 方向光档位 + 参数偏移（base 默认 3 时等于纯光照）。
+       base 仍能整体提亮/压暗，但"哪面亮"交给光源。 */
+    const off = p.base - 3;
+    const litY = Math.round(ctx.lit(0, 1, 0)) + off;
+    const litX = Math.round(ctx.lit(1, 0, 0)) + off;
+    const litTop = Math.round(ctx.lit(0, 0, 1)) + off;
+
     /* 正面（y1 面）受光 */
     for (let a = x0; a <= x1; a += step)
       for (let z = 0; z <= p.height; z += step)
-        ctx.plot(a, y1, z0 + z, rsMasonry(ctx, a, z, p.base, p.seed));
+        ctx.plot(a, y1, z0 + z, rsMasonry(ctx, a, z, litY, p.seed));
 
-    /* 侧面（x1 面）背光：base 降一档，自动出体积 */
+    /* 侧面（x1 面）按自己的法线取档，不再写死"降一档" */
     for (let a = y0; a <= y1; a += step)
       for (let z = 0; z <= p.height; z += step)
-        ctx.plot(x1, a, z0 + z, rsMasonry(ctx, a, z, p.base - 1, p.seed + 11));
+        ctx.plot(x1, a, z0 + z, rsMasonry(ctx, a, z, litX, p.seed + 11));
 
-    /* 顶面：压顶石板，比正面再亮一档 */
+    /* 顶面：压顶石板按顶面法线取档 */
     for (let a = x0; a <= x1; a += step)
       for (let b = y0; b <= y1; b += step)
-        ctx.plot(a, b, z0 + p.height, rsSlabTop(ctx, a, p.base + 1, p.seed));
+        ctx.plot(a, b, z0 + p.height, rsSlabTop(ctx, a, litTop, p.seed));
 
     rsShadow(ctx, x0, y0, x1, y1, p.height);
   },
@@ -117,17 +124,23 @@ KIT.register({
     const x0 = ctx.x - p.width / 2, x1 = ctx.x + p.width / 2;
     const y0 = ctx.y - p.depth / 2, y1 = ctx.y + p.depth / 2;
 
+    /* 面亮度 = 方向光档位 + 参数偏移（base 默认 3 时等于纯光照） */
+    const off = p.base - 3;
+    const litY = Math.round(ctx.lit(0, 1, 0)) + off;
+    const litX = Math.round(ctx.lit(1, 0, 0)) + off;
+    const litTop = Math.round(ctx.lit(0, 0, 1)) + off;
+
     for (let a = x0; a <= x1; a += step)
       for (let z = 0; z <= p.height; z += step)
-        ctx.plot(a, y1, z0 + z, rsPlaster(ctx, a, z, p.base, p.peel, 0));
+        ctx.plot(a, y1, z0 + z, rsPlaster(ctx, a, z, litY, p.peel, 0));
 
     for (let a = y0; a <= y1; a += step)
       for (let z = 0; z <= p.height; z += step)
-        ctx.plot(x1, a, z0 + z, rsPlaster(ctx, a, z, p.base - 1, p.peel, 9));
+        ctx.plot(x1, a, z0 + z, rsPlaster(ctx, a, z, litX, p.peel, 9));
 
     for (let a = x0; a <= x1; a += step)
       for (let b = y0; b <= y1; b += step)
-        ctx.plot(a, b, z0 + p.height, rsSlabTop(ctx, a, p.base + 1, 3));
+        ctx.plot(a, b, z0 + p.height, rsSlabTop(ctx, a, litTop, 3));
 
     rsShadow(ctx, x0, y0, x1, y1, p.height);
   },
@@ -152,14 +165,19 @@ KIT.register({
     const x0 = ctx.x - p.w / 2, x1 = ctx.x + p.w / 2;
     const y0 = ctx.y - p.d / 2, y1 = ctx.y + p.d / 2;
 
-    /* 墙身：两面抹灰，正面亮、侧面暗；剥落比单独墙面少 */
+    /* 面亮度跟方向光：正面 +y、右侧 +x、顶面 +z 各按自身法线取档 */
+    const litY = Math.round(ctx.lit(0, 1, 0));
+    const litX = Math.round(ctx.lit(1, 0, 0));
+    const litTop = Math.round(ctx.lit(0, 0, 1));
+
+    /* 墙身：两面抹灰；剥落比单独墙面少 */
     for (let a = x0; a <= x1; a += step)
       for (let z = 0; z <= p.h; z += step)
-        ctx.plot(a, y1, z0 + z, rsPlaster(ctx, a, z, 3, .18, 5));
+        ctx.plot(a, y1, z0 + z, rsPlaster(ctx, a, z, litY, .18, 5));
 
     for (let a = y0; a <= y1; a += step)
       for (let z = 0; z <= p.h; z += step)
-        ctx.plot(x1, a, z0 + z, rsPlaster(ctx, a, z, 2, .18, 13));
+        ctx.plot(x1, a, z0 + z, rsPlaster(ctx, a, z, litX, .18, 13));
 
     /* 石板压顶：四边出挑 .14，box 只吃 [r,g,b] 基色 */
     const e = .14, capH = .22;
@@ -173,7 +191,8 @@ KIT.register({
       const shut = ctx.rampOf(RS_SHUTTER);
       for (let a = dx - dw; a <= dx + dw; a += step)
         for (let z = 0; z <= dh; z += step)
-          ctx.plot(a, y1 + .03, z0 + z, shut[Math.floor(z * 6) % 2 ? 3 : 2]);
+          ctx.plot(a, y1 + .03, z0 + z,
+            shut[clamp(litY + (Math.floor(z * 6) % 2 ? 0 : -1), 0, 4)]);
 
       /* 门框：左右立梃 + 上楣，同一材质压暗一档。
          fw 至少 .14（≈1px），太小会在 plot 步长里漏成虚线。 */
@@ -185,11 +204,11 @@ KIT.register({
       for (let a = dx - dw; a <= dx + dw; a += step)
         for (let z = dh - fw; z <= dh; z += step) ctx.plot(a, y1 + .04, z0 + z, shut[0]);
 
-      /* 门槛石：向门外挑出一小条 */
+      /* 门槛石：向门外挑出一小条（朝上的面，按顶面光照） */
       const sill = ctx.rampOf(RS_CAP);
       for (let a = dx - dw - .08; a <= dx + dw + .08; a += step)
         for (let b = y1; b <= y1 + .1; b += .02)
-          ctx.plot(a, b, z0 + .02, sill[3]);
+          ctx.plot(a, b, z0 + .02, sill[litTop]);
     }
 
     rsShadow(ctx, x0, y0, x1, y1, p.h);

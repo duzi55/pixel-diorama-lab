@@ -23,11 +23,11 @@ function kitWoodWall(a, z, base, seed) {
   return rampOf(KIT_WOOD)[level];
 }
 
-/* ---- 屋顶瓦：横向瓦行 + 近坡亮远坡暗 ---- */
-function kitShingle(x, y, q, seed) {
+/* ---- 屋顶瓦：横向瓦行 + 近坡亮远坡暗（亮度跟方向光走，两坡各按自身法线取档） ---- */
+function kitShingle(ctx, x, y, q, seed) {
   const row = Math.floor(q * 3.4) % 2;
   const wear = hash(x * 3 | 0, y * 9 | 0) > .86 ? -1 : 0;
-  const base = (y > 0 ? 3 : 1) + row + wear;
+  const base = Math.round(ctx.lit(0, y > 0 ? 1 : -1, 0)) + row + wear;
   return rampOf(KIT_SHINGLE)[clamp(base, 0, 4)];
 }
 
@@ -59,8 +59,10 @@ KIT.register({
     const balD = ctx.params.balconyDepth || 0;
     const balRail = ctx.params.balconyRail || 0;
 
-    /* 墙面亮度由光源决定，不写死：+y 面与 +x 面各自按法线取档 */
-    const litY = ctx.lit(0, 1, 0), litX = ctx.lit(1, 0, 0);
+    /* 面亮度由光源决定，不写死：各面按自身世界法线取档。
+       必须先取整，否则浮点档位会索引到 undefined。 */
+    const litY = Math.round(ctx.lit(0, 1, 0)), litX = Math.round(ctx.lit(1, 0, 0));
+    const litTop = Math.round(ctx.lit(0, 0, 1));
     for (let a = x0; a <= x1; a += step) for (let z = 0; z <= h; z += step)
       ctx.plot(a, y1, z, kitWoodWall(a, z, litY, seed));
     for (let a = y0; a <= y1; a += step) for (let z = 0; z <= h; z += step)
@@ -73,33 +75,35 @@ KIT.register({
       const wz = h * .52, ww = .22, wh = .42;
       for (let a = cx - ww; a <= cx + ww; a += step) for (let z = wz; z <= wz + wh; z += step) {
         const frame = Math.abs(a - cx) < .035 || Math.abs(z - (wz + wh / 2)) < .035;
-        ctx.plot(a, y1 + .14, z, frame ? rampOf(KIT_WOOD_LIT)[3] : rgb(255, 214, 96));
+        /* 窗内 rgb(255,214,96) 是 emissive：自发光，不随方向光；窗框跟墙走 */
+        ctx.plot(a, y1 + .14, z, frame ? rampOf(KIT_WOOD_LIT)[litY] : rgb(255, 214, 96));
       }
       for (let a = cx - ww - .07; a <= cx + ww + .07; a += step)
-        ctx.plot(a, y1 + .12, wz - .04, rampOf(KIT_WOOD_DARK)[2]);
+        ctx.plot(a, y1 + .12, wz - .04, rampOf(KIT_WOOD_DARK)[clamp(litY - 1, 0, 4)]);
     }
 
     const dx = lerp(x0, x1, .5), dw = .28, dh = .78;
     for (let a = dx - dw; a <= dx + dw; a += step) for (let z = 0; z <= dh; z += step)
-      ctx.plot(a, y1 + .14, z, rampOf(KIT_DOOR)[2 + (Math.floor(a * 6) % 2 ? 0 : -1)]);
+      ctx.plot(a, y1 + .14, z, rampOf(KIT_DOOR)[clamp(litY - 1 + (Math.floor(a * 6) % 2 ? 0 : -1), 0, 4)]);
     for (let z = 0; z <= dh + .06; z += step) {
-      ctx.plot(dx - dw - .05, y1 + .14, z, rampOf(KIT_WOOD_DARK)[3]);
-      ctx.plot(dx + dw + .05, y1 + .14, z, rampOf(KIT_WOOD_DARK)[3]);
+      ctx.plot(dx - dw - .05, y1 + .14, z, rampOf(KIT_WOOD_DARK)[litY]);
+      ctx.plot(dx + dw + .05, y1 + .14, z, rampOf(KIT_WOOD_DARK)[litY]);
     }
     for (let s = 0; s < 3; s++) {
       const z = .06 + s * .05, spread = .34 + s * .12;
       for (let a = dx - spread; a <= dx + spread; a += step)
-        ctx.plot(a, y1 + .3 + s * .16, z, rampOf(KIT_STONE)[2 + (hash(a * 8 | 0, s) > .5 ? 1 : 0)]);
+        ctx.plot(a, y1 + .3 + s * .16, z,
+          rampOf(KIT_STONE)[clamp(litTop - 1 + (hash(a * 8 | 0, s) > .5 ? 1 : 0), 0, 4)]);
     }
 
     if (balD > .01) {
       const bz = h * .55, bx0 = x0 + .35, bx1 = x1 - .35, by = y1 + balD;
       for (let a = bx0; a <= bx1; a += step)
         for (let b = y1; b <= by; b += step)
-          ctx.plot(a, b, bz, kitWoodWall(a, bz, ctx.lit(0, 1, 0) - .4, seed + 3));
+          ctx.plot(a, b, bz, kitWoodWall(a, bz, litTop - .4, seed + 3));
       for (let a = bx0; a <= bx1; a += step)
         for (let z = bz - .16; z < bz; z += .04)
-          ctx.plot(a, by, z, rampOf(KIT_WOOD_DARK)[2]);
+          ctx.plot(a, by, z, rampOf(KIT_WOOD_DARK)[clamp(litY - 1, 0, 4)]);
       for (let a = bx0 + .3; a <= bx1 - .3; a += .7) {
         ctx.capsule([a, y1 + .05, bz - .62], [a, by - .12, bz - .04],
           .055, .05, () => KIT_WOOD_DARK, 'rough');
@@ -126,26 +130,26 @@ KIT.register({
         const m = noise(x * 1.8, y * 1.8);
         c = rampOf(KIT_MOSS)[clamp(2 + Math.floor(m * 2.2), 0, 4)];
       } else {
-        c = kitShingle(x, y, q, seed);
+        c = kitShingle(ctx, x, y, q, seed);
       }
       ctx.plot(x, y, z, c);
     }
     for (let y = ry0; y <= ry1; y += .04) {
       const q = Math.abs(y - yc) / half;
       for (let hg = 0; hg <= rise * (1 - q); hg += .04)
-        ctx.plot(x1, y, h + hg, kitWoodWall(y, h + hg, 2, seed + 7));
+        ctx.plot(x1, y, h + hg, kitWoodWall(y, h + hg, litX, seed + 7));
     }
     for (let x = rx0; x <= rx1; x += .04) for (let y = ry0; y <= ry1; y += .04) {
       const q = Math.abs(y - yc) / half;
-      if (q > .93) ctx.plot(x, y, h + rise * (1 - q), rampOf(KIT_WOOD_DARK)[2]);
+      if (q > .93) ctx.plot(x, y, h + rise * (1 - q), rampOf(KIT_WOOD_DARK)[clamp(litY - 1, 0, 4)]);
     }
 
     if (ctx.params.chimney >= 1) {
       const cx = ctx.x + .6, cy = ctx.y, ch = h + rise + .5, cw = .22;
       for (let a = cx - cw; a <= cx + cw; a += step) for (let z = 0; z <= ch; z += step)
-        ctx.plot(a, cy + cw, z, rampOf(KIT_CHIMNEY)[2 + (Math.floor(z * 2.2) % 2 ? 0 : -1)]);
+        ctx.plot(a, cy + cw, z, rampOf(KIT_CHIMNEY)[clamp(litY + (Math.floor(z * 2.2) % 2 ? 0 : -1), 0, 4)]);
       for (let a = cx - cw; a <= cx + cw; a += step) for (let z = 0; z <= ch; z += step)
-        ctx.plot(cx + cw, a, z, rampOf(KIT_CHIMNEY)[1]);
+        ctx.plot(cx + cw, a, z, rampOf(KIT_CHIMNEY)[litX]);
     }
 
     ctx.shadow(w * .6, 1, .4);
@@ -273,17 +277,25 @@ KIT.register({
     const STONE = [110, 108, 102];
     const CHIM  = [134, 130, 122];
 
+    // —— 面光照档位（跟方向光；取整后才能索引色阶） ——
+    const litXp = Math.round(ctx.lit(1, 0, 0));    // +x 山墙
+    const litXn = Math.round(ctx.lit(-1, 0, 0));   // -x 山墙
+    const litNear = Math.round(ctx.lit(0, 1, 0));  // 近坡屋面
+    const litFar = Math.round(ctx.lit(0, -1, 0));  // 远坡屋面
+
     // —— 打包像素色（只喂 plot） ——
     const seamC  = ctx.rgb(96, 72, 50);
-    const wallA  = ctx.rgb(128, 98, 70);
-    const wallB  = ctx.rgb(112, 84, 60);
+    /* 山墙/屋面是面材质：亮度吃光照档位，色相仍是原来的两档色差 */
+    const wallA  = ctx.rampOf([128, 98, 70]);
+    const wallB  = ctx.rampOf([112, 84, 60]);
     const doorC  = ctx.rgb(84, 60, 42);
     const frameC = ctx.rgb(64, 46, 32);
-    const roofC  = ctx.rgb(90, 74, 60);
-    const roofD  = ctx.rgb(74, 60, 48);
+    const roofC  = ctx.rampOf([90, 74, 60]);
+    const roofD  = ctx.rampOf([74, 60, 48]);
     const leafA  = ctx.rgb(mix(238, 226), mix(200, 156), mix(104, 70));
     const leafB  = ctx.rgb(mix(220, 208), mix(176, 134), mix(78, 54));
     const leafC  = ctx.rgb(mix(198, 186), mix(150, 112), mix(58, 40));
+    /* emissive：窗内是自发光，不随方向光（关灯时是深色玻璃，也保持原样） */
     const winIn  = P.lamp > 0.5 ? ctx.rgb(255, 232, 168) : ctx.rgb(126, 140, 146);
     const winHi  = P.lamp > 0.5 ? ctx.rgb(248, 202, 116) : ctx.rgb(104, 118, 126);
 
@@ -324,13 +336,13 @@ KIT.register({
     face('x',  1, Y + D * 0.12, Z + 1.34, 0.22, 0.17, winIn, winHi);
     face('x', -1, Y + D * 0.12, Z + 1.34, 0.22, 0.17, winIn, winHi);
 
-    // 4. 山墙三角（±x 端面，用 plot 铺平面）
+    // 4. 山墙三角（±x 端面，用 plot 铺平面；两面各按自身法线取档）
     for (let y = -D; y <= D + 1e-6; y += 0.09) {
       const top = Z + H + (RIDGE - H) * (1 - Math.abs(y) / D);
       for (let z = Z + H; z <= top; z += 0.09) {
-        const c = ctx.hash(Math.round((y + 4) * 43) + Math.round((z - Z) * 71), S) > 0.5 ? wallA : wallB;
-        ctx.plot(X + W + 0.01, Y + y, z, c);
-        ctx.plot(X - W - 0.01, Y + y, z, c);
+        const hi = ctx.hash(Math.round((y + 4) * 43) + Math.round((z - Z) * 71), S) > 0.5;
+        ctx.plot(X + W + 0.01, Y + y, z, (hi ? wallA : wallB)[litXp]);
+        ctx.plot(X - W - 0.01, Y + y, z, (hi ? wallA : wallB)[litXn]);
       }
     }
 
@@ -339,6 +351,7 @@ KIT.register({
     const nU = 24, nV = 15;
     for (let sg = 1; sg >= -1; sg -= 2) {
       const base = sg > 0 ? 0 : 701;
+      const litRoof = sg > 0 ? litNear : litFar;   // 两坡各按 ±y 法线
       for (let iu = 0; iu <= nU; iu++) {
         const u = -1 + 2 * iu / nU;
         const px = X + u * halfX;
@@ -346,8 +359,8 @@ KIT.register({
           const v = iv / nV;
           const py = Y + sg * (D + OV) * (1 - v);
           const pz = Z + H + (RIDGE - H) * v;
-          // 屋面底色（暗木瓦）
-          ctx.plot(px, py, pz, ctx.hash(iu * 31 + iv * 17 + base, S) > 0.4 ? roofC : roofD);
+          // 屋面底色（暗木瓦）：亮度跟光照，两档色差仍是材质
+          ctx.plot(px, py, pz, (ctx.hash(iu * 31 + iv * 17 + base, S) > 0.4 ? roofC : roofD)[litRoof]);
 
           // 落叶：低频噪声成团 + 檐口/屋脊加密
           const cov = ctx.noise((u + 1) * 2.6 + (sg > 0 ? 0 : 11), v * 2.2 + 3.7);

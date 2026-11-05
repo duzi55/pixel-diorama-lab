@@ -77,8 +77,11 @@ KIT.register({
       const rmp = band ? white : orange;
       for (let t = 0; t < 6.2832; t += .02) {
         const nx = Math.cos(t), ny = Math.sin(t);
-        /* 与藤篮同一个柱面光照公式；白带整体提一档 */
-        const lv = ctx.clamp(Math.round(2.8 - .5 * nx + .85 * ny + (band ? 1 : 0)), 1, 4);
+        /* 锥面按该点的世界法线取档；白色反光带是逆反材质（emissive），
+           保持原来的一档提亮与分档，不随方向光 */
+        const lv = band
+          ? ctx.clamp(Math.round(2.8 - .5 * nx + .85 * ny + 1), 1, 4)   /* emissive：反光带 */
+          : ctx.clamp(Math.round(ctx.lit(nx, ny, 0)), 1, 4);
         ctx.plot(X + nx * rz, Y + ny * rz, Z + z, rmp[lv]);
       }
     }
@@ -169,6 +172,9 @@ KIT.register({
     const set = rpsPick(RPS_AWNING_SETS, P.color);
     const main = ctx.rampOf(set[0]), alt = ctx.rampOf(set[1]);
     const zh = Z + H;
+    /* 篷面是朝上的斜面 → 顶面档；外沿垂边是朝 +y 的立面 → 正面档 */
+    const lvTop = Math.round(ctx.lit(0, 0, 1));
+    const lvY = Math.round(ctx.lit(0, 1, 0));
     /* 前后高差不能把外沿压到地下（极端参数时按高度收一收） */
     const slope = Math.min(P.slope, H * .8);
     const yWall = Y - D / 2, yFront = Y + D / 2;
@@ -180,7 +186,7 @@ KIT.register({
       for (let v = 0; v <= D + 1e-6; v += .04) {
         const t = v / Math.max(.001, D);
         const sag = Math.sin(t * Math.PI) * .05;
-        const lv = ctx.clamp(3 + Math.round(Math.cos(u * 2.1) * .35 - t * .9), 1, 4);
+        const lv = ctx.clamp(lvTop + Math.round(Math.cos(u * 2.1) * .35 - t * .9), 1, 4);
         ctx.plot(X + u, yWall + v, zh - t * slope - sag, rmp[lv]);
       }
     }
@@ -190,7 +196,7 @@ KIT.register({
       const rmp = Math.floor((u + W / 2) / P.stripe) % 2 ? alt : main;
       const hem = .12 + .06 * (.5 + .5 * Math.sin(u * 5.5));
       for (let zz = 0; zz <= hem; zz += .03) {
-        const lv = ctx.clamp(3 - Math.round(zz / Math.max(.001, hem)), 1, 4);
+        const lv = ctx.clamp(lvY - Math.round(zz / Math.max(.001, hem)), 1, 4);
         ctx.plot(X + u, yFront + .02, zEdge - zz, rmp[lv]);
       }
     }
@@ -237,6 +243,9 @@ KIT.register({
     const R = P.r, H = P.h;
     const wire = ctx.rampOf(RPS_WIRE);
     const floor = ctx.rampOf(RPS_BASKET_FLOOR);
+    /* 侧网按该点的世界法线取档；筐口是水平圆环 → 顶面档（内圈暗一档） */
+    const lvTop = Math.round(ctx.lit(0, 0, 1));
+    const lvRimIn = Math.max(0, lvTop - 1);
 
     /* 筐底：暗色圆盘，给"里面"一个底 */
     for (let a = 0; a < 6.2832; a += .05) {
@@ -250,7 +259,7 @@ KIT.register({
     for (let t = 0; t < 6.2832; t += .018) {
       const nx = Math.cos(t), ny = Math.sin(t);
       const s = t * R;
-      const lv = ctx.clamp(Math.round(2.7 - .5 * nx + .85 * ny), 1, 4);
+      const lv = ctx.clamp(Math.round(ctx.lit(nx, ny, 0)), 1, 4);
       for (let z = 0; z <= H + 1e-6; z += .035) {
         const f = (s + z) * mesh, g = (s - z) * mesh;
         if (f - Math.floor(f) > wireW && g - Math.floor(g) > wireW) continue;
@@ -261,8 +270,8 @@ KIT.register({
     /* 筐口：内外两道细圈，篮子才有厚度 */
     for (let t = 0; t < 6.2832; t += .012) {
       const nx = Math.cos(t), ny = Math.sin(t);
-      ctx.plot(X + nx * R, Y + ny * R, Z + H + .015, wire[4]);
-      ctx.plot(X + nx * (R - .035), Y + ny * (R - .035), Z + H + .03, wire[3]);
+      ctx.plot(X + nx * R, Y + ny * R, Z + H + .015, wire[lvTop]);
+      ctx.plot(X + nx * (R - .035), Y + ny * (R - .035), Z + H + .03, wire[lvRimIn]);
     }
 
     /* 筐里的球：位置全部来自 hash，刷新场景也是同一堆 */
