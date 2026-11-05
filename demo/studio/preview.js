@@ -67,6 +67,9 @@ function PV_drawGround() {
     const idx = clamp(Math.floor(v * 3.999 + (bayerAt(ix, iy) - .5) * .6), 0, 3);
     pix[i] = rgb(...BG.ground[idx]);
     ground[i] = 1;
+    /* ★ 不能留 KIND_NONE：applyShadows 把 KIND_NONE 当"路面"跳过，
+       预览里就永远看不到构件投影。预览地面是草地，标 KIND_GRASS。 */
+    kinds[i] = KIND_GRASS;
     zb[i] = (g.x + g.y) / Math.SQRT2 * (Math.sqrt(3) / 2);
   }
   groundZ.set(zb);
