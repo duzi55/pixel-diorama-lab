@@ -193,3 +193,28 @@ function initTerrainEdgeUI() {
 }
 
 initTerrainEdgeUI();
+
+/* ---------------- 地形选区 UI ---------------- */
+
+function initTerrainSelUI() {
+  const mats = document.getElementById('sel-mats');
+  if (!mats) return;
+
+  mats.innerHTML = Object.entries(TERRAIN.mats || {})
+    .map(([id, m]) => `<button class="pill" data-mat="${id}">${m.name || id}</button>`).join('');
+
+  mats.addEventListener('click', e => {
+    const b = e.target.closest('[data-mat]');
+    if (!b) return;
+    ED_fillSelection(b.dataset.mat, 0);
+  });
+
+  const raise = document.getElementById('sel-raise');
+  const lower = document.getElementById('sel-lower');
+  const erase = document.getElementById('sel-erase');
+  if (raise) raise.addEventListener('click', () => ED_fillSelection(null, .25));
+  if (lower) lower.addEventListener('click', () => ED_fillSelection(null, -.25));
+  if (erase) erase.addEventListener('click', () => ED_fillSelection('__erase__'));
+}
+
+initTerrainSelUI();

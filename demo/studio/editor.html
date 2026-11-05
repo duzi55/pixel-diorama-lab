@@ -56,6 +56,7 @@
           <button class="pill" data-tool="select">选择</button>
           <button class="pill" data-tool="pan">平移</button>
           <button class="pill" data-tool="light">光源</button>
+          <button class="pill" data-tool="marquee">选框</button>
         </div>
     </div>
     <div class="fp-tabs" data-tabs="left">
@@ -90,6 +91,12 @@
           <label>绘制高度 <b id="v-height">0.00</b></label>
           <input type="range" id="height" min="0" max="3" step="0.25" value="0">
         </div>
+        <div class="prop-sub">画布</div>
+        <div class="row">
+          <span class="hint" id="canvas-size" style="flex:1">520 × 380</span>
+          <button id="btn-expand" class="ghost">扩展 +128</button>
+        </div>
+
         <div class="prop-sub">地形配方（主体 + 过渡 + 边缘）</div>
         <select id="recipe-sel" style="width:100%"></select>
         <select id="recipe-blend" style="width:100%;margin-top:6px"></select>
@@ -97,6 +104,15 @@
           <button id="btn-recipe-gen" class="primary" style="flex:1">按配方生成</button>
         </div>
         <div class="hint" id="recipe-hint">生成后可用笔刷继续修边</div>
+
+        <div class="prop-sub">选区填充（选框工具）</div>
+        <div class="hint" id="sel-hint">用工具栏「选框」框一块地形，再点材质填充</div>
+        <div class="pill-row" id="sel-mats" style="margin-top:6px"></div>
+        <div class="row" style="margin-top:6px">
+          <button id="sel-raise" class="ghost">抬高 +0.25</button>
+          <button id="sel-lower" class="ghost">降低 -0.25</button>
+        </div>
+        <button id="sel-erase" class="ghost" style="width:100%;margin-top:6px">清除选区地形</button>
       </div>
 
       <div class="sec">

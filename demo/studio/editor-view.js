@@ -216,6 +216,10 @@ function ED_applyTool(w) {
   switch (ED.tool) {
     case 'paint':
       TERRAIN.paint(g.gx, g.gy, ED.mat, ED.brush, ED.height, 'paint');
+      if (typeof ED_autoGrow === 'function') {
+        const pp = project(g.gx + .5, g.gy + .5, 0);
+        ED_autoGrow(pp.sx, pp.sy);
+      }
       break;
     case 'erase':
       TERRAIN.paint(g.gx, g.gy, ED.mat, ED.brush, 0, 'erase');

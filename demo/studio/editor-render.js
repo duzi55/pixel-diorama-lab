@@ -100,6 +100,7 @@ function ED_render(t = 0) {
   if (ED.showBox) ED_drawAllCollisions();
   if (ED.ghost && ED.placing) ED_drawGhost();
   if (ED.marquee) ED_drawMarquee();
+  if (typeof ED_drawTerrainSel === 'function') ED_drawTerrainSel();
   ED_drawSelectionBox();
 
   /* 选中物体的头顶浮动像素箭头 */
@@ -128,4 +129,33 @@ function ED_drawObject(o) {
   try {
     comp.draw(KIT_RENDER.makeCtx(o), o);
   } catch (e) { console.error('[editor] 构件绘制失败', o.kind, e); }
+}
+
+
+/* ---------------- 画布扩展（无限画布的基础） ---------------- */
+
+/** 把画布扩大 dw×dh（内容仍在中心），上限 2048 */
+function ED_expandCanvas(dw, dh) {
+  const nw = Math.min(2048, W + (dw || 0));
+  const nh = Math.min(2048, H + (dh || 0));
+  if (nw === W && nh === H) { studioStatus('画布已达上限 2048', 'err'); return; }
+  ED_snapshot('扩展画布');
+  PP_setSize(nw, nh);
+  ED.view = { scale: 1, ox: 0, oy: 0 };
+  ED_fit();
+  ED.dirty = true;
+  const el = document.getElementById('canvas-size');
+  if (el) el.textContent = `${nw} × ${nh}`;
+  studioStatus(`画布扩展为 ${nw}×${nh}`);
+}
+
+/** 笔刷接近边缘时自动扩画布（拖动画布外也能继续画） */
+function ED_autoGrow(sx, sy) {
+  const M = 28;
+  let dw = 0, dh = 0;
+  if (sx > W - M) dw = 128;
+  else if (sx < M) dw = 128;   /* 向左画也扩，内容自动居中 */
+  if (sy > H - M) dh = 128;
+  else if (sy < M) dh = 128;
+  if (dw || dh) ED_expandCanvas(dw, dh);
 }

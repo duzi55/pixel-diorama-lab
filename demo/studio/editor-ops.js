@@ -164,3 +164,75 @@ function ED_drawSelectionBox() {
   corner(px0, py1, 1, -1);
   corner(px1, py1, -1, -1);
 }
+
+/* ---------------- 地形选区（选框工具） ---------------- */
+
+function ED_selectionCells() {
+  const s = ED.terrainSel;
+  if (!s) return [];
+  const gx0 = Math.floor(Math.min(s.x0, s.x1));
+  const gx1 = Math.ceil(Math.max(s.x0, s.x1));
+  const gy0 = Math.floor(Math.min(s.y0, s.y1));
+  const gy1 = Math.ceil(Math.max(s.y0, s.y1));
+  const out = [];
+  for (let gx = gx0; gx <= gx1; gx++) {
+    for (let gy = gy0; gy <= gy1; gy++) out.push({ gx, gy });
+  }
+  return out;
+}
+
+function ED_selectionCellCount() {
+  return ED_selectionCells().length;
+}
+
+/** 画地形选区（世界矩形四边 → 屏幕虚线） */
+function ED_drawTerrainSel() {
+  const s = ED.terrainSel || ED.marqueeWorld;
+  if (!s) return;
+  const pts = [[s.x0, s.y0], [s.x1, s.y0], [s.x1, s.y1], [s.x0, s.y1]]
+    .map(([x, y]) => project(x, y, 0));
+  const col = rgb(60, 120, 200);
+  for (let i = 0; i < 4; i++) {
+    const a = pts[i], b = pts[(i + 1) % 4];
+    const n = Math.max(2, Math.ceil(Math.hypot(b.sx - a.sx, b.sy - a.sy)));
+    for (let k = 0; k <= n; k++) {
+      if (k & 1) continue;
+      ED_plotScreen(
+        Math.round(a.sx + (b.sx - a.sx) * k / n),
+        Math.round(a.sy + (b.sy - a.sy) * k / n),
+        col
+      );
+    }
+  }
+}
+
+/**
+ * 填充地形选区。
+ * @param {string} mat 材质 id；'__erase__' 删除；null 表示只调高度
+ * @param {number} dz 高度增量（可选）
+ */
+function ED_fillSelection(mat, dz) {
+  const cells = ED_selectionCells();
+  if (!cells.length) { studioStatus('先用「选框」工具框一块地形', 'err'); return; }
+  ED_snapshot('填充选区');
+
+  let changed = 0;
+  for (const c of cells) {
+    const cur = TERRAIN.get(c.gx, c.gy);
+    if (mat === '__erase__') {
+      if (cur) { TERRAIN.erase(c.gx, c.gy); changed++; }
+    } else if (mat) {
+      const z = cur ? cur.z : (ED.height || 0);
+      TERRAIN.set(c.gx, c.gy, mat, z);
+      changed++;
+    } else if (dz) {
+      if (cur) { TERRAIN.set(c.gx, c.gy, cur.mat, Math.max(0, cur.z + dz)); changed++; }
+    }
+  }
+
+  /* 站在上面的物体高度跟随 */
+  for (const o of ED.objects) o.z = ED.baseMap ? 0 : TERRAIN.heightAt(o.x, o.y);
+  ED_refreshSel();
+  ED.dirty = true;
+  studioStatus(`已填充 ${changed} 格`);
+}

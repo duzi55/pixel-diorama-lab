@@ -58,6 +58,10 @@ function ED_init() {
   ED_buildTools();
   ED_bindCanvas();
   ED_bindBrushBlend();
+  const growBtn = document.getElementById('btn-expand');
+  if (growBtn) growBtn.addEventListener('click', () => ED_expandCanvas(128, 128));
+  const sizeEl = document.getElementById('canvas-size');
+  if (sizeEl) sizeEl.textContent = `${W} × ${H}`;
   ED_bindPanels();
   ED_bindPanelTabs();
 
@@ -240,6 +244,13 @@ function ED_bindCanvas() {
       ED_placeObject(ED.placing, w.x, w.y);
       return;
     }
+    if (ED.tool === 'marquee') {
+      ED.marqueeWorld = { x0: w.x, y0: w.y, x1: w.x, y1: w.y };
+      ED.terrainSel = null;
+      ED.dirty = true;
+      return;
+    }
+
     if (ED.tool === 'light') {
       const hit = ED_pickLight(w.x, w.y);
       if (hit) {
@@ -287,6 +298,12 @@ function ED_bindCanvas() {
     document.getElementById('pos').textContent =
       `x=${w.x.toFixed(1)} y=${w.y.toFixed(1)} 格(${g.gx},${g.gy}) 高=${TERRAIN.heightAt(w.x, w.y).toFixed(2)}`;
 
+    if (ED.marqueeWorld) {
+      ED.marqueeWorld.x1 = w.x;
+      ED.marqueeWorld.y1 = w.y;
+      ED.dirty = true;
+      return;
+    }
     if (ED.draggingLight && ED.selectedLight) {
       const L = ED.selectedLight;
       L.x = Math.round(w.x * 4) / 4;
@@ -329,6 +346,19 @@ function ED_bindCanvas() {
   });
 
   const stopDrag = () => {
+    if (ED.marqueeWorld) {
+      const m = ED.marqueeWorld;
+      ED.marqueeWorld = null;
+      if (Math.abs(m.x1 - m.x0) > 0.3 && Math.abs(m.y1 - m.y0) > 0.3) {
+        ED.terrainSel = m;
+        const n = ED_selectionCellCount();
+        studioStatus(`地形选区：${n} 格 —— 在地形 tab 里填充材质`);
+      } else {
+        ED.terrainSel = null;
+      }
+      ED_refreshSel();
+      ED.dirty = true;
+    }
     /* 笔刷自动过渡：抬笔时按最终形状算一次边缘（绘制中途邻居不全，不能边画边判） */
     if (ED.painting && ED.tool === 'paint' && ED.autoBlend &&
         ED.blendMat && ED.blendMat !== ED.mat && typeof terrainBlendEdges === 'function') {
