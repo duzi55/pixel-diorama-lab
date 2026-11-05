@@ -134,6 +134,20 @@ window.addEventListener('message', e => {
     }
     buildParams();
     $('#params').classList.remove('hidden');
+  } else if (msg.type === 'fit-k') {
+    /* 沙箱按构件包围盒算出的画布缩放 → 应用（不改模型 scale），
+       并把视口对准构件包围盒中心（不是画布中心） */
+    if (Number.isFinite(msg.k)) {
+      userZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, msg.k));
+      applyZoom(userZoom);
+      if (Number.isFinite(msg.cx) && Number.isFinite(msg.cy)) {
+        requestAnimationFrame(() => {
+          const z = userZoom;
+          pvWrap.scrollLeft = Math.max(0, msg.cx * z - pvWrap.clientWidth / 2);
+          pvWrap.scrollTop = Math.max(0, msg.cy * z - pvWrap.clientHeight / 2);
+        });
+      }
+    }
   } else if (msg.type === 'preview-error') {
     $('#params').innerHTML = '';
     const warn = el('div', 'param');

@@ -57,7 +57,7 @@ function PV_drawGround() {
     const g = unproject(ix + .5, iy + .5);
     const d = Math.hypot(g.x, g.y);
     const edge = 1 + (noise(g.x * 1.3, g.y * 1.3) - .5) * .12;
-    if (d / 6.2 > edge) continue;
+    if (d / 3.2 > edge) continue;      // 地面盘别太大：放大预览时它会抢掉构件的画面
     const i = iy * W + ix;
     const v = .5 + noise(g.x * .9, g.y * .9) * .3 + (hash(ix, iy) - .5) * .2;
     const idx = clamp(Math.floor(v * 3.999 + (bayerAt(ix, iy) - .5) * .6), 0, 3);
@@ -346,18 +346,19 @@ window.addEventListener('message', e => {
   if (msg.type === 'box') { PV.showBox = !!msg.on; PV_render(); return; }
 });
 
-/* 构件自动适应：量出构件包围盒，算出让它在画布里四周留白的最小缩放。
-   先画地面取快照，再以 scale=1 画构件，逐像素 diff 得到构件自身的 bbox
-   （地面圆盘不计入，否则小构件永远填不满）。 */
+/* 构件自动适应：量出构件包围盒，算出**画布 CSS 缩放**（不是模型缩放）。
+   ★ 不能用 PV.scale 放大模型：逐像素绘制（plot）的构件，坐标被放大而点仍是
+     1px，表面会碎成筛网状（semi-truck 的"透明"就是这样来的）。
+   量法：先画地面取快照，再以原尺寸画构件做像素 diff，得到构件自身 bbox
+   （地面圆盘不计入），再按 bbox 与画布的比例算缩放倍数。 */
 function PV_autofit() {
   if (!PV.drawFn) return;
   let p;
   try { p = KIT.resolve(PV.id, PV.params); } catch { return; }
 
+  PV.scale = 1;
   PV_drawGround();
   const groundPix = pix.slice();
-
-  PV.scale = 1;
   try { PV.drawFn(PV_makeCtx(p), {}); } catch { return; }
 
   let minX = W, maxX = -1, minY = H, maxY = -1;
@@ -369,18 +370,18 @@ function PV_autofit() {
     if (y < minY) minY = y;
     if (y > maxY) maxY = y;
   }
-  if (maxX < 0) { PV.scale = 1; PV_render(); return; }
-
-  const pad = 18;
-  const tw = maxX - minX + 1, th = maxY - minY + 1;
-  /* 缩放绕世界原点（投影到屏幕的 OX/OY）进行 → 四向分别约束 */
-  const fit = Math.min((W - pad * 2) / tw, (H - pad * 2) / th);
-  const sTop = (OY - pad) / Math.max(1, OY - minY);
-  const sBot = (H - pad - OY) / Math.max(1, maxY - OY);
-  const sLeft = (OX - pad) / Math.max(1, OX - minX);
-  const sRight = (W - pad - OX) / Math.max(1, maxX - OX);
-  PV.scale = Math.max(.12, Math.min(8, Math.min(fit, sTop, sBot, sLeft, sRight)));
+  let k = 1;
+  if (maxX >= 0) {
+    const tw = maxX - minX + 1, th = maxY - minY + 1;
+    k = Math.min((W * .82) / tw, (H * .82) / th);
+    k = Math.max(1, Math.min(5, k));          // 只放大不缩小（缩小会把地面挤爆）
+  }
+  PV_applyZoom(k);
   PV_render();
+  /* 回报画布缩放倍数 + 构件包围盒中心（画布坐标），供父页把视口对准模型 */
+  const cx = maxX >= 0 ? (minX + maxX) / 2 : W / 2;
+  const cy = maxY >= 0 ? (minY + maxY) / 2 : H / 2;
+  parent.postMessage({ type: 'fit-k', k, cx, cy }, '*');
 }
 
 /* 画布缩放：改 canvas 的 CSS 尺寸（image-rendering: pixelated 保持锐利） */
