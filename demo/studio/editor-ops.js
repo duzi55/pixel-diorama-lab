@@ -122,9 +122,10 @@ function ED_snapPos(o, x, y) {
 
 /* ---------------- 多选包围框 ---------------- */
 
-function ED_drawSelectionBox() {
+/** 选中物体的屏幕包围框（≥2 个时） */
+function ED_selectionScreenBox() {
   const list = ED_selectionList().filter(o => !o.hidden);
-  if (list.length < 2) return;
+  if (list.length < 2) return null;
 
   let x0 = W, y0 = H, x1 = -1, y1 = -1;
   for (const o of list) {
@@ -138,12 +139,51 @@ function ED_drawSelectionBox() {
       if (p.sy > y1) y1 = p.sy;
     }
   }
-  if (x1 < 0) return;
+  if (x1 < 0) return null;
+  return { x0: Math.round(x0) - 2, y0: Math.round(y0) - 2, x1: Math.round(x1) + 2, y1: Math.round(y1) + 2 };
+}
 
-  /* 深蓝虚线 + 四角 L 标记，与金色单体选中框区分 */
+/** 命中包围框四角把手（屏幕坐标，半径 8px） */
+function ED_pickBoxHandle(sx, sy) {
+  const b = ED_selectionScreenBox();
+  if (!b) return null;
+  const pts = [[b.x0, b.y0], [b.x1, b.y0], [b.x0, b.y1], [b.x1, b.y1]];
+  for (let i = 0; i < 4; i++) {
+    if (Math.hypot(sx - pts[i][0], sy - pts[i][1]) <= 8) return i;
+  }
+  return null;
+}
+
+function ED_beginMultiScale(sx, sy) {
+  const b = ED_selectionScreenBox();
+  if (!b) return false;
+  const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
+  const d = Math.hypot(sx - cx, sy - cy);
+  if (d < 4) return false;
+  ED_snapshot('缩放多选');
+  ED.multiScale = {
+    cx, cy, startDist: d,
+    items: ED_selectionList().filter(o => !o.locked).map(o => ({ o, scale: o.scale || 1 })),
+  };
+  return true;
+}
+
+function ED_updateMultiScale(sx, sy) {
+  const m = ED.multiScale;
+  if (!m) return;
+  const ratio = clamp(Math.hypot(sx - m.cx, sy - m.cy) / m.startDist, .2, 6);
+  for (const it of m.items) it.o.scale = clamp(it.scale * ratio, .1, 8);
+  ED.dirty = true;
+}
+
+function ED_drawSelectionBox() {
+  const b = ED_selectionScreenBox();
+  if (!b) return;
+
+  /* 深蓝虚线 + 四角把手，与金色单体选中框区分 */
   const col = rgb(40, 96, 160);
-  const px0 = Math.round(x0) - 2, px1 = Math.round(x1) + 2;
-  const py0 = Math.round(y0) - 2, py1 = Math.round(y1) + 2;
+  const px0 = b.x0, px1 = b.x1;
+  const py0 = b.y0, py1 = b.y1;
   for (let x = px0; x <= px1; x += 2) {
     ED_plotScreen(x, py0, col);
     ED_plotScreen(x, py1, col);
@@ -163,6 +203,13 @@ function ED_drawSelectionBox() {
   corner(px1, py0, -1, 1);
   corner(px0, py1, 1, -1);
   corner(px1, py1, -1, -1);
+
+  /* 四角实心把手（可拖拽缩放） */
+  for (const [hx, hy] of [[px0, py0], [px1, py0], [px0, py1], [px1, py1]]) {
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) ED_plotScreen(hx + dx, hy + dy, col);
+    }
+  }
 }
 
 /* ---------------- 地形选区（选框工具） ---------------- */

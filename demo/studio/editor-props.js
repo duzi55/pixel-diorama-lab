@@ -115,13 +115,21 @@ function ED_refreshSel() {
   const deg = Math.round((((o.rot || 0) * 180 / Math.PI) + 360) % 360);
   const rotWrap = document.createElement('div');
   rotWrap.className = 'slider';
-  rotWrap.innerHTML = `<label>朝向 <b>${deg}°</b></label>`;
+  rotWrap.innerHTML = `<label>朝向 <input type="number" class="num" min="0" max="359" step="5" value="${deg}">°</label>`;
   const rotIn = document.createElement('input');
   rotIn.type = 'range'; rotIn.min = '0'; rotIn.max = '359'; rotIn.step = '5'; rotIn.value = String(deg);
+  const rotNum = rotWrap.querySelector('.num');
   rotIn.addEventListener('input', e => {
     ED_snapshotThrottled('修改朝向');
     o.rot = Number(e.target.value) * Math.PI / 180;
-    rotWrap.querySelector('b').textContent = e.target.value + '°';
+    if (rotNum) rotNum.value = e.target.value;
+    ED.dirty = true;
+  });
+  if (rotNum) rotNum.addEventListener('change', () => {
+    const v = Math.round((((Number(rotNum.value) || 0) % 360) + 360) % 360);
+    ED_snapshot('修改朝向');
+    o.rot = v * Math.PI / 180;
+    rotIn.value = String(v);
     ED.dirty = true;
   });
   rotWrap.appendChild(rotIn);
@@ -132,14 +140,15 @@ function ED_refreshSel() {
   const defCol = comp && comp.collision ? comp.collision : null;
   const scaleWrap = document.createElement('div');
   scaleWrap.className = 'slider';
-  scaleWrap.innerHTML = `<label>缩放 <b>×${sc0.toFixed(2)}</b></label>`;
+  scaleWrap.innerHTML = `<label>缩放 ×<input type="number" class="num" min="0.2" max="4" step="0.05" value="${sc0.toFixed(2)}"></label>`;
   const scIn = document.createElement('input');
   scIn.type = 'range'; scIn.min = '0.2'; scIn.max = '4'; scIn.step = '0.05'; scIn.value = String(sc0);
+  const scNum = scaleWrap.querySelector('.num');
   scIn.addEventListener('input', e => {
     ED_snapshotThrottled('修改缩放');
     const v = Number(e.target.value);
     o.scale = v;
-    scaleWrap.querySelector('b').textContent = '×' + v.toFixed(2);
+    if (scNum) scNum.value = v.toFixed(2);
     if (o.collision && defCol) {
       const r = Math.round(v * 100) / 100;
       if (o.collision.type === 'cylinder') {
@@ -151,6 +160,13 @@ function ED_refreshSel() {
         o.collision.h = Math.round((defCol.h || defCol.height || 1) * r * 100) / 100;
       }
     }
+    ED.dirty = true;
+  });
+  if (scNum) scNum.addEventListener('change', () => {
+    const v = clamp(Number(scNum.value) || 1, .2, 4);
+    ED_snapshot('修改缩放');
+    o.scale = v;
+    scIn.value = String(v);
     ED.dirty = true;
   });
   scaleWrap.appendChild(scIn);

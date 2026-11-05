@@ -22,6 +22,24 @@ function ED_showEmpty() {
   if (dock) dock.hidden = true;
   if (document.body.classList) document.body.classList.add('ed-empty-mode');
   startLoadList();
+
+  /* 有 24 小时内的自动保存 → 显示恢复按钮 */
+  const resume = startEl('ed-start-resume');
+  if (resume) {
+    const draft = (typeof ED_readAutosave === 'function') ? ED_readAutosave() : null;
+    if (draft) {
+      resume.hidden = false;
+      resume.textContent = `恢复 ${new Date(draft.at).toLocaleTimeString()} 的自动保存`;
+      resume.onclick = () => {
+        ED_applyScene(draft.scene);
+        ED_hideEmpty();
+        studioStatus('已恢复自动保存', 'ok');
+      };
+    } else {
+      resume.hidden = true;
+    }
+  }
+
   const input = startEl('ed-start-input');
   if (input) setTimeout(() => input.focus(), 80);
 }

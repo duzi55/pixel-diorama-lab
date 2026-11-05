@@ -852,3 +852,10 @@ body.ed-paper .bar { padding-top: 4px; padding-bottom: 4px; }
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 14px; line-height: 1;
 }
+
+/* 属性面板里的数值输入 */
+.slider label .num {
+  width: 54px; padding: 1px 4px;
+  border: 1px solid var(--line); border-radius: 5px;
+  background: #fffdf8; color: var(--fg); font: inherit; font-size: 11px;
+}

@@ -312,3 +312,30 @@ function ED_seedDemo() {
   ED.nextId = 6;
   ED_refreshObjects();
 }
+
+
+/* ---------------- 自动保存 ---------------- */
+
+const AUTOSAVE_KEY = 'pd_autosave';
+
+function ED_autosaveNow() {
+  if (!ED.objects.length && !TERRAIN.cells.size) return;
+  try {
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ scene: ED_sceneJSON(), at: Date.now() }));
+  } catch { /* 配额满 / 隐私模式：忽略 */ }
+}
+
+function ED_readAutosave() {
+  try {
+    const d = JSON.parse(localStorage.getItem(AUTOSAVE_KEY) || 'null');
+    if (!d || !d.scene || !d.at) return null;
+    if (Date.now() - d.at > 24 * 3600e3) return null;
+    return d;
+  } catch { return null; }
+}
+
+function ED_initAutosave() {
+  setInterval(() => {
+    if (ED.objects.length || TERRAIN.cells.size) ED_autosaveNow();
+  }, 30000);
+}

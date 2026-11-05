@@ -25,7 +25,37 @@ function ED_refreshObjects() {
 
   const list = [...ED.objects].sort(ED_compareDraw).reverse();
 
+  /* 分组折叠：有 group 的物体收进可折叠区块 */
+  if (!ED.collapsedGroups) ED.collapsedGroups = new Set();
+  const groups = new Map();
+  const loose = [];
   for (const o of list) {
+    if (!o.group) { loose.push(o); continue; }
+    if (!groups.has(o.group)) groups.set(o.group, []);
+    groups.get(o.group).push(o);
+  }
+
+  const mkRow = o => ED_layerRow(o);
+
+  for (const o of loose) box.appendChild(mkRow(o));
+
+  for (const [gid, items] of groups) {
+    const head = document.createElement('div');
+    head.className = 'layer-group';
+    const collapsed = ED.collapsedGroups.has(gid);
+    head.innerHTML = `<span class="chev">${collapsed ? '▸' : '▾'}</span> 组 ${gid} <span class="pos">(${items.length})</span>`;
+    head.addEventListener('click', () => {
+      if (collapsed) ED.collapsedGroups.delete(gid);
+      else ED.collapsedGroups.add(gid);
+      ED_refreshObjects();
+    });
+    box.appendChild(head);
+    if (!collapsed) for (const o of items) box.appendChild(mkRow(o));
+  }
+}
+
+/** 单行图层 */
+function ED_layerRow(o) {
     const comp = KIT.get(o.kind);
     const row = document.createElement('div');
     row.dataset.id = o.id;
@@ -62,8 +92,17 @@ function ED_refreshObjects() {
 
     const nm = document.createElement('span');
     nm.className = 'nm';
-    nm.textContent = comp ? comp.name : o.kind;
-    nm.title = `${o.kind} · zOrder ${o.zOrder || 0}`;
+    nm.textContent = o.label || (comp ? comp.name : o.kind);
+    nm.title = `${o.kind} · zOrder ${o.zOrder || 0}（双击重命名）`;
+    /* 双击重命名 */
+    nm.addEventListener('dblclick', e => {
+      e.stopPropagation();
+      const v = prompt('图层名称', o.label || (comp ? comp.name : o.kind));
+      if (v == null) return;
+      if (v.trim()) o.label = v.trim();
+      else delete o.label;
+      ED_refreshObjects();
+    });
 
     const pos = document.createElement('span');
     pos.className = 'pos';
@@ -107,8 +146,7 @@ function ED_refreshObjects() {
     });
 
     row.addEventListener('click', e => ED_select(o, { additive: e.shiftKey }));
-    box.appendChild(row);
-  }
+    return row;
 }
 
 /** 层级微调：zOrder ±1（范围 -9..9，0 = 自动） */
