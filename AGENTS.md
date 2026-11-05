@@ -108,6 +108,7 @@
 | **场景查看器** | `demo/scenes/view.html` · `viewer.js` | 读 `scenes/<name>.json` 复现尺寸/背景/光照；导航「我的场景」入口 | `docs/modules/studio.md §4.0c` |
 | 场景索引 | `demo/scenes/index.json` | 保存时由 `persist.mjs` 维护（name/title/bg/W/H），nav.js 异步读取 | `docs/modules/studio.md §4.0c` |
 | 场景导入 | `demo/studio/scene-import.js` | 同源 iframe 抓取已有场景烘焙底图，进入底图编辑模式 | `docs/modules/studio.md §4.0b` |
+| **Studio·图片还原·缺失** | `demo/studio/editor-recon-missing.js` | 候选匹配（分类 + 中英文 2-gram）· 选替代 / 生成 / 放到场景 | `docs/modules/studio.md §4.0d` |
 | **Studio·图片还原** | `demo/studio/editor-recon.js` | 粘贴场景截图 → AI 用现有构件摆位（u/v 反投影）→ 缺的素材选替代或生成入库 | `docs/modules/studio.md §4.0d` |
 | **Studio·空态/一句话建场景** | `demo/studio/editor-start.js` | 进入不默认播种；一句话描述 → `compose` 任务 → 地形+物体；图片还原/载入/空白三个入口 | `docs/modules/studio.md §4.0e` |
 | **Studio·错误日志** | `demo/studio/editor-log.js` | 捕获 error / unhandledrejection / err 状态，状态栏 ⚠ 按钮点开最近 50 条 | `docs/modules/studio.md §4.1` |
