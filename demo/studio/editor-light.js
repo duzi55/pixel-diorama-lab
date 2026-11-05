@@ -34,6 +34,17 @@ function ED_initLightingUI() {
     ED.dirty = true;
   };
 
+  /* 初始化：用引擎当前的方向光回填滑块（否则滑块默认值会把 LIGHT.dir 改掉） */
+  {
+    const hz0 = Math.max(.15, Math.min(.95, LIGHT.dir.z));
+    let a0 = Math.atan2(-LIGHT.dir.y, -LIGHT.dir.x) * 180 / Math.PI;
+    a0 = ((a0 % 360) + 360) % 360;
+    lz.value = hz0.toFixed(2);
+    lr.value = String(Math.round(a0));
+    document.getElementById('v-lightz').textContent = hz0.toFixed(2);
+    document.getElementById('v-lightrot').textContent = Math.round(a0) + '°';
+  }
+
   amb.addEventListener('input', () => {
     LIGHT.ambient = Number(amb.value);
     document.getElementById('v-ambient').textContent = Number(amb.value).toFixed(2);
@@ -251,8 +262,8 @@ function ED_sunPos() {
   const horiz = Math.hypot(LIGHT.dir.x, LIGHT.dir.y) || .001;
   /* 光传播方向的反向 = 光源所在侧 */
   const ux = -LIGHT.dir.x / horiz, uy = -LIGHT.dir.y / horiz;
-  /* 绘制半径留一个下限，顶光时太阳也看得见（不被中心物体盖住） */
-  const dist = (0.28 + 0.62 * (1 - LIGHT.dir.z)) * maxR;
+  /* 固定在视口外圈：顶光也离中心够远，不会被场景物体盖住 */
+  const dist = (0.62 + 0.38 * (1 - LIGHT.dir.z)) * maxR;
   return { x: cx + ux * dist, y: cy + uy * dist, cx, cy, maxR };
 }
 
@@ -260,15 +271,40 @@ function ED_drawSun() {
   if (ED.tool === 'pan') return;
   const p = ED_sunPos();
   const glow = rgb(255, 210, 110), core = rgb(255, 246, 196);
+  const ink = rgb(26, 26, 32);
   const px = Math.round(p.x), py = Math.round(p.y);
-  for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
-    const d2 = dx * dx + dy * dy;
-    if (d2 > 10) continue;
-    ED_plotScreen(px + dx, py + dy, d2 <= 2 ? core : glow);
+
+  /* 方向虚线：从太阳指向场景中心（光传播方向），暗底 + 亮线，任何背景上都读得出来 */
+  const dx = p.cx - p.x, dy = p.cy - p.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len, uy = dy / len;
+  for (let t = 16; t < len - 14; t += 10) {
+    const x = Math.round(p.x + ux * t), y = Math.round(p.y + uy * t);
+    ED_plotScreen(x, y, ink);
+    ED_plotScreen(x, y + 1, glow);
   }
+  /* 箭头（靠近中心一端） */
+  const ax = Math.round(p.x + ux * (len - 12)), ay = Math.round(p.y + uy * (len - 12));
+  for (let k = -2; k <= 2; k++) {
+    ED_plotScreen(ax - Math.round(uy * k), ay + Math.round(ux * k), glow);
+  }
+
+  /* 暗色外圈：把太阳从场景里"抠"出来 */
+  for (let dy2 = -7; dy2 <= 7; dy2++) for (let dx2 = -7; dx2 <= 7; dx2++) {
+    const d2 = dx2 * dx2 + dy2 * dy2;
+    if (d2 > 49 || d2 <= 25) continue;
+    ED_plotScreen(px + dx2, py + dy2, ink);
+  }
+  /* 太阳本体 */
+  for (let dy2 = -5; dy2 <= 5; dy2++) for (let dx2 = -5; dx2 <= 5; dx2++) {
+    const d2 = dx2 * dx2 + dy2 * dy2;
+    if (d2 > 24) continue;
+    ED_plotScreen(px + dx2, py + dy2, d2 <= 4 ? core : glow);
+  }
+  /* 光芒 */
   for (let k = 0; k < 8; k++) {
     const a = k / 8 * Math.PI * 2;
-    for (let r = 5; r <= 7; r++) {
+    for (let r = 8; r <= 11; r++) {
       ED_plotScreen(Math.round(px + Math.cos(a) * r), Math.round(py + Math.sin(a) * r), glow);
     }
   }

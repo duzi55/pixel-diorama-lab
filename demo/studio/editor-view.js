@@ -195,8 +195,13 @@ function ED_fit() {
 /* 应用视图变换：缩放 + 平移（视图缩放是显示层的，不影响渲染分辨率） */
 function ED_applyView() {
   const stage = document.getElementById('stage');
-  const cw = (stage && stage.clientWidth) ? stage.clientWidth - 40 : innerWidth - 40;
-  const ch = (stage && stage.clientHeight) ? stage.clientHeight - 40 : innerHeight - 40;
+  /* 扣除左右浮动面板：否则画布按全屏缩放，会被面板盖住一截 */
+  const left = document.getElementById('fp-left');
+  const right = document.getElementById('fp-right');
+  const lw = left && !left.classList.contains('fp-collapsed') ? left.offsetWidth + 12 : 0;
+  const rw = right && !right.classList.contains('fp-collapsed') ? right.offsetWidth + 12 : 0;
+  const cw = (stage && stage.clientWidth ? stage.clientWidth : innerWidth) - 40 - lw - rw;
+  const ch = (stage && stage.clientHeight ? stage.clientHeight : innerHeight) - 40;
   const v = ED.view;
   /* 基础适配倍数（整数，保像素锐利），再乘用户视图缩放 */
   const dpr = window.devicePixelRatio || 1;
@@ -204,7 +209,9 @@ function ED_applyView() {
   const k = base * v.scale;
   canvas.style.width = Math.round(W * k) + 'px';
   canvas.style.height = Math.round(H * k) + 'px';
-  canvas.style.transform = v.ox || v.oy ? `translate(${v.ox}px, ${v.oy}px)` : '';
+  const shift = (lw - rw) / 2;   // 左右面板不等宽时，让画布落在中间区域
+  const tx = v.ox + shift, ty = v.oy;
+  canvas.style.transform = tx || ty ? `translate(${tx}px, ${ty}px)` : '';
   const pct = document.getElementById('zoom-pct');
   if (pct) pct.textContent = Math.round(k * 100) + '%';
 }

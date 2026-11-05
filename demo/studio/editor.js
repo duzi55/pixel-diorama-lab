@@ -83,6 +83,7 @@ function ED_init() {
     if (b) b.addEventListener('click', () => {
       document.getElementById(panel).classList.toggle('fp-collapsed');
       b.textContent = document.getElementById(panel).classList.contains('fp-collapsed') ? '+' : '–';
+      ED_fit();   // 面板宽度变了，画布重新适配
     });
   }
 
