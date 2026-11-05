@@ -1059,8 +1059,8 @@ KIT.register({
 | 项 | 内容 |
 |---|---|
 | **ID** | `wheelbarrow` |
-| **来源** | `demo/kit/props.js` · `KIT.register` · studio 生成 |
-| **形态** | 木斗单轮手推车：五层板叠出梯形斗身、辐条木轮、双把手双支腿，斗里堆满红苹果 |
+| **来源** | `demo/kit/cart.js` · `KIT.register` · studio 生成 |
+| **形态** | 手推车（属性保存测试） |
 | **分类** | 道具 |
 
 ### 参数
@@ -1075,7 +1075,7 @@ KIT.register({
 
 ### 移植清单
 
-- 代码：`demo/kit/props.js`
+- 代码：`demo/kit/cart.js`
 - 注册表：`docs/kit/registry.md` · 道具节
 - 依赖引擎：`demo/engine.js` 的 `sphere/capsule/box/plot/rampOf/hash/noise`
 
@@ -1090,7 +1090,7 @@ KIT.register({
   id: 'wheelbarrow',
   name: '苹果手推车',
   category: 'prop',
-  desc: '木斗单轮手推车：五层板叠出梯形斗身、辐条木轮、双把手双支腿，斗里堆满红苹果',
+  desc: '手推车（属性保存测试）',
   params: {
     apples: { def: 10, min: 0, max: 16, step: 1, desc: '斗里的苹果数量（0 = 空车）' },
     length: { def: 1, min: 0.8, max: 1.35, step: 0.05, desc: '车斗前后长度倍率' },
@@ -1100,113 +1100,108 @@ KIT.register({
 
   draw(ctx, inst) {
     const p = ctx.params;
-    const L = p.length, WH = p.wheel;
+    const L = p.length;
+    const WH = p.wheel;
     const X = ctx.x, Y = ctx.y, Z = ctx.z;
-    const S = ctx.seed, hash = ctx.hash, lerp = ctx.lerp;
 
-    // 木材：板面 / 板侧 / 深木 / 斗沿高光
+    // 木材三档 + 斗沿高光（同类色通道差 ≤ 25）
     const PLANK = [156, 110, 66];
-    const PLANK_M = [138, 96, 56];
-    const PLANK_D = [118, 80, 46];
+    const PLANK_MID = [138, 96, 56];
+    const PLANK_DK = [116, 78, 44];
     const RIM = [172, 126, 80];
-    const WOOD_D = [100, 72, 46];
-    const GRIP = [72, 64, 60];
-    // 苹果
-    const AP = [182, 50, 44];
-    const AP_HI = [202, 74, 58];
-    const LEAF_P = ctx.rgb(92, 132, 62);
-    // 铁件与轮胎
-    const IRON = [104, 108, 116];
-    const IRON_D = [78, 82, 90];
-    const RUBBER = [58, 56, 60];
+    const WOOD_DK = [104, 76, 50];
+    const WOOD_LT = [128, 96, 60];
 
-    // 斗口：底窄顶宽
-    const xb = 0.34, xt = 0.46;
-    const yb = 0.60 * L, yt = 0.70 * L;
-    const zB = Z + 0.34, zT = Z + 0.88;
+    // 苹果三档
+    const APPLE = [182, 50, 44];
+    const APPLE_HI = [204, 72, 56];
+    const APPLE_DK = [160, 36, 34];
 
-    // 前轮：轮心在前壁之外，半径 = 轮心高度（自动触地）
-    const wy = Y + yt + 0.17;
-    const wr = 0.30 * WH;
-    const wz = Z + wr;
+    const hx0 = 0.36, hy0 = 0.63 * L;   // 斗底半宽 / 半长
+    const hx1 = 0.47, hy1 = 0.70 * L;   // 斗顶半宽 / 半长
+    const zBot = Z + 0.36, zTop = Z + 0.88;
 
-    // ---- 车架：左右大梁（后段上翘当把手）、支腿、握把 ----
-    for (let s = -1; s <= 1; s += 2) {
-      const bx = X + s * 0.42;
-      ctx.capsule([bx, wy + 0.04, Z + 0.36], [bx, Y - 0.52, Z + 0.44],
-        0.046, 0.05, () => PLANK_M, 'rough');
-      ctx.capsule([bx, Y - 0.52, Z + 0.44], [bx, Y - 1.02, Z + 0.80],
-        0.046, 0.04, () => PLANK_M, 'rough');
-      ctx.capsule([bx, Y - 0.96, Z + 0.76], [bx, Y - 1.10, Z + 0.84],
-        0.058, 0.05, () => GRIP, 'solid');
-      ctx.capsule([bx, Y - 0.48, Z + 0.40], [bx, Y - 0.56, Z + 0.05],
-        0.05, 0.042, () => PLANK_D, 'rough');
-      ctx.capsule([bx, Y - 0.50, Z + 0.43], [bx, Y - 0.57, Z + 0.47],
-        0.056, 0.056, () => IRON_D, 'solid');
+    // 1) 斗身：五层逐层外扩的板条，堆出上宽下窄的梯形斗
+    for (let i = 0; i < 5; i++) {
+      const t = (i + 1) / 5;
+      const hx = ctx.lerp(hx0, hx1, t);
+      const hy = ctx.lerp(hy0, hy1, t);
+      const z0 = ctx.lerp(zBot, zTop, i / 5);
+      const z1 = ctx.lerp(zBot, zTop, (i + 1) / 5);
+      const col = ctx.hash(i * 7 + 3, ctx.seed) > 0.45 ? PLANK : PLANK_MID;
+      ctx.box(X - hx, Y - hy, z0, X + hx, Y + hy, z1, col, i + 11);
     }
 
-    // ---- 前轮：铁轴 + 像素轮盘（胎环 / 木辋 / 四根镂空辐条 / 轮毂）----
-    ctx.capsule([X - 0.48, wy, wz], [X + 0.48, wy, wz],
-      0.032, 0.032, () => IRON_D, 'solid');
-    const step = 0.026;
-    for (let sy = -wr; sy <= wr; sy += step) {
-      for (let sz = -wr; sz <= wr; sz += step) {
-        const d = Math.sqrt(sy * sy + sz * sz) / wr;
-        if (d > 1) continue;
-        let c = null;
-        if (d > 0.84) c = RUBBER;
-        else if (d > 0.68) c = PLANK_M;
-        else if (d < 0.18) c = IRON_D;
-        else if (Math.abs(Math.sin(Math.atan2(sz, sy) * 2)) > 0.45) c = PLANK_D;
-        if (!c) continue;
-        ctx.plot(X, wy + sy, wz + sz, ctx.rgb(c[0], c[1], c[2]));
-      }
-    }
-    ctx.sphere(X, wy, wz, wr * 0.17, IRON, 'solid');
+    // 2) 斗内暗底：比斗沿低一点，苹果的落脚面
+    ctx.box(X - hx1 + 0.06, Y - hy1 + 0.06, zTop - 0.03,
+            X + hx1 - 0.06, Y + hy1 - 0.06, zTop + 0.02, PLANK_DK, 7);
 
-    // ---- 斗身：五层薄板逐层外扩，叠出梯形斜壁 ----
-    const N = 5;
-    for (let i = 0; i < N; i++) {
-      const t0 = i / N, t1 = (i + 1) / N, tm = (t0 + t1) * 0.5;
-      const hx = lerp(xb, xt, tm);
-      const hy = lerp(yb, yt, tm);
-      const z0 = lerp(zB, zT, t0);
-      const z1 = lerp(zB, zT, t1) + (i < N - 1 ? 0.012 : 0);
-      ctx.box(X - hx, Y - hy, z0, X + hx, Y + hy, z1,
-        i % 2 ? PLANK_M : PLANK, S + i * 13);
-    }
+    // 3) 斗沿：四根外扩压条围出斗口
+    const rg0 = zTop + 0.01, rg1 = zTop + 0.075;
+    const ox = hx1 + 0.03, oy = hy1 + 0.03;
+    ctx.box(X - ox, Y + hy1 - 0.11, rg0, X + ox, Y + oy, rg1, RIM, 21);
+    ctx.box(X - ox, Y - oy, rg0, X + ox, Y - hy1 + 0.11, rg1, RIM, 22);
+    ctx.box(X - ox, Y - hy1 + 0.11, rg0, X - hx1 + 0.11, Y + hy1 - 0.11, rg1, RIM, 23);
+    ctx.box(X + hx1 - 0.11, Y - hy1 + 0.11, rg0, X + ox, Y + hy1 - 0.11, rg1, RIM, 24);
 
-    // ---- 斗沿：四面围出一圈加厚的口（降 0.02 避开共面闪烁）----
-    const rx = xt + 0.03, ry = yt + 0.03;
-    const rt = 0.055, rh = 0.055, zR = zT - 0.02;
-    ctx.box(X - rx, Y - ry, zR, X + rx, Y - ry + rt, zR + rh, RIM, S + 71);
-    ctx.box(X - rx, Y + ry - rt, zR, X + rx, Y + ry, zR + rh, RIM, S + 72);
-    ctx.box(X - rx, Y - ry + rt, zR, X - rx + rt, Y + ry - rt, zR + rh, RIM, S + 73);
-    ctx.box(X + rx - rt, Y - ry + rt, zR, X + rx, Y + ry - rt, zR + rh, RIM, S + 74);
-
-    // ---- 苹果：3×4 底层 + 2×2 顶层，网格抖动避免整齐 ----
+    // 4) 苹果：12 个铺底 + 4 个压顶，i*5%12 置换让少量也散得开
     const n = Math.round(p.apples);
     for (let i = 0; i < n; i++) {
-      const top = i >= 12;
-      const k = top ? i - 12 : i;
-      const cols = top ? 2 : 3;
-      const rows = top ? 2 : 4;
-      const gx = (k % cols) / (cols - 1) - 0.5;
-      const gy = (Math.floor(k / cols) % rows) / (rows - 1) - 0.5;
-      const jx = (hash(i * 3 + 1, S) - 0.5) * 0.24;
-      const jy = (hash(i * 3 + 2, S) - 0.5) * 0.24;
-      const ax = X + (gx * 0.92 + jx) * xt;
-      const ay = Y + (gy * 0.94 + jy) * yt;
-      const az = zT + (top ? 0.21 : 0.07) + hash(i * 3 + 3, S) * 0.03;
-      const r = 0.10 + hash(i * 7 + 5, S) * 0.035;
-      ctx.sphere(ax, ay, az, r, hash(i * 11 + 9, S) > 0.55 ? AP_HI : AP, 'gloss');
-      ctx.capsule([ax, ay, az + r * 0.82], [ax + 0.015, ay, az + r * 1.12],
-        0.011, 0.007, () => WOOD_D, 'solid');
-      ctx.plot(ax + 0.065, ay - 0.005, az + r * 1.0, LEAF_P);
-      ctx.plot(ax + 0.095, ay + 0.005, az + r * 1.04, LEAF_P);
+      let ax, ay, az;
+      if (i < 12) {
+        const idx = (i * 5) % 12;
+        const c = idx % 3, r = (idx / 3) | 0;
+        ax = (c - 1) * 0.25 + (ctx.hash(i * 5 + 1, ctx.seed) - 0.5) * 0.05;
+        ay = (r - 1.5) * 0.32 * L + (ctx.hash(i * 5 + 2, ctx.seed) - 0.5) * 0.05;
+        az = zTop + 0.17;
+      } else {
+        const k = i - 12;
+        ax = (k % 2 === 0 ? -0.13 : 0.13);
+        ay = (k < 2 ? -0.17 : 0.17) * L;
+        az = zTop + 0.33;
+      }
+      const rr = 0.137 * (0.9 + ctx.hash(i + 70, ctx.seed) * 0.22);
+      const tone = ctx.hash(i + 90, ctx.seed);
+      ctx.sphere(X + ax, Y + ay, az, rr,
+                 tone > 0.68 ? APPLE_HI : (tone > 0.22 ? APPLE : APPLE_DK), 'gloss');
     }
 
-    ctx.shadow(1.05 * L, 1, 0.5);
+    // 5) 两条后支腿
+    for (let side = -1; side <= 1; side += 2) {
+      ctx.capsule([X + side * 0.27, Y - 0.46 * L, Z + 0.42],
+                  [X + side * 0.32, Y - 0.60 * L, Z + 0.02],
+                  0.042, 0.036, () => PLANK_MID, 'solid');
+    }
+
+    // 6) 轮叉：从斗底两侧向下夹住前轮
+    for (let side = -1; side <= 1; side += 2) {
+      ctx.capsule([X + side * 0.17, Y + 0.40 * L, Z + 0.46],
+                  [X + side * 0.36, Y + 0.58 * L, Z + 0.30 * WH],
+                  0.036, 0.030, () => PLANK_MID, 'solid');
+    }
+
+    // 7) 前轮：深木圆盘 + 偏右凸出的亮木轮心，读作同心圆
+    const wR = 0.30 * WH;
+    const ww = 0.05 * WH;
+    const wy = Y + 0.58 * L;
+    const wz = Z + wR;
+    ctx.capsule([X - ww, wy, wz], [X + ww, wy, wz], wR, wR,
+                () => WOOD_DK, 'solid');
+    const hub = ww + wR * 0.28 + 0.02;
+    ctx.capsule([X + hub - 0.02, wy, wz], [X + hub + 0.02, wy, wz],
+                wR * 0.70, wR * 0.70, () => WOOD_LT, 'solid');
+
+    // 8) 双把手 + 深色握把
+    for (let side = -1; side <= 1; side += 2) {
+      ctx.capsule([X + side * 0.45, Y - 0.58 * L, Z + 0.81],
+                  [X + side * 0.49, Y - 1.20 * L, Z + 0.56],
+                  0.048, 0.042, () => PLANK, 'rough');
+      ctx.capsule([X + side * 0.49, Y - 1.20 * L, Z + 0.56],
+                  [X + side * 0.49, Y - 1.33 * L, Z + 0.54],
+                  0.056, 0.052, () => PLANK_DK, 'solid');
+    }
+
+    ctx.shadow(0.9 * L, 1, 0.5);
   },
 });
 ```
@@ -1359,6 +1354,168 @@ KIT.register({
 
     // ── 落地阴影 ──
     ctx.shadow(2.0, 1, 0.5);
+  },
+});
+```
+
+## beetle-taxi — 甲壳虫出租车
+
+| 项 | 内容 |
+|---|---|
+| **ID** | `beetle-taxi` |
+| **来源** | `demo/kit/props.js` · `KIT.register` · studio 生成 |
+| **形态** | 圆润的明黄色经典甲壳虫出租车：深色环形车窗、黑色圆轮胎、镀铬腰线，车顶顶着一颗蓝色小警灯 |
+| **分类** | 道具 |
+
+### 参数
+
+| 参数 | 默认 | 区间 | 步进 | 说明 |
+|------|------|------|------|------|
+| `beacon` | 1 | 0 ~ 1.6 | 0.1 | 车顶蓝色警灯的大小倍率，0 为不装 |
+| `dome` | 1 | 0.7 ~ 1.4 | 0.05 | 车顶圆弧的高矮 |
+| `wheelbase` | 1 | 0.75 ~ 1.25 | 0.05 | 前后轴距缩放 |
+| `trim` | 1 | 0 ~ 1 | 1 | 是否画镀铬腰线与前后保险杠 |
+
+### 碰撞体
+
+`{"type":"box","w":3,"d":1.8,"h":1.6}`
+
+### 移植清单
+
+- 代码：`demo/kit/props.js`
+- 注册表：`docs/kit/registry.md` · 道具节
+- 依赖引擎：`demo/engine.js` 的 `sphere/capsule/box/plot/rampOf/hash/noise`
+
+### 实现说明
+
+【为什么不是变体】semi-truck 是「方箱驾驶室 + 集装箱」的多厢重卡，wheelbarrow 是人推单轮斗车。这辆是单箱圆壳轿车：连续弧顶 + 环形窗带 + 车顶警灯 + 3×1.8×1.6 的轿车体量，三厢结构与两者都对不上，硬拿参数凑会把公路尺度感毁掉，所以新建 ID。
+
+【体量】车长 3.0（x ±1.49）、宽 1.8（轮胎外沿 y ±0.89）、高 1.6（警灯球顶）。构件朝 +x，等距投影里就是「右前方」；要停成别的朝向用编辑器实例旋转，不要改代码里的轴。
+
+【关键实现·车窗为什么这么写】最容易踩的坑是想把窗「贴在车身表面」——车身是曲面，贴面的 box 要么穿进去被深度测试吃掉，要么浮在外面像糊了张纸。这里的做法是把玻璃做成一条**比车身窄、但比车身高**的深色胶囊，让它从车壳顶上冒出来；再用更窄的黄色车顶盖压住它中段，两侧就自然露出一圈玻璃带，胶囊两端的半球又天然成了前后倾斜的弧形挡风。改参数时注意：车顶盖的 y 外沿（0.30）必须小于玻璃的 y 外沿（0.54），否则侧窗会被完全盖死。
+
+【关键实现·颜色分皮】所有 sphere / capsule / box 收到的都是 [r,g,b] 基色数组；按高度变色靠 colorOf 函数（`paintAt` / `glassAt` 返回不同基色数组），没有一处把 rampOf/rgb 的打包值喂给实体图元。三档车漆的两两通道差控制在 18~24，抖动不会读成棋盘格。
+
+【坐标】全部基于 ctx.x / ctx.y / ctx.z 偏移，没有任何裸写原点当位置的写法；构件摆到哪就画在哪，机器校验在两个位置各画一次能过。
+
+【随机】只用了 ctx.seed 派生的 box 纹理种子（ctx.seed + 1/2/3），无 Math.random，场景可复现。
+
+【参数怎么调】
+· beacon = 0 去掉警灯，变成普通黄色甲壳虫；1.3 以上是夸张的大顶灯。
+· dome 压到 0.7 是扁顶（更像 60 年代款），拉到 1.4 是高拱顶；警灯高度会自动跟着车顶最高点走，不会被埋进去。
+· wheelbase 缩到 0.75 前后悬变长，适合做「低趴」姿态。
+· trim = 0 去掉腰线和保险杠，得到素车。
+
+【坑】
+1. capsule 的两端是半球，轴线端点不是实体边界（实体要多出 r）；排布并排胶囊时按「相邻球心距 < 2r」来算，间距 0.30 / r 0.45 的沟槽只有 0.026，肉眼看不出接缝。
+2. 轮子用球而不是胶囊：胶囊沿 y 轴摆放时半球端会顶出车宽 0.3 以上，直接破坏 1.8 的宽度。球心内收到 y ±0.54、r 0.35，外沿刚好 0.89。
+3. box 的碰撞体字段按编辑器既有格式写（w/d/h）；若某个编辑器版本用的是 x0/x1 形式，落盘前按实际 schema 换算一次即可，视觉尺寸不受影响。
+
+【落盘三件套还需补】本次只产出代码本体；按项目纪律还要在 docs/kit/registry.md 加一行、在 docs/kit/props.md 写一张配方卡（ID·来源·形态·参数·碰撞体·移植清单·坑），并跑 node tools/kit-test.mjs 确认全库通过。
+
+### 实现
+
+```js
+KIT.register({
+  id: 'beetle-taxi',
+  name: '甲壳虫出租车',
+  category: 'prop',
+  desc: '圆润的明黄色经典甲壳虫出租车：深色环形车窗、黑色圆轮胎、镀铬腰线，车顶顶一颗蓝色小警灯',
+  params: {
+    beacon:    { def: 1, min: 0,    max: 1.6,  step: 0.1,  desc: '车顶蓝色警灯的大小倍率，0 为不装' },
+    dome:      { def: 1, min: 0.7,  max: 1.4,  step: 0.05, desc: '车顶圆弧的高矮' },
+    wheelbase: { def: 1, min: 0.75, max: 1.25, step: 0.05, desc: '前后轴距缩放' },
+    trim:      { def: 1, min: 0,    max: 1,    step: 1,    desc: '是否画镀铬腰线与前后保险杠' },
+  },
+  collision: { type: 'box', w: 3.0, d: 1.8, h: 1.6 },
+  draw(ctx, inst) {
+    const P = ctx.params;
+    const x = ctx.x, y = ctx.y, z = ctx.z;
+
+    // 明黄车漆三档 + 深色玻璃两档，同族每个通道差都压在 25 以内，抖动不出棋盘格
+    const PAINT    = [226, 178, 52];
+    const PAINT_HI = [244, 200, 76];
+    const PAINT_LO = [202, 156, 44];
+    const GLASS    = [56, 68, 84];
+    const GLASS_HI = [78, 90, 106];
+    const TIRE     = [40, 40, 44];
+    const HUB      = [176, 178, 184];
+    const CHROME   = [214, 210, 194];
+    const LAMP     = [250, 240, 200];
+    const BEACON   = [72, 132, 214];
+
+    const wb = P.wheelbase;
+    // colorOf 收的是 z 坐标，按高度分三档做出顶光
+    const paintAt = zz => (zz > z + 0.88 ? PAINT_HI : zz > z + 0.50 ? PAINT : PAINT_LO);
+    const glassAt = zz => (zz > z + 1.24 ? GLASS_HI : GLASS);
+
+    // 1 车身壳：四条沿 x 的胶囊并排，拼出 1.8 宽、上下分光的圆壳
+    for (let i = 0; i < 4; i++) {
+      const yy = y - 0.45 + i * 0.30;
+      ctx.capsule([x - 1.04, yy, z + 0.68], [x + 1.04, yy, z + 0.68], 0.45, 0.45, paintAt, 'gloss');
+    }
+
+    // 2 四角翼子板：球把方角补成圆弧，同时把车头车尾鼓起来
+    for (const sx of [-1, 1]) {
+      for (const sy of [-1, 1]) {
+        ctx.sphere(x + sx * 0.90 * wb, y + sy * 0.46, z + 0.60, 0.43,
+                   sy > 0 ? PAINT : PAINT_LO, 'gloss');
+      }
+    }
+
+    // 3 车窗环带：窄而高，从车壳顶上冒出来，侧面自然露出一整圈深色玻璃
+    for (let i = 0; i < 3; i++) {
+      const yy = y - 0.28 + i * 0.28;
+      ctx.capsule([x - 0.72, yy, z + 1.14], [x + 0.66, yy, z + 1.14], 0.26, 0.26, glassAt, 'gloss');
+    }
+
+    // 4 B 柱：一根窄黄柱压在玻璃外侧，把前后侧窗断开
+    ctx.box(x - 0.05, y - 0.58, z + 1.06, x + 0.05, y + 0.58, z + 1.40, PAINT, ctx.seed + 1);
+
+    // 5 车顶盖：更窄的黄色拱顶压住玻璃中段，两侧各留一条侧窗
+    const rr = 0.15 * P.dome;
+    const cZ = z + 1.32 + (P.dome - 1) * 0.10;
+    for (let i = 0; i < 3; i++) {
+      const yy = y - 0.15 + i * 0.15;
+      ctx.capsule([x - 0.56, yy, cZ], [x + 0.50, yy, cZ], rr, rr,
+                  zz => (zz > cZ ? PAINT_HI : PAINT), 'gloss');
+    }
+
+    // 6 车顶蓝色警灯（镀铬底座 + 蓝球），位置跟着车顶最高点走
+    if (P.beacon > 0.05) {
+      const br = 0.10 * P.beacon;
+      const topZ = cZ + rr;
+      ctx.capsule([x + 0.16, y - 0.09, topZ - 0.02], [x + 0.16, y + 0.09, topZ - 0.02],
+                  0.055, 0.055, () => CHROME, 'solid');
+      ctx.sphere(x + 0.16, y, topZ + br * 0.5, br, BEACON, 'gloss');
+    }
+
+    // 7 四个轮子：黑球做胎（外沿压在车宽边界上），外侧贴一枚银轮毂盖
+    for (const sx of [-1, 1]) {
+      for (const sy of [-1, 1]) {
+        const wx = x + sx * 0.90 * wb;
+        ctx.sphere(wx, y + sy * 0.54, z + 0.35, 0.35, TIRE, 'rough');
+        ctx.sphere(wx, y + sy * 0.79, z + 0.35, 0.12, HUB, 'gloss');
+      }
+    }
+
+    // 8 圆形大灯：甲壳虫标志性的鼓包灯，压在翼子板前缘
+    for (const sy of [-1, 1]) {
+      ctx.sphere(x + 1.22, y + sy * 0.44, z + 0.86, 0.15, LAMP, 'gloss');
+    }
+
+    // 9 镀铬腰线 + 前后保险杠
+    if (P.trim > 0.5) {
+      for (const sy of [-1, 1]) {
+        ctx.capsule([x - 0.92, y + sy * 0.88, z + 0.66], [x + 0.92, y + sy * 0.88, z + 0.66],
+                    0.055, 0.055, () => CHROME, 'solid');
+      }
+      ctx.box(x + 1.34, y - 0.40, z + 0.30, x + 1.48, y + 0.40, z + 0.46, CHROME, ctx.seed + 2);
+      ctx.box(x - 1.48, y - 0.40, z + 0.30, x - 1.34, y + 0.40, z + 0.46, CHROME, ctx.seed + 3);
+    }
+
+    // 10 落地阴影
+    ctx.shadow(1.65, 1, 0.5);
   },
 });
 ```

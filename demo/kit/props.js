@@ -409,3 +409,106 @@ KIT.register({
   },
 });
 
+/* ---- 甲壳虫出租车 · beetle-taxi ---- */
+KIT.register({
+  id: 'beetle-taxi',
+  name: '甲壳虫出租车',
+  category: 'prop',
+  desc: '圆润的明黄色经典甲壳虫出租车：深色环形车窗、黑色圆轮胎、镀铬腰线，车顶顶一颗蓝色小警灯',
+  params: {
+    beacon:    { def: 1, min: 0,    max: 1.6,  step: 0.1,  desc: '车顶蓝色警灯的大小倍率，0 为不装' },
+    dome:      { def: 1, min: 0.7,  max: 1.4,  step: 0.05, desc: '车顶圆弧的高矮' },
+    wheelbase: { def: 1, min: 0.75, max: 1.25, step: 0.05, desc: '前后轴距缩放' },
+    trim:      { def: 1, min: 0,    max: 1,    step: 1,    desc: '是否画镀铬腰线与前后保险杠' },
+  },
+  collision: { type: 'box', w: 3.0, d: 1.8, h: 1.6 },
+  draw(ctx, inst) {
+    const P = ctx.params;
+    const x = ctx.x, y = ctx.y, z = ctx.z;
+
+    // 明黄车漆三档 + 深色玻璃两档，同族每个通道差都压在 25 以内，抖动不出棋盘格
+    const PAINT    = [226, 178, 52];
+    const PAINT_HI = [244, 200, 76];
+    const PAINT_LO = [202, 156, 44];
+    const GLASS    = [56, 68, 84];
+    const GLASS_HI = [78, 90, 106];
+    const TIRE     = [40, 40, 44];
+    const HUB      = [176, 178, 184];
+    const CHROME   = [214, 210, 194];
+    const LAMP     = [250, 240, 200];
+    const BEACON   = [72, 132, 214];
+
+    const wb = P.wheelbase;
+    // colorOf 收的是 z 坐标，按高度分三档做出顶光
+    const paintAt = zz => (zz > z + 0.88 ? PAINT_HI : zz > z + 0.50 ? PAINT : PAINT_LO);
+    const glassAt = zz => (zz > z + 1.24 ? GLASS_HI : GLASS);
+
+    // 1 车身壳：四条沿 x 的胶囊并排，拼出 1.8 宽、上下分光的圆壳
+    for (let i = 0; i < 4; i++) {
+      const yy = y - 0.45 + i * 0.30;
+      ctx.capsule([x - 1.04, yy, z + 0.68], [x + 1.04, yy, z + 0.68], 0.45, 0.45, paintAt, 'gloss');
+    }
+
+    // 2 四角翼子板：球把方角补成圆弧，同时把车头车尾鼓起来
+    for (const sx of [-1, 1]) {
+      for (const sy of [-1, 1]) {
+        ctx.sphere(x + sx * 0.90 * wb, y + sy * 0.46, z + 0.60, 0.43,
+                   sy > 0 ? PAINT : PAINT_LO, 'gloss');
+      }
+    }
+
+    // 3 车窗环带：窄而高，从车壳顶上冒出来，侧面自然露出一整圈深色玻璃
+    for (let i = 0; i < 3; i++) {
+      const yy = y - 0.28 + i * 0.28;
+      ctx.capsule([x - 0.72, yy, z + 1.14], [x + 0.66, yy, z + 1.14], 0.26, 0.26, glassAt, 'gloss');
+    }
+
+    // 4 B 柱：一根窄黄柱压在玻璃外侧，把前后侧窗断开
+    ctx.box(x - 0.05, y - 0.58, z + 1.06, x + 0.05, y + 0.58, z + 1.40, PAINT, ctx.seed + 1);
+
+    // 5 车顶盖：更窄的黄色拱顶压住玻璃中段，两侧各留一条侧窗
+    const rr = 0.15 * P.dome;
+    const cZ = z + 1.32 + (P.dome - 1) * 0.10;
+    for (let i = 0; i < 3; i++) {
+      const yy = y - 0.15 + i * 0.15;
+      ctx.capsule([x - 0.56, yy, cZ], [x + 0.50, yy, cZ], rr, rr,
+                  zz => (zz > cZ ? PAINT_HI : PAINT), 'gloss');
+    }
+
+    // 6 车顶蓝色警灯（镀铬底座 + 蓝球），位置跟着车顶最高点走
+    if (P.beacon > 0.05) {
+      const br = 0.10 * P.beacon;
+      const topZ = cZ + rr;
+      ctx.capsule([x + 0.16, y - 0.09, topZ - 0.02], [x + 0.16, y + 0.09, topZ - 0.02],
+                  0.055, 0.055, () => CHROME, 'solid');
+      ctx.sphere(x + 0.16, y, topZ + br * 0.5, br, BEACON, 'gloss');
+    }
+
+    // 7 四个轮子：黑球做胎（外沿压在车宽边界上），外侧贴一枚银轮毂盖
+    for (const sx of [-1, 1]) {
+      for (const sy of [-1, 1]) {
+        const wx = x + sx * 0.90 * wb;
+        ctx.sphere(wx, y + sy * 0.54, z + 0.35, 0.35, TIRE, 'rough');
+        ctx.sphere(wx, y + sy * 0.79, z + 0.35, 0.12, HUB, 'gloss');
+      }
+    }
+
+    // 8 圆形大灯：甲壳虫标志性的鼓包灯，压在翼子板前缘（emissive：车灯）
+    for (const sy of [-1, 1]) {
+      ctx.sphere(x + 1.22, y + sy * 0.44, z + 0.86, 0.15, LAMP, 'gloss');
+    }
+
+    // 9 镀铬腰线 + 前后保险杠
+    if (P.trim > 0.5) {
+      for (const sy of [-1, 1]) {
+        ctx.capsule([x - 0.92, y + sy * 0.88, z + 0.66], [x + 0.92, y + sy * 0.88, z + 0.66],
+                    0.055, 0.055, () => CHROME, 'solid');
+      }
+      ctx.box(x + 1.34, y - 0.40, z + 0.30, x + 1.48, y + 0.40, z + 0.46, CHROME, ctx.seed + 2);
+      ctx.box(x - 1.48, y - 0.40, z + 0.30, x - 1.34, y + 0.40, z + 0.46, CHROME, ctx.seed + 3);
+    }
+
+    // 10 落地阴影
+    ctx.shadow(1.65, 1, 0.5);
+  },
+});
