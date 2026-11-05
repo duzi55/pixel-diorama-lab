@@ -316,6 +316,7 @@
   <div class="float-status">
     <span id="pos">—</span>
     <span id="zoom-pct" title="点击复位视图" style="cursor:pointer">100%</span>
+    <button id="ed-log-btn" class="lyr-btn" hidden style="font-size:11px" title="查看错误日志">⚠</button>
     <span id="sel">未选中</span>
     <span style="margin-left:auto;display:flex;align-items:center;gap:12px">
       <label class="chk">人群 AI:
@@ -336,6 +337,12 @@
     <button id="ed-dock-go">重建</button>
   </div>
 </main>
+
+<!-- 错误日志面板 -->
+<div class="log-panel" id="ed-log-panel" hidden>
+  <div class="log-head"><span>错误日志</span><button class="modal-close" id="ed-log-close">×</button></div>
+  <div class="log-body" id="ed-log-body"></div>
+</div>
 
 <!-- AI 后台任务条：关闭模态框后仍显示进度 -->
 <div class="ai-task" id="recon-task" hidden>
@@ -412,6 +419,7 @@ window.PP_W=520;window.PP_H=380;window.PP_SCALE=11;window.PP_ORIGIN_X=0;window.P
 <script src="editor-light.js"></script>
 <script src="editor-kit.js"></script>
 <script src="editor-canvas.js"></script>
+<script src="editor-log.js"></script>
 <script src="editor.js"></script>
 <script src="editor-recon.js"></script>
 <script src="editor-start.js"></script>

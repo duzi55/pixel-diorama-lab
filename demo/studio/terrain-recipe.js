@@ -132,23 +132,58 @@ function terrainApplyRecipe(recipe, opts = {}) {
   if (!recipe) return null;
   if (typeof TERRAIN_SHAPES === 'undefined') return null;
 
-  if (opts.clear !== false) TERRAIN.clear();
+  /* 有地形选区时：只清选区内的旧地形，形状适配选区范围 */
+  const region = opts.region || (typeof ED !== 'undefined' ? ED.terrainSel : null);
+  let cx = opts.cx == null ? 0 : opts.cx;
+  let cy = opts.cy == null ? 0 : opts.cy;
+  let rx = opts.rx == null ? 9 : opts.rx;
+  let ry = opts.ry == null ? 7 : opts.ry;
+  let inRegion = null;
+  let beforeKeys = null;
+
+  if (region) {
+    const gx0 = Math.floor(Math.min(region.x0, region.x1));
+    const gx1 = Math.ceil(Math.max(region.x0, region.x1));
+    const gy0 = Math.floor(Math.min(region.y0, region.y1));
+    const gy1 = Math.ceil(Math.max(region.y0, region.y1));
+
+    for (const c of [...TERRAIN.cells.values()]) {
+      if (c.gx >= gx0 && c.gx <= gx1 && c.gy >= gy0 && c.gy <= gy1) TERRAIN.erase(c.gx, c.gy);
+    }
+    cx = (gx0 + gx1 + 1) / 2;
+    cy = (gy0 + gy1 + 1) / 2;
+    rx = Math.max(1.5, (gx1 - gx0 + 1) / 2 - 0.8);
+    ry = Math.max(1.5, (gy1 - gy0 + 1) / 2 - 0.8);
+    inRegion = { gx0, gx1, gy0, gy1 };
+    beforeKeys = new Set(TERRAIN.cells.keys());   /* 选区外原有地形不许动 */
+  } else if (opts.clear !== false) {
+    TERRAIN.clear();
+  }
 
   const shape = {
     type: opts.shape || 'island',
-    cx: opts.cx || 0,
-    cy: opts.cy || 0,
-    rx: opts.rx || 9,
-    ry: opts.ry || 7,
+    cx, cy, rx, ry,
     mat: recipe.core,
     z: opts.z || 0,
     wobble: opts.wobble == null ? 0.16 : opts.wobble,
   };
 
-  TERRAIN_SHAPES.apply({ name: recipe.name, shapes: [shape] });
+  TERRAIN_SHAPES.apply({ name: recipe.name, shapes: [shape], clear: !inRegion });
 
   const blended = terrainBlendEdges(recipe.core, recipe.blend, recipe.blendWidth);
-  return { cells: TERRAIN.cells.size, blended };
+
+  /* 选区外多出来的格子裁掉（形状抖动可能溢出） */
+  if (inRegion) {
+    for (const c of [...TERRAIN.cells.values()]) {
+      if (beforeKeys && beforeKeys.has(TERRAIN.key(c.gx, c.gy))) continue;  /* 原有地形保留 */
+      if (c.gx < inRegion.gx0 || c.gx > inRegion.gx1 ||
+          c.gy < inRegion.gy0 || c.gy > inRegion.gy1) {
+        TERRAIN.erase(c.gx, c.gy);
+      }
+    }
+  }
+
+  return { cells: TERRAIN.cells.size, blended, region: !!inRegion };
 }
 
 /* ---------------- UI ---------------- */
@@ -187,9 +222,14 @@ function initTerrainRecipeUI() {
     const res = terrainApplyRecipe(recipe);
     if (res) {
       const hint = document.getElementById('recipe-hint');
-      if (hint) hint.textContent = `已生成 ${res.cells} 格 · 其中过渡 ${res.blended} 格`;
+      if (hint) {
+        hint.textContent = res.region
+          ? `已在选区内生成 ${res.cells} 格 · 过渡 ${res.blended} 格`
+          : `已生成 ${res.cells} 格 · 其中过渡 ${res.blended} 格`;
+      }
+      if (typeof ED_fit === 'function') ED_fit();
       ED.dirty = true;
-      studioStatus(`地形「${recipe.name}」已生成`, 'ok');
+      studioStatus(`地形「${recipe.name}」已生成${res.region ? '（选区内）' : ''}`, 'ok');
     }
   });
 }

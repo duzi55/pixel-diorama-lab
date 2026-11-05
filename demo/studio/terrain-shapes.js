@@ -22,7 +22,7 @@ const TERRAIN_SHAPES = {
     if (!preset || !Array.isArray(preset.shapes)) {
       throw new Error('地形预设缺少 shapes 数组');
     }
-    TERRAIN.clear();
+    if (preset.clear !== false) TERRAIN.clear();
 
     for (const s of preset.shapes) {
       try { TERRAIN_SHAPES.one(s); } catch (e) { console.warn('[terrain] 形状失败', s, e); }
