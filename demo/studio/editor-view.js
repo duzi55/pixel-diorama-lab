@@ -103,6 +103,8 @@ function ED_bindKeys() {  addEventListener('keydown', e => {
       if (k === 't') { ED_setTool('paint'); studioStatus('地形工具：选择材质后绘制'); return; }
       if (k === 'h') { ED_setTool('pan'); studioStatus('平移：拖动画布'); return; }
       if (k === 'l') { ED_setTool('light'); studioStatus('光源工具：点画布放置，拖动移动，右侧调高度'); return; }
+      if (k === 'i') { ED_setTool('pick'); studioStatus('吸管：点地形取材质和高度'); return; }
+      if (k === 'g') { ED_setTool('fill'); studioStatus('填充桶：点一片地形换成当前材质'); return; }
     }
 
     /* 撤销 / 重做 */
@@ -118,6 +120,23 @@ function ED_bindKeys() {  addEventListener('keydown', e => {
       e.preventDefault();
       if (e.shiftKey) ED_ungroupSelection();
       else ED_groupSelection();
+      return;
+    }
+
+    /* 剪切 / 粘贴 / 反选 */
+    if ((e.metaKey || e.ctrlKey) && k === 'x') {
+      e.preventDefault();
+      ED_cutSelection();
+      return;
+    }
+    if ((e.metaKey || e.ctrlKey) && k === 'v') {
+      e.preventDefault();
+      ED_pasteClipboard();
+      return;
+    }
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && k === 'i') {
+      e.preventDefault();
+      ED_invertSelection();
       return;
     }
 
@@ -186,6 +205,8 @@ function ED_applyView() {
   canvas.style.width = Math.round(W * k) + 'px';
   canvas.style.height = Math.round(H * k) + 'px';
   canvas.style.transform = v.ox || v.oy ? `translate(${v.ox}px, ${v.oy}px)` : '';
+  const pct = document.getElementById('zoom-pct');
+  if (pct) pct.textContent = Math.round(k * 100) + '%';
 }
 
 /* 视图缩放（Ctrl/⌘ + 滚轮），以鼠标位置为中心 */
@@ -224,6 +245,43 @@ function ED_applyTool(w) {
     case 'erase':
       TERRAIN.paint(g.gx, g.gy, ED.mat, ED.brush, 0, 'erase');
       break;
+    case 'pick': {
+      /* 吸管：取格子材质与高度 */
+      const c = TERRAIN.get(g.gx, g.gy);
+      if (!c) { studioStatus('这里没有地形', 'err'); break; }
+      ED.mat = c.mat;
+      ED.height = c.z || 0;
+      ED_refreshMatButtons();
+      studioStatus(`吸取：${(TERRAIN.mats[c.mat] || {}).name || c.mat} · 高 ${(c.z || 0).toFixed(2)}`);
+      break;
+    }
+    case 'fill': {
+      /* 填充桶：同材质连通区域替换成当前材质 */
+      const start = TERRAIN.get(g.gx, g.gy);
+      if (!start) { studioStatus('这里没有地形可填充', 'err'); break; }
+      /* 先记下目标材质的值：TERRAIN.set 会就地改 start.mat，边填边比较会失效 */
+      const targetMat = start.mat;
+      if (targetMat === ED.mat) break;
+      ED_snapshot('填充地形');
+      const seen = new Set();
+      const stack = [[g.gx, g.gy]];
+      let n = 0;
+      while (stack.length && n < 6000) {
+        const [x, y] = stack.pop();
+        const k = x + ',' + y;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        const c = TERRAIN.get(x, y);
+        if (!c || c.mat !== targetMat) continue;
+        TERRAIN.set(x, y, ED.mat, c.z || 0);
+        n++;
+        stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+      }
+      for (const o of ED.objects) o.z = ED.baseMap ? 0 : TERRAIN.heightAt(o.x, o.y);
+      studioStatus(`填充 ${n} 格`);
+      ED.dirty = true;
+      break;
+    }
     case 'raise':
       TERRAIN.sculpt(g.gx, g.gy, ED.brush, .25, 'raise');
       break;

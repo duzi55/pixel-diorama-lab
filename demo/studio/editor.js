@@ -13,7 +13,7 @@
  * ------------------------------------------------------------------ */
 
 const ED = {
-  tool: 'paint',
+  tool: 'select',
   mat: 'grass',
   autoBlend: false,      /* 笔刷画到边缘格时自动换过渡材质 */
   blendMat: 'soil',
@@ -60,6 +60,12 @@ function ED_init() {
   ED_bindBrushBlend();
   const growBtn = document.getElementById('btn-expand');
   if (growBtn) growBtn.addEventListener('click', () => ED_expandCanvas(128, 128));
+  const zoomEl = document.getElementById('zoom-pct');
+  if (zoomEl) zoomEl.addEventListener('click', () => {
+    ED.view = { scale: 1, ox: 0, oy: 0 };
+    ED_applyView();
+    studioStatus('视图复位');
+  });
   const sizeEl = document.getElementById('canvas-size');
   if (sizeEl) sizeEl.textContent = `${W} × ${H}`;
   ED_bindPanels();
@@ -89,6 +95,7 @@ function ED_buildMats() {
   box.innerHTML = '';
   for (const [id, m] of Object.entries(TERRAIN.mats)) {
     const b = document.createElement('button');
+    b.dataset.mat = id;
     b.className = 'pill' + (id === ED.mat ? ' on' : '');
     b.textContent = m.name;
     b.addEventListener('click', () => {
@@ -108,6 +115,15 @@ function ED_setTool(t) {
   ED.tool = t;
   for (const b of document.getElementById('tools').children)
     b.classList.toggle('on', b.dataset.tool === t);
+}
+
+/** 吸取材质后刷新按钮选中态 */
+function ED_refreshMatButtons() {
+  const box = document.getElementById('mats');
+  if (!box) return;
+  for (const b of box.children) {
+    if (b.dataset && b.dataset.mat) b.classList.toggle('on', b.dataset.mat === ED.mat);
+  }
 }
 
 function ED_bindBrushBlend() {
@@ -283,6 +299,7 @@ function ED_bindCanvas() {
         if (e.shiftKey) ED_select(hit, { additive: true });
         else if (!ED_isSelected(hit)) ED_select(hit);
         if (ED_isSelected(hit)) {
+          if (e.altKey) ED_duplicateSelection();   /* Alt 拖拽 = 复制后拖 */
           const s0 = toScreen(e);
           ED_beginDrag(s0.sx, s0.sy);
         }

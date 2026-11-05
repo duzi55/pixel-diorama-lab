@@ -214,3 +214,43 @@ function ED_duplicateSelection() {
   ED_selectMany(copies, false);
   studioStatus(`已复制 ${copies.length} 个物体`);
 }
+
+/* ---------------- 剪切 / 粘贴 / 反选 ---------------- */
+
+let ED_CLIPBOARD = null;
+
+function ED_cutSelection() {
+  const list = ED_selectionList();
+  if (!list.length) { studioStatus('没有选中的物体', 'err'); return; }
+  ED_CLIPBOARD = JSON.parse(JSON.stringify(list));
+  ED_deleteSelection();
+  studioStatus(`已剪切 ${list.length} 个物体（⌘V 粘贴）`);
+}
+
+function ED_pasteClipboard() {
+  if (!ED_CLIPBOARD || !ED_CLIPBOARD.length) { studioStatus('剪贴板为空', 'err'); return; }
+  ED_snapshot('粘贴');
+  const copies = ED_CLIPBOARD.map(o => {
+    const n = {
+      ...o,
+      id: 'o' + (ED.nextId++),
+      x: Math.round((o.x + .5) * 4) / 4,
+      y: Math.round((o.y + .5) * 4) / 4,
+      seed: Math.floor(hash(ED.nextId * 17, 91) * 100000) + 1,
+    };
+    n.params = { ...(o.params || {}) };
+    n.collision = o.collision ? { ...o.collision } : null;
+    delete n.anim;
+    return n;
+  });
+  ED.objects.push(...copies);
+  ED_selectMany(copies, false);
+  studioStatus(`已粘贴 ${copies.length} 个物体`);
+}
+
+function ED_invertSelection() {
+  const cur = new Set(ED_selectionList());
+  const inv = ED.objects.filter(o => !cur.has(o) && !o.hidden && !o.locked);
+  ED_selectMany(inv, false);
+  studioStatus(`反选：${inv.length} 个物体`);
+}

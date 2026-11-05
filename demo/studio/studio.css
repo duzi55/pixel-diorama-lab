@@ -844,3 +844,11 @@ body.ed-paper .bar { padding-top: 4px; padding-bottom: 4px; }
 .fp-tab:hover { color: var(--fg); }
 .fp-tab.on { color: var(--fg); border-bottom-color: var(--accent); }
 .fp-body .pane[hidden] { display: none; }
+
+/* 工具栏改为图标网格（文字在 title 里） */
+.fp-tools .pill {
+  width: 32px; height: 28px;
+  padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 14px; line-height: 1;
+}
