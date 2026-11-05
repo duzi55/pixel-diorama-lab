@@ -31,6 +31,8 @@ const TERRAIN = {
   R: 20,
 
   /* 全局过渡参数（编辑器可调） */
+  /* 边缘溶解配置：mode 选预设，band/strength 可微调 */
+  edge: { mode: 'scatter', band: 0.5, strength: 0.62, curve: 1.0 },
   blend: {
     width: 0.42,     /* 过渡带宽度（格）：0.2 窄而硬 · 0.7 宽而柔 */
     jitter: 0.55,    /* 边界抖动：0 平滑渐变 · 1 碎片化锯齿 */
@@ -150,7 +152,7 @@ const TERRAIN = {
     const cells = [];
     for (const c of TERRAIN.cells.values())
       cells.push([c.gx, c.gy, c.mat, Math.round(c.z * 100) / 100]);
-    return { r: TERRAIN.R, cells, blend: { ...TERRAIN.blend } };
+    return { r: TERRAIN.R, cells, blend: { ...TERRAIN.blend }, edge: { ...TERRAIN.edge } };
   },
 
   /* 反序列化 */
@@ -159,5 +161,6 @@ const TERRAIN = {
     if (!data || !data.cells) return;
     for (const [gx, gy, mat, z] of data.cells) TERRAIN.set(gx, gy, mat, z);
     if (data.blend) Object.assign(TERRAIN.blend, data.blend);
+    if (data.edge) Object.assign(TERRAIN.edge, data.edge);
   },
 };

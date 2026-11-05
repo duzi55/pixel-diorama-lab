@@ -148,3 +148,48 @@ function initTerrainAI() {
 
 initTerrainBlendUI();
 initTerrainAI();
+
+/* ---------------- 边缘溶解 UI ---------------- */
+
+function initTerrainEdgeUI() {
+  const sel = document.getElementById('edge-mode');
+  const band = document.getElementById('edge-band');
+  const strength = document.getElementById('edge-strength');
+  const vBand = document.getElementById('v-edge-band');
+  const vStr = document.getElementById('v-edge-strength');
+  if (!sel || !band || !strength) return;
+
+  sel.innerHTML = Object.entries(TERRAIN_EDGE_MODES)
+    .map(([id, m]) => `<option value="${id}">${m.name}</option>`).join('');
+
+  const sync = () => {
+    band.value = String(TERRAIN.edge.band);
+    strength.value = String(TERRAIN.edge.strength);
+    if (vBand) vBand.textContent = Number(TERRAIN.edge.band).toFixed(2);
+    if (vStr) vStr.textContent = Number(TERRAIN.edge.strength).toFixed(2);
+  };
+
+  /* 老场景可能没有 mode 字段：按当前参数反推最近预设 */
+  if (!TERRAIN.edge.mode) TERRAIN.edge.mode = 'scatter';
+  sel.value = TERRAIN.edge.mode;
+  sync();
+
+  sel.addEventListener('change', () => {
+    terrainEdgeApplyMode(sel.value);
+    sync();
+    ED.dirty = true;
+    studioStatus('边缘溶解：' + (TERRAIN_EDGE_MODES[sel.value] || {}).name);
+  });
+  band.addEventListener('input', e => {
+    TERRAIN.edge.band = Number(e.target.value);
+    if (vBand) vBand.textContent = Number(e.target.value).toFixed(2);
+    ED.dirty = true;
+  });
+  strength.addEventListener('input', e => {
+    TERRAIN.edge.strength = Number(e.target.value);
+    if (vStr) vStr.textContent = Number(e.target.value).toFixed(2);
+    ED.dirty = true;
+  });
+}
+
+initTerrainEdgeUI();

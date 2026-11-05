@@ -110,6 +110,16 @@
         <label class="chk" style="margin-bottom:8px">
           <input type="checkbox" id="blend-slope" checked> 高度坡面混合（光线步进）
         </label>
+        <div class="prop-sub">边缘溶解</div>
+        <select id="edge-mode" style="width:100%"></select>
+        <div class="slider">
+          <label>溶解宽度 <b id="v-edge-band">0.50</b></label>
+          <input type="range" id="edge-band" min="0" max="1.2" step="0.05" value="0.5">
+        </div>
+        <div class="slider">
+          <label>溶解强度 <b id="v-edge-strength">0.62</b></label>
+          <input type="range" id="edge-strength" min="0.1" max="1" step="0.02" value="0.62">
+        </div>
       </div>
 
       <div class="sec">

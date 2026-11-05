@@ -237,6 +237,26 @@ function terrainPatchSeams() {
 
 const TERRAIN_EDGE_KEY = (gx, gy) => (gx + 512) * 1024 + (gy + 512);
 
+/** 边缘溶解的几种风格（band=宽度格, curve=越外越易剔除, clump/grain=两种噪声权重） */
+const TERRAIN_EDGE_MODES = {
+  scatter: { name: '颗粒散落', band: .55, strength: .62, curve: 1.0, clumpFreq: 2.4, clumpAmp: .60, grain: .50 },
+  grain:   { name: '细密砂边', band: .40, strength: .55, curve: 2.0, clumpFreq: 10.0, clumpAmp: .10, grain: 1.00 },
+  fade:    { name: '渐变淡出', band: 1.00, strength: .72, curve: .60, clumpFreq: 1.2, clumpAmp: .30, grain: .85 },
+  chunk:   { name: '块状碎裂', band: .90, strength: .62, curve: 1.8, clumpFreq: .45, clumpAmp: .95, grain: .05 },
+  off:     { name: '关闭（硬边）', band: 0, strength: 0, curve: 1, clumpFreq: 1, clumpAmp: 0, grain: 0 },
+};
+
+/** 应用一种溶解预设到 TERRAIN.edge */
+function terrainEdgeApplyMode(mode) {
+  const m = TERRAIN_EDGE_MODES[mode] || TERRAIN_EDGE_MODES.scatter;
+  TERRAIN.edge = {
+    mode: TERRAIN_EDGE_MODES[mode] ? mode : 'scatter',
+    band: m.band, strength: m.strength, curve: m.curve,
+    clumpFreq: m.clumpFreq, clumpAmp: m.clumpAmp, grain: m.grain,
+  };
+  return TERRAIN.edge;
+}
+
 /** 边缘格集合（渲染前算一次） */
 function terrainEdgeSet() {
   const s = new Set();
@@ -259,14 +279,17 @@ function terrainEdgeSet() {
 function terrainEdgeCut(edges, gx, gy, x, y, ix, iy) {
   if (!edges.has(TERRAIN_EDGE_KEY(gx, gy))) return false;
 
+  const cfg = TERRAIN.edge || {};
+  const band = cfg.band || 0;
+  if (band <= 0) return false;                 /* off：硬边 */
+
   const u = x - gx, v = y - gy;
   const d = Math.min(u, 1 - u, v, 1 - v);      /* 到格边距离 0..0.5 */
-  const band = 0.5;
   if (d > band) return false;
 
-  const t = (band - d) / band;                 /* 0=内部 1=最外 */
-  /* 低频团块主导 + 少量像素抖动：缺口成片，像墨边淡出，不是均匀噪点 */
-  const clump = noise(x * 1.45 + 11.3, y * 1.45 + 4.1);
-  const grain = hash(ix * 1.71, iy * 2.13) * 0.28;
-  return clump * 0.72 + grain < t * 0.5;
+  const t = Math.pow((band - d) / band, cfg.curve || 1);   /* 0=内部 1=最外 */
+  const clump = noise(x * (cfg.clumpFreq || 2.4) + 11.3, y * (cfg.clumpFreq || 2.4) + 4.1);
+  const grain = hash(ix * 1.71, iy * 2.13);
+  const n = clump * (cfg.clumpAmp == null ? .6 : cfg.clumpAmp) + grain * (cfg.grain == null ? .4 : cfg.grain);
+  return n < t * (cfg.strength || 0);
 }
