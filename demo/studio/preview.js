@@ -26,6 +26,7 @@ const PV = {
   lightOn: true,
   lightTone: 'warm',     // warm | cool | neutral
   /* 方向光：方位角（屏幕方向）+ 高度角（0~1），由预览区的太阳控件驱动 */
+  sunAz: Math.atan2(.5, .22), sunEl: .84,
 };
 
 /* 背景两套（地面圆盘色阶跟着背景走） */
@@ -46,7 +47,6 @@ const PV_GROUND_TONES = [[44, 46, 54], [50, 52, 60], [56, 58, 66], [62, 64, 72]]
 /* 画布由 CSS 铺满 iframe（object-fit: contain 保持比例），
    这里只保留 hook 供 resize 时重绘 */
 function PV_fit() { PV_render(); }
-
 function PV_drawGround() {
   const BG = PV_BG[PV.bgTone] || PV_BG.dark;
   zb.fill(-1e9);
@@ -84,7 +84,6 @@ function PV_line(x0, y0, x1, y1, color, dash) {
     pix[y * W + x] = color;
   }
 }
-
 
 function PV_makeCtx(p) {
   /* 行为动画：KIT_BEHAVIOR.tick 写进 PV.inst.anim，这里叠加到所有原语 */
@@ -184,11 +183,12 @@ function PV_makeCtx(p) {
     lit: (nx, ny, nz) => litLevel(nx, ny, nz),
     rampOf, rgb, hash, noise, lerp, clamp,
     shadow: (r, s, d) => castShadow(0, 0, .01, r * sc, s == null ? 1 : s, d),
-    shadowAt: (x, y, z, r, s, d) => { const q = unScaled(x, y); castShadow(q[0], q[1], z * sc, r * sc, s, d); },
+    shadowAt: (x, y, z, r, s, d) => { const q = P(x, y, z); castShadow(q[0], q[1], q[2], r * sc, s == null ? 1 : s, d); },
   };
 }
 
 function PV_render() {
+  PV_setLightDir();
   PV_drawGround();
   if (PV.drawFn) {
     try {
@@ -223,6 +223,16 @@ function PV_render() {
 
 /* 光源开关 + 色系：开关只改光的方向（关 → 顶光，明暗更平）；
    色系是整幅画面的 RGB 乘数（暖白/冷白/中性） */
+function PV_setLightDir() {
+  const el = PV.sunEl, horiz = Math.sqrt(Math.max(0, 1 - el * el));
+  const dir = PV.lightOn
+    ? { x: -Math.cos(PV.sunAz) * horiz, y: -Math.sin(PV.sunAz) * horiz, z: el }
+    : { x: 0, y: 0, z: 1 };
+  LIGHT.useDir = true;
+  LIGHT.dir.x = dir.x; LIGHT.dir.y = dir.y; LIGHT.dir.z = dir.z;
+  LIGHT.shadow.x = 1.5 * dir.x / Math.max(.2, dir.z);
+  LIGHT.shadow.y = 1.5 * dir.y / Math.max(.2, dir.z);
+}
 function PV_applyLight() {
   /* 光照明暗是固定美术设定（复刻参考项目）；这里只做色系乘数 */
   const t = PV_LIGHT_TONES[PV.lightTone] || PV_LIGHT_TONES.neutral;
@@ -375,6 +385,13 @@ window.addEventListener('message', e => {
   if (msg.type === 'light') {
     if (typeof msg.on === 'boolean') PV.lightOn = msg.on;
     if (msg.tone) PV.lightTone = msg.tone;
+    PV_render();
+    return;
+  }
+  if (msg.type === 'sun') {
+    const az = Number(msg.az), el = Number(msg.el);
+    if (Number.isFinite(az)) PV.sunAz = az;
+    if (Number.isFinite(el)) PV.sunEl = Math.max(.12, Math.min(1, el));
     PV_render();
     return;
   }

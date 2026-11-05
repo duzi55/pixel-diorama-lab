@@ -146,6 +146,17 @@ input.rot3 { width: 76px; accent-color: var(--accent-2); }
 #pv { display: block; width: 100%; height: 100%; border: 0; background: #0e0e11; }
 /* 透明挡板盖住 iframe：拖拽/滚轮才能在父页面接住 */
 .pv-shield { position: absolute; inset: 0; }
+/* 可拖动的太阳：位置 = 光照方位，离中心越近 = 光越高 */
+.pv-sun {
+  position: absolute; left: 12px; top: 12px; z-index: 3;
+  width: 34px; height: 34px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 18px; line-height: 1;
+  background: rgba(30, 30, 38, .72); border: 1px solid var(--line);
+  color: #ffd86a; cursor: grab; user-select: none; touch-action: none;
+  box-shadow: 0 2px 10px rgba(0,0,0,.35);
+}
+.pv-sun:hover { border-color: var(--accent); }
+.pv-sun.dragging { cursor: grabbing; background: rgba(60, 50, 20, .9); border-color: var(--accent); }
 .pv-hint {
   position: absolute; left: 10px; bottom: 8px; font-size: 10.5px; color: rgba(255,255,255,.30);
   pointer-events: none; user-select: none;

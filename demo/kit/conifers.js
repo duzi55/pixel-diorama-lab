@@ -10,7 +10,7 @@
  * ------------------------------------------------------------------ */
 
 /* 参考项目 rampOf 的 5 档色阶（暗部 40% + 冷调，亮部 110% + 暖调） */
-const CONE_PACKED = rampOf([236, 178, 52]);
+const CONE_PACKED = rampOf([246, 198, 78]);
 
 /* 屏幕像素 → 高度 z 水平面上的世界坐标 */
 function coneUnproject(ix, iy, z) {
@@ -23,8 +23,8 @@ function coneUnproject(ix, iy, z) {
    ★ 必须走 ctx.screen / ctx.unproject：构件可能被 ctx.rot 旋转，
      用全局 project/coneUnproject 算包围盒会落在未旋转的位置，
      叶簇只画出一小块碎片 → 树冠全是透出背景的黑点。
-   ★ tone 是色阶索引（不是颜色）：簇内按球面法线算光照 + 颗粒抖动，
-     否则每簇是一整块纯色，放大后读作"叠盘子"。 */
+   ★ tone 是色阶索引（不是颜色）：簇内只留亮/中两种硬色块 + 颗粒，
+     不做球面渐变 —— 放大的树冠也不能读成 3D 体积。 */
 function leafBlob(ctx, cx, cy, z, r, tone) {
   /* 叶簇 = 不规则的面片（不是球、不是圆盘）：
      - 轮廓：多频正弦扰动 + 边缘缺口，读作手绘叶团
@@ -51,11 +51,12 @@ function leafBlob(ctx, cx, cy, z, r, tone) {
       if (d > re) continue;
       /* 边缘缺口：碎叶感 */
       if (d > re * .86 && hash(ix * .8 + 5, iy * .8 + 9) > .55) continue;
-      /* 平面光照：面片朝左上亮、右下暗（不是球面法线） */
-      const l = clamp(.58 - dx * .34 - dy * .22, 0, 1);
-      const idx = Math.floor(l * 4.4 + .2 + (bayerAt(ix, iy) - .5) * .7);
+      /* 去 3D 感：簇内不再按 dx/dy 做球面光照，只留两种硬色块 + 颗粒。
+         暗档（0/1）整档禁用，树冠不再有黑黢黢的体积阴影。 */
+      const grain = hash(ix * .9 + 11, iy * .7 + 5) > .8 ? 1 : 0;
+      const idx = clamp(2 + Math.round(off * .6) + grain, 2, 4);
       const g = toLocal(ix, iy, z);
-      ctx.plot(g[0], g[1], z, CONE_PACKED[clamp(idx + off, 0, 4)]);
+      ctx.plot(g[0], g[1], z, CONE_PACKED[idx]);
     }
   }
 }
@@ -71,7 +72,7 @@ function coneCanopy(ctx, cx, cy, z0, z1, cr, seed, density) {
     const z = z1 - u * h;
     const env = cr * Math.pow(u, .9);          // u=0 顶 → 窄；u=1 底 → 宽
     if (env < .3) continue;
-    blobs.push({ x: cx, y: cy, z, r: Math.max(.34, env * .38), tone: u > .6 ? 1 : 2 });
+    blobs.push({ x: cx, y: cy, z, r: Math.max(.38, env * .44), tone: u > .6 ? 2 : 3 });
   }
   /* 外壳叶簇：沿锥面密排，半径大、重叠 → 蓬松轮廓 */
   const N = Math.round(density);
@@ -92,9 +93,9 @@ function coneCanopy(ctx, cx, cy, z0, z1, cr, seed, density) {
     /* 受光侧提亮：投影到当前光源方向（不是写死的左上），光源转树冠亮面跟着转 */
     const lx = (bx - cx) * (typeof LIGHT !== 'undefined' ? LIGHT.dir.x : -.55)
              + (by - cy) * (typeof LIGHT !== 'undefined' ? LIGHT.dir.y : -.6);
-    const lit = -lx * .16;
-    const tone = 1.5 + (1 - u) * .9 + lit * .8 + (hash(k, 15) - .5) * 1.1;
-    blobs.push({ x: bx, y: by, z: z + zj, r, tone: clamp(Math.round(tone), 0, 3) });
+    const lit = -lx * .1;
+    const tone = 2.2 + (1 - u) * .7 + lit + (hash(k, 15) - .5) * .5;
+    blobs.push({ x: bx, y: by, z: z + zj, r, tone: clamp(Math.round(tone), 2, 3) });
   }
   /* 顶层亮簇 */
   blobs.push({ x: cx, y: cy, z: z1 - .55, r: Math.max(.45, cr * .14), tone: 3 });
@@ -135,14 +136,14 @@ KIT.register({
     const tkH = Math.min(ctx.params.trunkH, h * .45);
     const seed = ctx.seed;
     const tr = Math.max(.4, cr * .13);
-    const bark = [94, 60, 38], barkLit = [140, 96, 58];
+    const bark = [150, 108, 66], barkLit = [186, 140, 88];
     /* part：'trunk' 只画干 / 'canopy' 只画冠 / 缺省两者都画。
        场景用它把干（静态）和冠（每帧风动回放）分两遍烘焙。 */
     const part = inst && inst.part;
     if (part !== 'canopy') {
-    ctx.capsule([ctx.x, ctx.y, 0], [ctx.x, ctx.y, tkH + 2.5], tr, tr * .55, () => bark, 'rough');
+    ctx.capsule([ctx.x, ctx.y, 0], [ctx.x, ctx.y, tkH + .8], tr, tr * .55, () => bark, 'rough');
     ctx.capsule([ctx.x + tr * .42, ctx.y + tr * .42, 0],
-      [ctx.x + tr * .18, ctx.y + tr * .18, tkH + 1.8], tr * .34, tr * .12, () => barkLit, 'rough');
+      [ctx.x + tr * .18, ctx.y + tr * .18, tkH + .6], tr * .34, tr * .12, () => barkLit, 'rough');
     for (let i = 0; i < 4; i++) {
       const a = i * 1.5708 + hash(seed + i, 7) * .5;
       ctx.capsule([ctx.x, ctx.y, .3], [ctx.x + Math.cos(a) * tr * 2.1, ctx.y + Math.sin(a) * tr * 2.1, 0],
@@ -180,13 +181,13 @@ KIT.register({
     const tkH = Math.min(ctx.params.trunkH, h * .35);
     const seed = ctx.seed;
     const tr = Math.max(.28, cr * .12);
-    const bark = [88, 56, 34], barkLit = [128, 86, 52];
+    const bark = [146, 104, 62], barkLit = [180, 134, 82];
     const part = inst && inst.part;
 
     if (part !== 'canopy') {
-      ctx.capsule([ctx.x, ctx.y, 0], [ctx.x, ctx.y, tkH + 1.8], tr, tr * .5, () => bark, 'rough');
+      ctx.capsule([ctx.x, ctx.y, 0], [ctx.x, ctx.y, tkH + .6], tr, tr * .5, () => bark, 'rough');
       ctx.capsule([ctx.x + tr * .34, ctx.y + tr * .34, 0],
-        [ctx.x + tr * .14, ctx.y + tr * .14, tkH + 1.3], tr * .28, tr * .1, () => barkLit, 'rough');
+        [ctx.x + tr * .14, ctx.y + tr * .14, tkH + .45], tr * .28, tr * .1, () => barkLit, 'rough');
     }
     if (part !== 'trunk') coneCanopy(ctx, ctx.x, ctx.y, tkH, h, cr, seed, ctx.params.density);
     if (!part) ctx.shadow(cr * .95, 1, .35);

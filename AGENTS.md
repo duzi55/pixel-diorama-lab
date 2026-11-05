@@ -80,7 +80,7 @@
 | 构件库·构件 | `demo/kit/trees.js` · `demo/kit/plants.js` | 树 / 草木灌木构件（与 docs/kit/ 篇目对齐） | `docs/kit/registry.md` |
 | 构件库·构件 | `demo/kit/buildings.js` · `demo/kit/stoneworks.js` · `demo/kit/props.js` · `demo/kit/cart.js` | 建筑 / 石砌 / 道具 / 载具构件（AI 生成物按分类落对应模块） | `docs/kit/registry.md` |
 | **构件库 Gallery** | `demo/kit/gallery.html` | **构件陈列页（Bootstrap 风格）**：按分类列出全部构件，实时预览 + 参数滑块 + seed 换形 + 一键复制调用代码；数据来自运行时注册表，新构件自动出现 | `docs/kit/README.md` |
-| 构件库·锥状树 | `demo/kit/conifers.js` | `cone-mast` / `cone-spire`：**叶簇团块**锥冠（plot 逐像素填充 + 簇内球面光照，规避球体深描边）+ 粗直干根爪；走 `ctx.screen/unproject`，旋转/缩放预览不会碎成黑点；`density` 控密度；绑定 `sway` + `chop` 行为 | `docs/kit/trees.md §5.7-5.8` |
+| 构件库·锥状树 | `demo/kit/conifers.js` | `cone-mast` / `cone-spire`：**叶簇团块**锥冠（plot 逐像素填充 + 平面硬色块，无球面渐变/暗档）+ 粗直干根爪；走 `ctx.screen/unproject`，旋转/缩放预览不会碎成黑点；`density` 控密度；绑定 `sway` + `chop` 行为 | `docs/kit/trees.md §5.7-5.8` |
 | **构件行为运行时** | `demo/kit/behavior.js` · `demo/kit/behavior-extra.js` | **行为 = 构件的逻辑层**：`KIT_BEHAVIOR.register` 注册可复用行为（sway/chop/flicker/wander/flee/greet/spin + burn/bob/open/patrol/grow/shake），构件用 `behavior.default/allow` 声明；`tick` 改 `inst.anim`（dx/dy/rot/scale/z/hidden），渲染器叠加到所有原语 | `docs/modules/behavior.md` |
 | **参考构件·建筑** | `demo/kit/ref-buildings.js` · `ref-surfaces.js` · `ref-shanghai.js` | 从参考项目移植：house / square-tower / round-tower / pitched-roof / parapet / water-tank / chimney / stairs + masonry-wall / plaster-wall / stair-house + **东方明珠 oriental-pearl** | `docs/kit/ref-port.md` · `ref-surfaces.md` |
 | **参考构件·结构与植被** | `demo/kit/ref-structures.js` · `ref-plants.js` | wood-fence / wire-fence / net / ramp + palm / flower / potted-plant / moss | `docs/kit/ref-port.md` · `ref-plants.md` |

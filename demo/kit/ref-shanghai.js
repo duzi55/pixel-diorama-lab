@@ -21,6 +21,29 @@ const OP_GOLD = [214, 164, 86];
 const OP_RED = [226, 64, 52];
 const OP_LEGS = [Math.PI / 2, Math.PI * 7 / 6, Math.PI * 11 / 6];
 
+
+/* 像素球：四档硬边 + 暗轮廓，不用引擎的连续球面渐变。
+   走 ctx.screen / ctx.unproject，旋转、缩放预览都不会画歪。 */
+function pearlBall(ctx, x, y, zl, r, color) {
+  const p = ctx.screen(x, y, (ctx.z || 0) + zl);
+  const rp = Math.max(r * S * ctx.scale, 1);
+  const x0 = Math.max(0, Math.floor(p.sx - rp)), x1 = Math.min(W - 1, Math.ceil(p.sx + rp));
+  const y0 = Math.max(0, Math.floor(p.sy - rp)), y1 = Math.min(H - 1, Math.ceil(p.sy + rp));
+  const ramp = ctx.rampOf(color);
+  for (let iy = y0; iy <= y1; iy++) for (let ix = x0; ix <= x1; ix++) {
+    const dx = (ix + .5 - p.sx) / rp, dy = (iy + .5 - p.sy) / rp, nn = dx * dx + dy * dy;
+    if (nn > 1) continue;
+    /* 像素球：只有亮/中两档 + 一圈暗轮廓，不要 4 档渐变。
+       方向光打开时（预览拖太阳），亮面跟着 LIGHT.dir 转。 */
+    const d = LIGHT.useDir ? LIGHT.dir : { x: -.55, y: -.6, z: .58 };
+    const l = -(d.x * dx + d.y * dy) + d.z * Math.sqrt(1 - nn);
+    let band = l > .12 ? 4 : 2;
+    if (nn > .82) band = 1;
+    const q = ctx.unproject(ix, iy, zl);
+    ctx.plot(q[0], q[1], zl, ramp[band]);
+  }
+}
+
 KIT.register({
   id: 'oriental-pearl',
   name: '东方明珠',
@@ -64,9 +87,9 @@ KIT.register({
     }
 
     /* 三个球：下粉、中青、上金 */
-    ctx.sphere(x, y, z0 + 3.5 * k, 1.15 * k * bs, OP_PINK);
-    ctx.sphere(x, y, z0 + 8.2 * k, .82 * k * bs, OP_CYAN);
-    ctx.sphere(x, y, z0 + 11.3 * k, .6 * k * bs, OP_GOLD);
+    pearlBall(ctx, x, y, 3.5 * k, 1.15 * k * bs, OP_PINK);
+    pearlBall(ctx, x, y, 8.2 * k, .82 * k * bs, OP_CYAN);
+    pearlBall(ctx, x, y, 11.3 * k, .6 * k * bs, OP_GOLD);
 
     /* 太空舱、天线、红色航空灯 */
     ctx.capsule([x, y, z0 + 11.6 * k], [x, y, z0 + 12.45 * k], .38 * k, .3 * k, () => OP_STEEL, 'solid');

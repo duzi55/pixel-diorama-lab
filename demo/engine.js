@@ -4,7 +4,6 @@
  * 等距投影 / 深度缓冲 / 球体+胶囊+盒子 / 5 级色阶 / Bayer 抖动 / 投影阴影 / 深度边缘
  * 引擎级设施：capture 像素缓存（风动基础）/ staticShadow 联动 / bakeOcclusion()
  * ------------------------------------------------------------------ */
-
 /* 画布尺寸：PP_W/PP_H 覆盖；PP_FULLSCREEN=true 时铺满窗口（像素数 = 窗口 / PP_SCALE）。
    尺寸变化走 PP_setSize() 重建缓冲，并回调 window.PP_ONRESIZE（场景重跑 bake）。 */
 let W = window.PP_W || 380, H = window.PP_H || 560;
@@ -12,7 +11,6 @@ const S = window.PP_SCALE || 11;
 const SIN = 0.5, COS = Math.sqrt(3) / 2, R2 = Math.SQRT2;
 let OX = W / 2 + (window.PP_ORIGIN_X || 0);
 let OY = H / 2 + (window.PP_ORIGIN_Y == null ? 18 : window.PP_ORIGIN_Y);
-
 /* 全局光照配置（兼容 Studio 光照系统，默认等距斜上方平行光） */
 const LIGHT = window.LIGHT || {
   dir: { x: -0.55, y: -0.6, z: 0.58 },   // 参考项目的固定光照方向
@@ -21,13 +19,13 @@ const LIGHT = window.LIGHT || {
   ambient: 1,
   vignette: 0,
   points: [],          /* [{x,y,z,r,color,power}] 点光源（路灯等） */
+  useDir: false,       /* 预览拖动太阳时打开：litLevel 按 LIGHT.dir 计算，否则走固定查表 */
 };
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 const SHADOW_X = 1.3, SHADOW_Y = -0.12;   // 参考项目的固定阴影偏移
 /* 地面材质标记：KIND_GRASS 的像素才长草，球场/屋顶上自动没有草 */
 const KIND_NONE = 0, KIND_GRASS = 3;
-
 let image, pix, zb, bakedPix, bakedZ, ground, groundZ, shadowMask, staticShadow, kinds;
 let darkened;
 
@@ -56,7 +54,6 @@ PP_setSize(W, H);
 window.PP_SCENE = { get W() { return W; }, get H() { return H; }, get pix() { return pix; },
   get bakedPix() { return bakedPix; }, get bakedZ() { return bakedZ; },
   get ground() { return ground; }, get groundZ() { return groundZ; } };
-
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + .5) / 16);
 const COOL = [46, 38, 84], WARM = [255, 232, 180];
 const GRADIENT_Y = COS / (S * SIN), EDGE = .28;
@@ -109,7 +106,6 @@ function rampOf(c) {
   ramps.set(c, ramp);
   return ramp;
 }
-
 function tint(i, r, g, b) {
   const c = pix[i];
   pix[i] = rgb((c & 255) * r, (c >> 8 & 255) * g, (c >> 16 & 255) * b);
@@ -119,6 +115,12 @@ function tint(i, r, g, b) {
 /* 30° 正交等距投影 */
 /* 面亮度查表 —— 复刻参考项目 box() 的固定设定：顶 3.4 / 正 2.3 / 右 1.2。 */
 function litLevel(nx, ny, nz) {
+  /* 预览里拖太阳：按方向光实时算档位；场景默认仍走参考项目的固定查表 */
+  if (LIGHT.useDir) {
+    const d = LIGHT.dir;
+    const l = clamp(-(d.x * nx + d.y * ny) + d.z * nz, 0, 1);
+    return clamp(1.1 + 2.6 * Math.pow(l, 1.3), 0, 4);
+  }
   if (nz > .85) return 3.4;
   if (ny > .3) return 2.3;
   if (ny < -.3) return 1.5;
@@ -126,7 +128,6 @@ function litLevel(nx, ny, nz) {
   if (nx < 0) return 2.0;
   return 2.3;
 }
-
 function project(x, y, z) {
   const u = (x - y) / R2, v = (x + y) / R2;
   return {
@@ -245,7 +246,8 @@ function box(x0, y0, z0, x1, y1, z1, c, seed = 0) {
 
 /* 投影阴影：把 (x,y,z) 沿光方向压到地面，写椭圆 mask */
 function castShadow(x, y, z, r, strength = 1, dither = .4) {
-  const p = project(x + SHADOW_X * z, y + SHADOW_Y * z, 0);
+  const sh = LIGHT.shadow || { x: SHADOW_X, y: SHADOW_Y };
+  const p = project(x + sh.x * z, y + sh.y * z, 0);
   const rx = r * S * 1.05, ry = rx * SIN + 1;
   const y0 = Math.max(0, Math.floor(p.sy - ry)), y1 = Math.min(H - 1, Math.ceil(p.sy + ry));
   const x0 = Math.max(0, Math.floor(p.sx - rx)), x1 = Math.min(W - 1, Math.ceil(p.sx + rx));
@@ -472,7 +474,6 @@ function haloDots(points) {
   for (const [x, y] of points) for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) halo.push([x + dx, y + dy]);
   drawDots(halo, PAPER);
 }
-
 function drawArrow(sx, sy, time) {
   const bob = Math.floor(time * 3) % 2 * 2;
   const left = Math.round(sx) - 6, top = Math.round(sy) - ARROW.length - bob;
@@ -485,7 +486,6 @@ function drawArrow(sx, sy, time) {
   drawDots(ink, INK);
   drawDots(fill, SIGNAL);
 }
-
 function fit() {
   /* 全屏模式：画布缓冲已经是窗口尺寸（1 画布像素 = 1 CSS 像素），1:1 显示 */
   if (window.PP_FULLSCREEN) {
