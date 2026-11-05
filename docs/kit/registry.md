@@ -37,8 +37,8 @@
 
 | ID | 名称 | 特征 | 来源 | 参数组 | 状态 |
 |----|------|------|------|--------|------|
-| [`broadleaf`](trees.md#1-broadleaf-阔叶树) | 阔叶树 | 6 簇球堆树冠，顶部银绿，capture 缓存风动 | `ref` `engine.js:231` | `scale/count/leaf3/bark` | ✅ |
-| [`palm`](trees.md#2-palm-棕榈) | 棕榈 | 二次曲线弯曲树干 + 10 片垂叶，环纹树皮 | `ref` `mini-ramp:119` | `scale/height/fronds` | ✅ |
+| [`broadleaf`](trees.md#1-broadleaf-阔叶树) | 阔叶树 | 6 簇球堆树冠，顶部银绿，capture 缓存风动 | `ref` `engine.js:231` · `demo` `kit/trees.js` | `scale/count/leaf3/bark` | ✅ |
+| [`palm`](trees.md#2-palm-棕榈) | 棕榈 | 二次曲线弯曲树干 + 10 片垂叶，环纹树皮 | `ref` `mini-ramp:119` · `demo` `kit/ref-plants.js` | `scale/height/fronds` | ✅ |
 | [`plane`](trees.md#3-plane-法国梧桐) | 法国梧桐 | 笔直灰白干 + 三层分叉，**树上无叶** | `demo` `autumn.js:266` | `h/seed/branch` | ✅ |
 | [`canopy`](trees.md#4-canopy-郁闭林冠) | 郁闭林冠 | 内层大球填体块 + 表层小球做轮廓，静态 | `demo` `forest.js:116` | `size/crown/palette` | ✅ |
 | [`simple`](trees.md#5-simple-简易球树) | 简易球树 | 单层球堆，最省 | `demo` `demo.js:70` | `size` | ✅ |
@@ -59,23 +59,23 @@
 
 | ID | 名称 | 特征 | 来源 | 参数组 | 状态 |
 |----|------|------|------|--------|------|
-| [`masonry-wall`](buildings.md#1-砌体材质怎么用) | 砖石墙 | 错缝砌体 + 灰缝 + 逐块随机色 | `ref` `stari-most:100` | `base/seed` | ✅ |
-| [`plaster-wall`](buildings.md#1-砌体材质怎么用) | 抹灰墙 | 抹灰 + 剥落露石 | `ref` `laundry:98` | `base` | ✅ |
-| [`house`](buildings.md#2-house-房屋) | 房屋 | 两面墙 + 窗 + 出挑坡顶 | `ref` `stari-most:192` | `x0y0x1y1/z1/roofColor` | ✅ |
-| [`square-tower`](buildings.md#3-square-tower-方塔) | 方塔 | 砌体塔身 + 窄窗 + 坡顶 | `ref` `stari-most:149` | `box/z1` | ✅ |
-| [`round-tower`](buildings.md#4-round-tower-圆锥塔) | 圆锥塔 | 圆柱身 + 收口锥顶 + 环纹 | `ref` `stari-most:159` | `cxcy/r/z1` | ✅ |
-| [`pitched-roof`](buildings.md#5-pitched-roof-坡屋顶) | 坡屋顶 | 双坡 + 瓦片行 + 缺片 | `ref` `stari-most:181` | `box/rise/color` | ✅ |
-| [`parapet`](buildings.md#6-parapet-女儿墙) | 女儿墙 | 四边矮墙围合，屋面边缘 | `ref` `laundry:132` | `box/h/t` | ✅ |
-| [`stair-house`](buildings.md#7-屋顶小构件组) | 楼梯间 | 屋顶小房 + 百叶门 | `ref` `laundry:138` | `box` | ✅ |
-| [`water-tank`](buildings.md#7-屋顶小构件组) | 水塔 | 卧倒圆柱 + 支架 | `ref` `laundry:141` | `r/len` | ✅ |
-| [`chimney`](buildings.md#7-屋顶小构件组) | 烟囱 | 三层方柱 + 陶土烟囱帽 | `ref` `laundry:144` | `box/h` | ✅ |
+| [`masonry-wall`](buildings.md#1-砌体材质怎么用) | 砖石墙 | 错缝砌体 + 灰缝 + 逐块随机色 | `ref` `stari-most:100` · `demo` `kit/ref-surfaces.js` | `base/seed` | ✅ |
+| [`plaster-wall`](buildings.md#1-砌体材质怎么用) | 抹灰墙 | 抹灰 + 剥落露石 | `ref` `laundry:98` · `demo` `kit/ref-surfaces.js` | `base` | ✅ |
+| [`house`](buildings.md#2-house-房屋) | 房屋 | 两面墙 + 窗 + 出挑坡顶 | `ref` `stari-most:192` · `demo` `kit/ref-buildings.js` | `x0y0x1y1/z1/roofColor` | ✅ |
+| [`square-tower`](buildings.md#3-square-tower-方塔) | 方塔 | 砌体塔身 + 窄窗 + 坡顶 | `ref` `stari-most:149` · `demo` `kit/ref-buildings.js` | `box/z1` | ✅ |
+| [`round-tower`](buildings.md#4-round-tower-圆锥塔) | 圆锥塔 | 圆柱身 + 收口锥顶 + 环纹 | `ref` `stari-most:159` · `demo` `kit/ref-buildings.js` | `cxcy/r/z1` | ✅ |
+| [`pitched-roof`](buildings.md#5-pitched-roof-坡屋顶) | 坡屋顶 | 双坡 + 瓦片行 + 缺片 | `ref` `stari-most:181` · `demo` `kit/ref-buildings.js` | `box/rise/color` | ✅ |
+| [`parapet`](buildings.md#6-parapet-女儿墙) | 女儿墙 | 四边矮墙围合，屋面边缘 | `ref` `laundry:132` · `demo` `kit/ref-buildings.js` | `box/h/t` | ✅ |
+| [`stair-house`](buildings.md#7-屋顶小构件组) | 楼梯间 | 屋顶小房 + 百叶门 | `ref` `laundry:138` · `demo` `kit/ref-surfaces.js` | `box` | ✅ |
+| [`water-tank`](buildings.md#7-屋顶小构件组) | 水塔 | 卧倒圆柱 + 支架 | `ref` `laundry:141` · `demo` `kit/ref-buildings.js` | `r/len` | ✅ |
+| [`chimney`](buildings.md#7-屋顶小构件组) | 烟囱 | 三层方柱 + 陶土烟囱帽 | `ref` `laundry:144` · `demo` `kit/ref-buildings.js` | `box/h` | ✅ |
 | [`cabin`](buildings.md#8-cabin-木屋) | 木屋 | 纯 `box()` 拼的板房 | `demo` `demo.js` | — | ✅ |
 | [`wood-house`](buildings.md#5b-wood-house-木屋秋日山村变体) | 山村木屋 | 木板拼缝墙 + 苔藓坡顶 + 亮灯窗 + 烟囱 | `demo` `village/houses.js` | `box/z1/rise/moss/roofColor` | ✅ |
-| [`wood-fence`](structures.md#43-wood-fence-木板围栏) | 木板围栏 | 交替木色的窄板条 | `ref` `balote:127` | `spacing/colors` | ✅ |
-| [`wire-fence`](structures.md#41-wire-fence-铁丝围栏) | 铁丝围栏 | 菱形网眼 + 立柱 + 顶杆 | `ref` `tie-break:108` | `len/z/density` | ✅ |
-| [`net`](structures.md#42-net-球网) | 球网 | 方格网 + 白色包边 | `ref` `tie-break:142` | `y/z` | ✅ |
-| [`ramp`](structures.md#5-曲面构件) | U 型池 | 参数化曲面 + 板缝 + 使用痕迹 | `ref` `mini-ramp:150` | `flat/radius/width` | ✅ |
-| [`stairs`](structures.md#44-stairs-梯子) | 梯子 | 横档 + 侧杆 | `ref` `mini-ramp:183` | — | ✅ |
+| [`wood-fence`](structures.md#43-wood-fence-木板围栏) | 木板围栏 | 交替木色的窄板条 | `ref` `balote:127` · `demo` `kit/ref-structures.js` | `spacing/colors` | ✅ |
+| [`wire-fence`](structures.md#41-wire-fence-铁丝围栏) | 铁丝围栏 | 菱形网眼 + 立柱 + 顶杆 | `ref` `tie-break:108` · `demo` `kit/ref-structures.js` | `len/z/density` | ✅ |
+| [`net`](structures.md#42-net-球网) | 球网 | 方格网 + 白色包边 | `ref` `tie-break:142` · `demo` `kit/ref-structures.js` | `y/z` | ✅ |
+| [`ramp`](structures.md#5-曲面构件) | U 型池 | 参数化曲面 + 板缝 + 使用痕迹 | `ref` `mini-ramp:150` · `demo` `kit/ref-structures.js` | `flat/radius/width` | ✅ |
+| [`stairs`](structures.md#44-stairs-梯子) | 梯子 | 横档 + 侧杆 | `ref` `mini-ramp:183` · `demo` `kit/ref-buildings.js` | — | ✅ |
 | [`balcony`](buildings.md#well-house--水井) | 阳台 | **= `wood-house` 参数组**（不建独立 ID）：挑出平台 + 栏杆 | `demo` `kit/buildings.js` | `balconyDepth/balconyRail` | ✅ |
 | [`arch`](buildings.md#arch--拱门) | 拱门 | 方石墙开半椭圆门洞，券石环按极角分缝沿弧排列 | `demo` `kit/buildings.js` | `width`/`rise` | ✅ |
 | [`shed`](buildings.md#shed--棚屋) | 棚屋 | 四根木柱撑起的单坡顶木棚：屋顶由一叠水平薄板叠成阶梯斜面，板板有厚度，斜看也不透光 | `demo` `kit/buildings.js` | — | ✅ |
@@ -91,13 +91,13 @@
 
 | ID | 名称 | 特征 | 来源 | 参数组 | 状态 |
 |----|------|------|------|--------|------|
-| [`grass-tuft`](plants.md#1-grass-tuft-草丛) | 草丛 | 1~3 像素高，风中摆动，影内自动变暗 | `ref` `engine.js:160` | `density/height` | ✅ |
-| [`flower`](plants.md#2-flower-小花) | 小花 | 草丛顶端替换色，白/黄两色 | `ref` `engine.js:168` | `rate/color` | ✅ |
+| [`grass-tuft`](plants.md#1-grass-tuft-草丛) | 草丛 | 1~3 像素高，风中摆动，影内自动变暗 | `ref` `engine.js:160` · `demo` `kit/plants.js` | `density/height` | ✅ |
+| [`flower`](plants.md#2-flower-小花) | 小花 | 草丛顶端替换色，白/黄两色 | `ref` `engine.js:168` · `demo` `kit/ref-plants.js` | `rate/color` | ✅ |
 | [`scatter-grass`](plants.md#3-scatter-grass-静态草点) | 静态草点 | 直接写像素的短草，无风动 | `demo` `forest.js:60` | `count` | ✅ |
-| [`potted-plant`](plants.md#4-potted-plant-盆栽) | 盆栽 | 花盆 + 14 球叶簇 | `ref` `laundry:150` | `r` | ✅ |
+| [`potted-plant`](plants.md#4-potted-plant-盆栽) | 盆栽 | 花盆 + 14 球叶簇 | `ref` `laundry:150` · `demo` `kit/ref-plants.js` | `r` | ✅ |
 | [`fern`](plants.md#fern--蕨类) | 蕨类 | 从基部向外辐射的羽状叶丛，叶轴沿抛物线弧下垂、末端收细 | `demo` `kit/plants.js` | `fronds`/`length`/`curl` | ✅ |
 | [`reed`](plants.md#reed--芦苇) | 芦苇 | 细高弯杆顶着毛茸茸的穗，风一吹整株大幅摇摆 | `demo` `kit/plants.js` | `height`/`plume`/`bend` | ✅ |
-| [`moss`](plants.md#5-moss-苔藓斑) | 苔藓斑 | 低频噪声选区 + 高频打散 | `ref` `laundry:95` | — | ✅ |
+| [`moss`](plants.md#5-moss-苔藓斑) | 苔藓斑 | 低频噪声选区 + 高频打散 | `ref` `laundry:95` · `demo` `kit/ref-plants.js` | — | ✅ |
 | [`ivy`](plants.md#ivy--藤蔓) | 藤蔓 | 贴墙或贴地蔓延的藤，沿曲线等距密布深绿小叶 | `demo` `kit/plants.js` | `length`/`leafSize`/`surface` | ✅ |
 | [`hedge`](plants.md#hedge--树篱) | 树篱 | 沿线密集排布的灌木带，顶部修剪平整 | `demo` `kit/plants.js` | `length/height/depth/rows/colGap/trim` | ✅ |
 | [`fallen-leaf`](plants.md#6-fallen-leaf-落叶) | 落叶 | 地面散落的秋叶 | `demo` `autumn.js:99` | — | ✅ |
@@ -110,16 +110,16 @@
 
 | ID | 名称 | 特征 | 来源 | 参数组 | 状态 |
 |----|------|------|------|--------|------|
-| [`ball`](props.md#1-ball-球) | 球 | `gloss` 高光 + 双层阴影 | `ref` `balote:412` | `r/color` | ✅ |
-| [`bottle`](props.md#2-bottle-瓶--罐) | 瓶 | 竖直胶囊，上细下粗 | `ref` `balote:141` | `r0/r1` | ✅ |
-| [`crate`](props.md#3-crate-木箱--板条箱) | 木箱 | `box()` + 独立 seed | `ref` `balote:139` | `size/seed` | ✅ |
-| [`wicker-basket`](props.md#4-wicker-basket-藤篮--编织容器) | 藤篮 | 编织纹 + 篮口包边 | `ref` `laundry:170` | `r/h` | ✅ |
-| [`cloth`](props.md#5-cloth-织物衣物最复杂的一类道具) | 织物 | 轮廓裁剪 + 波浪 + 旋转 | `ref` `laundry:233` | `w/h/kind` | ✅ |
-| [`racket`](props.md#6-racket-球拍) | 球拍 | 柄 + 面，附着在手 | `ref` `tie-break:499` | `len/faceR` | ✅ |
-| [`cone`](props.md#8-道具速查表) | 交通锥 | 锥形 + 按高度分色 | `ref` `mini-ramp:202` | `r0/r1` | ✅ |
-| [`bench`](props.md#8-道具速查表) | 长椅 | 座 + 靠背 + 双腿 | `ref` `balote:135` | `len` | ✅ |
-| [`awning`](structures.md#45-awning-天线) | 天线 | 竖杆 + 3 横杆 | `ref` `laundry:147` | — | ✅ |
-| [`ball-basket`](props.md#8-道具速查表) | 球筐 | 筐 + 散落小球 | `ref` `tie-break:170` | — | ✅ |
+| [`ball`](props.md#1-ball-球) | 球 | `gloss` 高光 + 双层阴影 | `ref` `balote:412` · `demo` `kit/ref-props.js` | `r/color` | ✅ |
+| [`bottle`](props.md#2-bottle-瓶--罐) | 瓶 | 竖直胶囊，上细下粗 | `ref` `balote:141` · `demo` `kit/ref-props.js` | `r0/r1` | ✅ |
+| [`crate`](props.md#3-crate-木箱--板条箱) | 木箱 | `box()` + 独立 seed | `ref` `balote:139` · `demo` `kit/props.js` | `size/seed` | ✅ |
+| [`wicker-basket`](props.md#4-wicker-basket-藤篮--编织容器) | 藤篮 | 编织纹 + 篮口包边 | `ref` `laundry:170` · `demo` `kit/ref-props.js` | `r/h` | ✅ |
+| [`cloth`](props.md#5-cloth-织物衣物最复杂的一类道具) | 织物 | 轮廓裁剪 + 波浪 + 旋转 | `ref` `laundry:233` · `demo` `kit/ref-props.js` | `w/h/kind` | ✅ |
+| [`racket`](props.md#6-racket-球拍) | 球拍 | 柄 + 面，附着在手 | `ref` `tie-break:499` · `demo` `kit/ref-props.js` | `len/faceR` | ✅ |
+| [`cone`](props.md#8-道具速查表) | 交通锥 | 锥形 + 按高度分色 | `ref` `mini-ramp:202` · `demo` `kit/ref-props-small.js` | `r0/r1` | ✅ |
+| [`bench`](props.md#8-道具速查表) | 长椅 | 座 + 靠背 + 双腿 | `ref` `balote:135` · `demo` `kit/ref-props-small.js` | `len` | ✅ |
+| [`awning`](ref-props.md#8-awning-遮阳篷) | 遮阳篷 | 斜挑条纹布篷 + 立柱（参考项目的 awning 实为天线，本实现按布篷重构） | `ref` `laundry:147` · `demo` `kit/ref-props-small.js` | `w/d/height/stripe/slope` | ✅ |
+| [`ball-basket`](props.md#8-道具速查表) | 球筐 | 筐 + 散落小球 | `ref` `tie-break:170` · `demo` `kit/ref-props-small.js` | — | ✅ |
 | [`picnic-mat`](props.md#8-道具速查表) | 野餐布 | 格子布 | `demo` `autumn.js:57` | — | ✅ |
 | [`beetle-car`](props.md#8b-beetle-car-小甲壳虫秋日山村) | 小甲壳虫 | 胶囊车身 + 半球车篷 + 警灯闪烁 | `demo` `village/road.js` | `k/speed/lateralRatio` | ✅ |
 | [`lamp`](props.md#lamp--路灯) | 路灯 | 直杆顶一颗球形灯罩的铸铁路灯，可点亮 | `demo` `kit/props.js` | `height`/`headR`/`lit`/`base` | ✅ |
@@ -173,20 +173,20 @@
 | [`rim`](depth-and-haze.md#2-rim-描边模式) | 描边 | 只画球外圈环带，绕开深度竞争 | `demo` `engine.js` | ✅ |
 | [`haze`](depth-and-haze.md#3-空气透视) | 空气透视 | 远处更淡更灰，雾色要饱和 | `demo` `engine.js` | ✅ |
 | [`tree-sea`](depth-and-haze.md#4-远景树海) | 远景树海 | 按屏幕坐标布点的层叠树群 | `demo` `village/sea.js` | ✅ |
-| [`arrow`](effects.md#1-像素级-ui-图形arrow-bang-target-ring-charge-bar-halo) | 指示箭头 | 字符画 + 白描边 + 浮动 | `ref` `engine.js:325` | ✅ |
-| [`bang`](effects.md#1-像素级-ui-图形arrow-bang-target-ring-charge-bar-halo) | 爆炸符号 | 字符画 + 白描边 | `ref` `mini-ramp:467` | ✅ |
-| [`target-ring`](effects.md#1-像素级-ui-图形arrow-bang-target-ring-charge-bar-halo) | 目标环 | 地面椭圆，黄黑/黑白 | `ref` `tie-break:515` | ✅ |
-| [`charge-bar`](effects.md#1-像素级-ui-图形arrow-bang-target-ring-charge-bar-halo) | 能量条 | 17×5 边框 + 15 格 | `ref` `stari-most:555` | ✅ |
-| [`halo`](effects.md#1-像素级-ui-图形arrow-bang-target-ring-charge-bar-halo) | 白描边 | 4 邻域扩散 | `ref` `engine.js:319` | ✅ |
+| [`arrow`](effects.md#1-像素级-ui-图形arrow-bang-target-ring-charge-bar-halo) | 指示箭头 | 字符画 + 白描边 + 浮动 | `ref` `engine.js:325` · `demo` `kit/effects.js` | ✅ |
+| [`bang`](effects.md#1-像素级-ui-图形arrow-bang-target-ring-charge-bar-halo) | 爆炸符号 | 字符画 + 白描边 | `ref` `mini-ramp:467` · `demo` `kit/effects.js` | ✅ |
+| [`target-ring`](effects.md#1-像素级-ui-图形arrow-bang-target-ring-charge-bar-halo) | 目标环 | 地面椭圆，黄黑/黑白 | `ref` `tie-break:515` · `demo` `kit/effects.js` | ✅ |
+| [`charge-bar`](effects.md#1-像素级-ui-图形arrow-bang-target-ring-charge-bar-halo) | 能量条 | 17×5 边框 + 15 格 | `ref` `stari-most:555` · `demo` `kit/effects.js` | ✅ |
+| [`halo`](effects.md#1-像素级-ui-图形arrow-bang-target-ring-charge-bar-halo) | 白描边 | 4 邻域扩散 | `ref` `engine.js:319` · `demo` `kit/effects.js` | ✅ |
 | [`rain`](weather.md#1-rain-雨) | 雨 | 4 点雨丝 + 溅射 | `ref` `laundry:497` | ✅ |
 | [`cloud`](weather.md#2-cloud-云) | 云 | Bayer 阈值透明 | `ref` `laundry:462` | ✅ |
 | [`bolt`](weather.md#3-bolt-闪电) | 闪电 | 随机折线 + 三像素 | `ref` `laundry:481` | ✅ |
 | [`grade-storm`](weather.md#4-grade-storm-全局调色) | 暴雨调色 | 去饱和 + 云影 + 变湿 | `ref` `laundry:516` | ✅ |
-| [`splash`](nature.md#7-水花) | 水花 | 直接写像素 | `ref` `stari-most:543` | ✅ |
-| [`ring`](nature.md#6-涟漪) | 涟漪 | 随机剔除虚线圆 | `ref` `stari-most:530` | ✅ |
-| [`dust`](effects.md#3-屏幕特效汇总dust-spark-splash-ring-track-mark-falling-leaf) | 扬尘 | 落地小点 | `ref` `tie-break:546` | ✅ |
-| [`spark`](effects.md#3-屏幕特效汇总dust-spark-splash-ring-track-mark-falling-leaf) | 火花 | 十字白点 | `ref` `tie-break:548` | ✅ |
-| [`track-mark`](scene.md#8-地面痕迹动态磨损) | 地面痕迹 | 十字笔刷压暗 | `ref` `tie-break:354` | ✅ |
+| [`splash`](nature.md#7-水花) | 水花 | 直接写像素 | `ref` `stari-most:543` · `demo` `kit/effects.js` | ✅ |
+| [`ring`](nature.md#6-涟漪) | 涟漪 | 随机剔除虚线圆 | `ref` `stari-most:530` · `demo` `kit/effects.js` | ✅ |
+| [`dust`](effects.md#3-屏幕特效汇总dust-spark-splash-ring-track-mark-falling-leaf) | 扬尘 | 落地小点 | `ref` `tie-break:546` · `demo` `kit/effects.js` | ✅ |
+| [`spark`](effects.md#3-屏幕特效汇总dust-spark-splash-ring-track-mark-falling-leaf) | 火花 | 十字白点 | `ref` `tie-break:548` · `demo` `kit/effects.js` | ✅ |
+| [`track-mark`](scene.md#8-地面痕迹动态磨损) | 地面痕迹 | 十字笔刷压暗 | `ref` `tie-break:354` · `demo` `kit/effects.js` | ✅ |
 | [`falling-leaf`](nature.md#8-落叶飘落) | 落叶飘落 | 阵风包络 + 12fps 步进 | `demo` `autumn.js:315` | ✅ |
 
 ---

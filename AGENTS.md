@@ -23,6 +23,7 @@
 | 编辑器冒烟测试 | `node tools/editor-test.mjs`（渲染并断言，导出 `docs/editor-screenshot.png`） |
 | **构件库全量实画测试** | `node tools/kit-test.mjs`（沙箱实画每个构件：崩溃/位置/像素数/极端参数） |
 | **构件行为回归测试** | `node tools/behavior-test.mjs`（行为定义 / 构件引用 / 60 帧实跑 / sway·chop 效果断言） |
+| **构件接线检查** | `node tools/check-kit-wiring.mjs`（新增构件文件是否接进 gallery/catalog/preview/editor/viewer/server 六个入口） |
 | 人群模块测试 | `node tools/crowd-test.mjs`（避让/CLEARANCE/站桩断言） |
 | **批量补齐变体** | `node tools/fill-variants.mjs [id…]`（照 docs/kit/ 规格 AI 实现 + 三道闸落盘） |
 | 无头渲染 | `node tools/render.mjs <html> <out.png> [帧数]` |
@@ -78,6 +79,11 @@
 | **构件库 Gallery** | `demo/kit/gallery.html` | **构件陈列页（Bootstrap 风格）**：按分类列出全部构件，实时预览 + 参数滑块 + seed 换形 + 一键复制调用代码；数据来自运行时注册表，新构件自动出现 | `docs/kit/README.md` |
 | 构件库·锥状树 | `demo/kit/conifers.js` | `cone-mast` / `cone-spire`：**叶簇团块**锥冠（plot 逐像素填充 + 簇内球面光照，规避球体深描边）+ 粗直干根爪；走 `ctx.screen/unproject`，旋转/缩放预览不会碎成黑点；`density` 控密度；绑定 `sway` + `chop` 行为 | `docs/kit/trees.md §5.7-5.8` |
 | **构件行为运行时** | `demo/kit/behavior.js` · `demo/kit/behavior-extra.js` | **行为 = 构件的逻辑层**：`KIT_BEHAVIOR.register` 注册可复用行为（sway/chop/flicker/wander/flee/greet/spin + burn/bob/open/patrol/grow/shake），构件用 `behavior.default/allow` 声明；`tick` 改 `inst.anim`（dx/dy/rot/scale/z/hidden），渲染器叠加到所有原语 | `docs/modules/behavior.md` |
+| **参考构件·建筑** | `demo/kit/ref-buildings.js` · `ref-surfaces.js` | 从参考项目移植：house / square-tower / round-tower / pitched-roof / parapet / water-tank / chimney / stairs + masonry-wall / plaster-wall / stair-house | `docs/kit/ref-port.md` · `ref-surfaces.md` |
+| **参考构件·结构与植被** | `demo/kit/ref-structures.js` · `ref-plants.js` | wood-fence / wire-fence / net / ramp + palm / flower / potted-plant / moss | `docs/kit/ref-port.md` · `ref-plants.md` |
+| **参考构件·道具** | `demo/kit/ref-props.js` · `ref-props-small.js` | ball / bottle / wicker-basket / cloth / racket + cone / bench / awning / ball-basket | `docs/kit/ref-props.md` |
+| **特效与天气** | `demo/kit/effects.js` · `weather.js` | `KIT_EFFECT`：arrow/bang/target-ring/charge-bar/halo/dust/spark/splash/ring/track-mark；`KIT_WEATHER`：rain/cloud/bolt/gradeStorm。UI 覆盖层走 `ctx.dot/dots`（不写 zb） | `docs/kit/effects-weather.md` |
+| **接线检查** | `tools/check-kit-wiring.mjs` | 新增构件文件后校验它是否接进 gallery/catalog/preview/editor/viewer/server 六个入口 | — |
 | **Studio 逻辑面板** | `demo/studio/app-behavior.js` | 行为编辑器：列出已挂行为 + 参数滑块（中英对照）+ 移除/添加（只从构件 `allow` 里选）；改动实时发预览沙箱 | `docs/modules/behavior.md §5` |
 | **素材总目录** | `demo/kit/catalog.html` | 全部构件按 9 分类浏览 + 搜索 + 参数/行为计数；卡片直达 Studio（`app.html?select=<id>`） | `docs/kit/README.md` |
 | 构件库·地面 | `demo/kit/ground.js` | 5 种地面材质（草地/泥土/沙地/石板/水面） | `docs/kit/scene.md` |

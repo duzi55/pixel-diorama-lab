@@ -80,6 +80,10 @@ const KIT_FILES = [
   ['demo/kit/props.js', true],
   ['demo/kit/ref-buildings.js', true],
   ['demo/kit/ref-structures.js', true],
+  ['demo/kit/ref-plants.js', true],
+  ['demo/kit/ref-surfaces.js', true],
+  ['demo/kit/ref-props.js', true],
+  ['demo/kit/ref-props-small.js', true],
 ];
 
 const cx = makeSandbox();

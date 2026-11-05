@@ -51,7 +51,21 @@ const KIT_POSE = {
 
   /** 玩手机：低头看手（手臂前伸） */
   phone: { armR: .75, armL: .55, stance: .1, lean: .18, crouch: 0 },
+
+  /* ---- 参考项目（tie-break）的竞技姿态 ---- */
+
+  /** 蓄力：双臂前伸微抬，身体前压 */
+  aim: { armR: 1.9, armL: 1.6, stance: .3, lean: .18, crouch: .08 },
+
+  /** 挥击：右臂横挥到体前，左臂后收 */
+  swing: { armR: 2.2, armL: -.5, stance: .36, lean: .12, crouch: .05 },
+
+  /** 备球：双手在身前托球，膝微屈 */
+  ready: { armR: .95, armL: .95, stance: .26, lean: .1, crouch: .12 },
 };
+
+/* 参考项目姿态名的别名（registry.md 用 idle 表示站立待机） */
+KIT_POSE.idle = KIT_POSE.stand;
 
 /**
  * 取姿态 + 叠加覆盖。

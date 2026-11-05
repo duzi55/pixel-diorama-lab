@@ -39,6 +39,10 @@ const OPTIONAL_SCRIPTS = [
   '../kit/behavior-extra.js',
   '../kit/ref-buildings.js',
   '../kit/ref-structures.js',
+  '../kit/ref-plants.js',
+  '../kit/ref-surfaces.js',
+  '../kit/ref-props.js',
+  '../kit/ref-props-small.js',
 ];
 
 function viewerFail(msg) {

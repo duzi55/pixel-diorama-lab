@@ -428,7 +428,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/kit' && req.method === 'GET') {
     try {
       const items = [];
-      for (const f of ['trees.js', 'conifers.js', 'plants.js', 'buildings.js', 'stoneworks.js', 'cart.js', 'props.js', 'ref-buildings.js', 'ref-structures.js']) {
+      for (const f of ['trees.js', 'conifers.js', 'plants.js', 'buildings.js', 'stoneworks.js', 'cart.js', 'props.js', 'ref-buildings.js', 'ref-structures.js', 'ref-plants.js', 'ref-surfaces.js', 'ref-props.js', 'ref-props-small.js']) {
         const p = path.join(DEMO_DIR, 'kit', f);
         if (!fs.existsSync(p)) continue;
         const txt = fs.readFileSync(p, 'utf8');
