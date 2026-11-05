@@ -819,3 +819,7 @@ body.ed-paper .bar { padding-top: 4px; padding-bottom: 4px; }
 }
 .beh-row .nm { flex: 1; }
 .beh-row .mini { padding: 0 6px; }
+
+/* 图层拖拽排序 */
+.layer-row.dragging { opacity: .45; }
+.layer-row.drop-on { outline: 1px dashed var(--accent); outline-offset: -1px; }

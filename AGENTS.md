@@ -106,6 +106,8 @@
 | 场景导入 | `demo/studio/scene-import.js` | 同源 iframe 抓取已有场景烘焙底图，进入底图编辑模式 | `docs/modules/studio.md §4.0b` |
 | **Studio·图片还原** | `demo/studio/editor-recon.js` | 粘贴场景截图 → AI 用现有构件摆位（u/v 反投影）→ 缺的素材选替代或生成入库 | `docs/modules/studio.md §4.0d` |
 | **Studio·空态/一句话建场景** | `demo/studio/editor-start.js` | 进入不默认播种；一句话描述 → `compose` 任务 → 地形+物体；图片还原/载入/空白三个入口 | `docs/modules/studio.md §4.0e` |
+| **Studio·历史** | `demo/studio/editor-history.js` | 撤销/重做：对象层快照（⌘Z / ⇧⌘Z），滑块输入去抖 | `docs/modules/studio.md §4.1` |
+| **Studio·布局操作** | `demo/studio/editor-ops.js` | 对齐/等距分布/编组/拖动吸附/多选包围框/统一绘制排序 | `docs/modules/studio.md §4.1` |
 | **Studio·选择** | `demo/studio/editor-select.js` | 单选/Shift 加选/框选/多选拖拽/复制/删除 | `docs/modules/studio.md §4.1` |
 | **Studio·图层** | `demo/studio/editor-layers.js` | 对象=图层：显示隐藏、锁定、↑↓ 层级、点击选中 | `docs/modules/studio.md §4.1` |
 | **Studio·属性** | `demo/studio/editor-props.js` | 位置/朝向/缩放/层级 + 构件参数全量 + 行为逻辑 | `docs/modules/studio.md §4.1` |

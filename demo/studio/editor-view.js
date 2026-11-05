@@ -104,6 +104,22 @@ function ED_bindKeys() {  addEventListener('keydown', e => {
       if (k === 'h') { ED_setTool('pan'); studioStatus('平移：拖动画布'); return; }
     }
 
+    /* 撤销 / 重做 */
+    if ((e.metaKey || e.ctrlKey) && k === 'z') {
+      e.preventDefault();
+      if (e.shiftKey) ED_redo();
+      else ED_undo();
+      return;
+    }
+
+    /* 编组 / 解组 */
+    if ((e.metaKey || e.ctrlKey) && k === 'g') {
+      e.preventDefault();
+      if (e.shiftKey) ED_ungroupSelection();
+      else ED_groupSelection();
+      return;
+    }
+
     /* 复制所选 */
     if ((e.metaKey || e.ctrlKey) && k === 'd') {
       e.preventDefault();

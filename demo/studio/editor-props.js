@@ -26,16 +26,44 @@ function ED_refreshSel() {
     const sel = document.getElementById('sel');
     if (sel) sel.textContent = `选中 ${list.length} 个`;
     info.innerHTML = `<div class="hint" style="margin-bottom:8px">已选中 <b>${list.length}</b> 个物体</div>`;
-    const row = document.createElement('div');
-    row.className = 'pill-row';
-    for (const [label, fn] of [['复制所选', ED_duplicateSelection], ['删除所选', ED_deleteSelection]]) {
-      const b = document.createElement('button');
-      b.className = 'pill';
-      b.textContent = label;
-      b.addEventListener('click', fn);
-      row.appendChild(b);
-    }
-    info.appendChild(row);
+
+    const mkRow = (title, items) => {
+      const sub = document.createElement('div');
+      sub.className = 'prop-sub';
+      sub.textContent = title;
+      info.appendChild(sub);
+      const row = document.createElement('div');
+      row.className = 'pill-row';
+      for (const [label, fn] of items) {
+        const b = document.createElement('button');
+        b.className = 'pill';
+        b.textContent = label;
+        b.addEventListener('click', fn);
+        row.appendChild(b);
+      }
+      info.appendChild(row);
+    };
+
+    mkRow('对齐', [
+      ['左', () => ED_align('left')],
+      ['↔中', () => ED_align('cx')],
+      ['右', () => ED_align('right')],
+      ['上', () => ED_align('top')],
+      ['↕中', () => ED_align('cy')],
+      ['下', () => ED_align('bottom')],
+    ]);
+    mkRow('等距分布', [
+      ['沿 X', () => ED_distribute('x')],
+      ['沿 Y', () => ED_distribute('y')],
+    ]);
+    mkRow('编组', [
+      ['编组 ⌘G', ED_groupSelection],
+      ['解组 ⇧⌘G', ED_ungroupSelection],
+    ]);
+    mkRow('操作', [
+      ['复制 ⌘D', ED_duplicateSelection],
+      ['删除 Del', ED_deleteSelection],
+    ]);
     return;
   }
 
@@ -62,6 +90,7 @@ function ED_refreshSel() {
     inp.addEventListener('change', () => {
       const v = Number(inp.value);
       if (!Number.isFinite(v)) return;
+      ED_snapshot('修改位置');
       o[axis] = v;
       o.z = ED.baseMap ? 0 : TERRAIN.heightAt(o.x, o.y);
       ED.dirty = true;
@@ -80,6 +109,7 @@ function ED_refreshSel() {
   const rotIn = document.createElement('input');
   rotIn.type = 'range'; rotIn.min = '0'; rotIn.max = '359'; rotIn.step = '5'; rotIn.value = String(deg);
   rotIn.addEventListener('input', e => {
+    ED_snapshotThrottled('修改朝向');
     o.rot = Number(e.target.value) * Math.PI / 180;
     rotWrap.querySelector('b').textContent = e.target.value + '°';
     ED.dirty = true;
@@ -96,6 +126,7 @@ function ED_refreshSel() {
   const scIn = document.createElement('input');
   scIn.type = 'range'; scIn.min = '0.2'; scIn.max = '4'; scIn.step = '0.05'; scIn.value = String(sc0);
   scIn.addEventListener('input', e => {
+    ED_snapshotThrottled('修改缩放');
     const v = Number(e.target.value);
     o.scale = v;
     scaleWrap.querySelector('b').textContent = '×' + v.toFixed(2);
@@ -122,6 +153,7 @@ function ED_refreshSel() {
   const zIn = document.createElement('input');
   zIn.type = 'range'; zIn.min = '-9'; zIn.max = '9'; zIn.step = '1'; zIn.value = String(o.zOrder || 0);
   zIn.addEventListener('input', e => {
+    ED_snapshotThrottled('修改层级');
     o.zOrder = Number(e.target.value);
     zWrap.querySelector('b').textContent = `${o.zOrder}（${o.zOrder ? '强制' : '自动'}）`;
     ED.dirty = true;
@@ -163,6 +195,7 @@ function ED_refreshSel() {
       inp.type = 'range';
       inp.min = String(def.min); inp.max = String(def.max); inp.step = String(def.step); inp.value = String(cur);
       inp.addEventListener('input', e => {
+        ED_snapshotThrottled('修改参数 ' + k);
         const v = Number(e.target.value);
         o.params = o.params || {};
         o.params[k] = v;
@@ -232,7 +265,7 @@ function ED_refreshSel() {
   /* 操作 */
   const ops = document.createElement('div');
   ops.className = 'pill-row';
-  for (const [label, fn] of [['复制', ED_duplicateSelection], ['删除', ED_deleteSelection]]) {
+  for (const [label, fn] of [['复制', ED_duplicateSelection], ['删除', ED_deleteSelection], ['解组', ED_ungroupSelection]]) {
     const b = document.createElement('button');
     b.className = 'pill';
     b.textContent = label;

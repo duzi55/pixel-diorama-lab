@@ -72,8 +72,7 @@ function ED_render(t = 0) {
   }
 
   /* 静态物体：层级（zOrder，大 = 上层）优先，同层按 y 画家算法 */
-  const objs = [...ED.objects].sort((a, b) =>
-    ((a.zOrder || 0) - (b.zOrder || 0)) || (b.y - a.y));
+  const objs = [...ED.objects].sort(ED_compareDraw);
   for (const o of objs) {
     if (o.hidden) continue;
     /* 行为推进（sway/chop/flicker…），失败不影响渲染 */
@@ -101,6 +100,7 @@ function ED_render(t = 0) {
   if (ED.showBox) ED_drawAllCollisions();
   if (ED.ghost && ED.placing) ED_drawGhost();
   if (ED.marquee) ED_drawMarquee();
+  ED_drawSelectionBox();
 
   /* 选中物体的头顶浮动像素箭头 */
   if (ED.selected) {

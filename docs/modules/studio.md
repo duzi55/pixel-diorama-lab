@@ -448,9 +448,15 @@ GET  /api/ai/jobs?dedupeKey= → { jobs: [...] }（响应丢失时找回）
 | `Cmd+D` | 复制所选 |
 | `Delete` | 删除所选 |
 | `Cmd+A` | 全选 |
+| `Cmd+Z` / `Shift+Cmd+Z` | 撤销 / 重做（对象层快照，地形不进历史） |
+| `Cmd+G` / `Shift+Cmd+G` | 编组 / 解组（点一个成员选中整组） |
 | 方向键 | 微调位置（Shift 加大步长） |
 
-**图层面板（`editor-layers.js`）**：对象列表 = 图层，按 zOrder + y 排序；
+**布局操作（`editor-ops.js`）**：多选后支持 6 向对齐、等距分布（X/Y）；
+拖动时靠近其他物体的 x/y 自动吸附；多选绘制深蓝包围框 + 四角标记。
+
+**图层面板（`editor-layers.js`）**：对象列表 = 图层，按 zOrder + order + y 排序；
+行可拖拽排序（`order` 显式冻结），
 每行有 显示/隐藏（`hidden` 不渲染不命中）、锁定（`locked` 不可选）、↑↓ 层级微调、点击选中。
 
 **属性面板（`editor-props.js`）**：位置数值输入、朝向、缩放（联动碰撞体）、

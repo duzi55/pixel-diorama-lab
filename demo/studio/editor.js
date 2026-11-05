@@ -336,6 +336,7 @@ function ED_bindCanvas() {
 function ED_placeObject(kind, x, y) {
   const comp = KIT.get(kind);
   if (!comp) return;
+  ED_snapshot('放置「' + comp.name + '」');
   const rx = Math.round(x * 4) / 4, ry = Math.round(y * 4) / 4;
   const obj = {
     id: 'o' + (ED.nextId++),
@@ -349,6 +350,11 @@ function ED_placeObject(kind, x, y) {
     seed: Math.floor(hash(ED.nextId * 17, 91) * 100000) + 1,
     collision: comp.collision ? { ...comp.collision } : null,
   };
+  /* 新物体放在最上层：order 取当前最大值 + 1 */
+  if (ED.objects.some(o => o.order != null)) {
+    ED_freezeOrder();
+    obj.order = Math.max(...ED.objects.map(o => o.order || 0)) + 1;
+  }
   ED.objects.push(obj);
   ED_collectLights();
   ED_select(obj);

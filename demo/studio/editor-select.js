@@ -39,6 +39,12 @@ function ED_select(o, opts = {}) {
   if (opts.additive) {
     if (ED.selection.has(o)) ED.selection.delete(o);
     else ED.selection.add(o);
+  } else if (o.group) {
+    /* 编组：点一个成员选中全组 */
+    ED.selection.clear();
+    for (const m of ED.objects) {
+      if (m.group === o.group && !m.hidden && !m.locked) ED.selection.add(m);
+    }
   } else {
     ED.selection.clear();
     ED.selection.add(o);
@@ -127,6 +133,7 @@ function ED_plotScreen(x, y, color) {
 function ED_beginDrag(sx, sy) {
   const list = ED_selectionList();
   if (!list.length) return false;
+  ED_snapshot(list.length > 1 ? `移动 ${list.length} 个物体` : '移动物体');
   ED.drag = {
     startX: sx, startY: sy,
     items: list.map(o => ({ o, x: o.x, y: o.y, z: o.z })),
@@ -140,8 +147,16 @@ function ED_updateDrag(sx, sy) {
   const b = unproject(sx, sy);
   const dx = b.x - a.x, dy = b.y - a.y;
   for (const it of ED.drag.items) {
-    it.o.x = Math.round((it.x + dx) * 4) / 4;
-    it.o.y = Math.round((it.y + dy) * 4) / 4;
+    let nx = Math.round((it.x + dx) * 4) / 4;
+    let ny = Math.round((it.y + dy) * 4) / 4;
+    /* 单选拖动时吸附到附近物体的轴线 */
+    if (ED.drag.items.length === 1) {
+      const snapped = ED_snapPos(it.o, nx, ny);
+      nx = snapped.x;
+      ny = snapped.y;
+    }
+    it.o.x = nx;
+    it.o.y = ny;
     it.o.z = ED.baseMap ? 0 : TERRAIN.heightAt(it.o.x, it.o.y);
   }
   ED.dirty = true;
@@ -161,6 +176,7 @@ function ED_endDrag() {
 function ED_deleteSelection() {
   const list = ED_selectionList();
   if (!list.length) return;
+  ED_snapshot('删除 ' + list.length + ' 个物体');
   const set = new Set(list);
   ED.objects = ED.objects.filter(o => !set.has(o));
   ED.selection = new Set();
@@ -180,6 +196,7 @@ function ED_deleteSelected() {
 function ED_duplicateSelection() {
   const list = ED_selectionList();
   if (!list.length) return;
+  ED_snapshot('复制 ' + list.length + ' 个物体');
   const copies = list.map(o => {
     const n = {
       ...o,

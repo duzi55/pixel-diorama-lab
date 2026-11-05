@@ -161,6 +161,7 @@ async function ED_loadSceneList() {
 
 function ED_applyScene(scene) {
   if (!scene) return;
+  ED_snapshot('载入场景');
   /* 画布尺寸与背景色先恢复（旧场景没有 W/H/bg 时保持当前） */
   if (scene.W && scene.H && (scene.W !== W || scene.H !== H)) {
     PP_setSize(scene.W, scene.H);
@@ -192,6 +193,7 @@ function ED_applyScene(scene) {
   }
   ED.nextId = max + 1;
   ED.selected = null;
+  ED_syncGroupSeq();
   ED_refreshObjects();
   ED_refreshSel();
   ED_fit();
@@ -211,6 +213,7 @@ function ED_newScene() {
   const bg = document.getElementById('new-scene-bg').value || '#16161c';
   const preset = document.getElementById('new-scene-preset').value;
 
+  ED_snapshot('新建场景');
   if (ED.baseMap) ED_setBaseMap(null);   /* 新建 = 离开底图模式 */
 
   PP_setSize(w, h);                      /* 画布按新尺寸重建（这是"尺寸没生效"的根） */

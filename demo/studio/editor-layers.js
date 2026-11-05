@@ -23,8 +23,7 @@ function ED_refreshObjects() {
     return;
   }
 
-  const list = [...ED.objects].sort((a, b) =>
-    ((b.zOrder || 0) - (a.zOrder || 0)) || (b.y - a.y));
+  const list = [...ED.objects].sort(ED_compareDraw).reverse();
 
   for (const o of list) {
     const comp = KIT.get(o.kind);
@@ -90,6 +89,23 @@ function ED_refreshObjects() {
     row.appendChild(up);
     row.appendChild(down);
 
+    /* 拖拽排序：拖到目标行上，层级对齐到目标 */
+    row.draggable = true;
+    row.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('text/plain', o.id);
+      row.classList.add('dragging');
+    });
+    row.addEventListener('dragend', () => row.classList.remove('dragging'));
+    row.addEventListener('dragover', e => { e.preventDefault(); row.classList.add('drop-on'); });
+    row.addEventListener('dragleave', () => row.classList.remove('drop-on'));
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      row.classList.remove('drop-on');
+      const srcId = e.dataTransfer.getData('text/plain');
+      const src = ED.objects.find(x => x.id === srcId);
+      if (src && src !== o) ED_layerDrop(src, o);
+    });
+
     row.addEventListener('click', e => ED_select(o, { additive: e.shiftKey }));
     box.appendChild(row);
   }
@@ -97,9 +113,29 @@ function ED_refreshObjects() {
 
 /** 层级微调：zOrder ±1（范围 -9..9，0 = 自动） */
 function ED_layerMove(o, dir) {
+  ED_snapshot('调整层级');
   o.zOrder = clamp((o.zOrder || 0) + dir, -9, 9);
   ED.dirty = true;
   ED_refreshObjects();
   const comp = KIT.get(o.kind);
   studioStatus(`「${comp ? comp.name : o.kind}」层级 ${o.zOrder}`);
+}
+
+
+/** 拖拽排序：把 src 插到 target 的位置，冻结全部 order */
+function ED_layerDrop(src, target) {
+  ED_snapshot('拖拽排序');
+  const list = [...ED.objects].sort(ED_compareDraw).reverse();   /* 显示顺序 */
+  const si = list.indexOf(src), ti = list.indexOf(target);
+  if (si < 0 || ti < 0 || si === ti) return;
+
+  list.splice(si, 1);
+  list.splice(ti, 0, src);
+  const n = list.length;
+  list.forEach((o, i) => { o.order = n - i; });   /* 列表从上到下：order 递减 */
+
+  ED.dirty = true;
+  ED_refreshObjects();
+  const comp = KIT.get(src.kind);
+  studioStatus(`「${comp ? comp.name : src.kind}」移到第 ${ti + 1} 层`);
 }
