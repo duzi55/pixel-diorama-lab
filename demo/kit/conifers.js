@@ -9,15 +9,10 @@
  *   簇与簇高低错落、半径各异 → 轮廓自然起伏；簇色按高度/方位/随机微差。
  * ------------------------------------------------------------------ */
 
-const CONE_TONES = [
-  [206, 140, 30],   // 0 深（背光/下层）
-  [228, 164, 34],   // 1 暖
-  [246, 194, 40],   // 2 主体金
-  [255, 224, 82],   // 3 亮（受光/上层）
-];
-/* plot 只吃打包像素（rgba 整数），不是 [r,g,b] 数组。
-   预打包一次，避免每像素 spread —— 也避免"数组写进 Uint32Array 变 0"的黑块。 */
-const CONE_PACKED = CONE_TONES.map(c => rgb(...c));
+/* ★ 和参考项目一致：色阶走 rampOf（5 档），暗部是基色的 40% 并偏冷。
+   之前手写的 4 档太亮，暗部只到 81%，树冠看起来像自发光。 */
+const CONE_TONES = rampOf([236, 178, 52]);   // 5 档，已是打包像素
+const CONE_PACKED = CONE_TONES;
 
 /* 屏幕像素 → 高度 z 水平面上的世界坐标 */
 function coneUnproject(ix, iy, z) {
@@ -41,7 +36,7 @@ function leafBlob(ctx, cx, cy, z, r, tone) {
     const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny));
     const l = -dir.x * nx - dir.y * ny + dir.z * nz;
     const t = tone + (l - .55) * 2.4 + (hash(hx, hy) - .5) * 1.1;
-    return CONE_PACKED[clamp(Math.round(t), 0, 3)];
+    return CONE_PACKED[clamp(Math.round(t), 0, 4)];
   };
 
   const is3D = (ctx.rotX || 0) !== 0 || (ctx.rotY || 0) !== 0;
