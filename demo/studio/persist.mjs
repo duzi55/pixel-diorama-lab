@@ -288,12 +288,46 @@ ${c.code.trim()}
 
 /* ---------------- 场景存读 ---------------- */
 
+const SCENE_INDEX = path.join(SCENE_DIR, 'index.json');
+
+/** 场景索引（导航与载入列表用）：[{ name, title, bg, W, H, updated }] */
+function readSceneIndex() {
+  try {
+    const data = JSON.parse(fs.readFileSync(SCENE_INDEX, 'utf8'));
+    return Array.isArray(data.scenes) ? data.scenes : [];
+  } catch { return []; }
+}
+
+function writeSceneIndex(list) {
+  fs.mkdirSync(SCENE_DIR, { recursive: true });
+  fs.writeFileSync(SCENE_INDEX, JSON.stringify({ scenes: list }, null, 2), 'utf8');
+}
+
 export function saveScene(name, scene) {
   if (!name || !/^[\w-]+$/.test(name)) throw new Error('场景名非法（只允许字母数字下划线连字符）');
   fs.mkdirSync(SCENE_DIR, { recursive: true });
   const file = path.join(SCENE_DIR, `${name}.json`);
   fs.writeFileSync(file, JSON.stringify(scene, null, 2), 'utf8');
-  return { ok: true, name, file: path.relative(REPO_DIR, file) };
+
+  /* 同步索引：顺手清掉磁盘上已不存在的条目（手动删 JSON 的情况） */
+  const idx = readSceneIndex().filter(e => e && e.name && fs.existsSync(path.join(SCENE_DIR, `${e.name}.json`)));
+  const entry = {
+    name,
+    title: scene.title || name,
+    bg: scene.bg || null,
+    W: scene.W || null,
+    H: scene.H || null,
+    updated: new Date().toISOString(),
+  };
+  const at = idx.findIndex(e => e.name === name);
+  if (at >= 0) idx[at] = entry; else idx.push(entry);
+  writeSceneIndex(idx);
+
+  return {
+    ok: true, name,
+    file: path.relative(REPO_DIR, file),
+    view: `../scenes/view.html?name=${encodeURIComponent(name)}`,
+  };
 }
 
 export function loadScene(name) {
@@ -303,10 +337,33 @@ export function loadScene(name) {
   return { ok: true, name, scene: JSON.parse(fs.readFileSync(file, 'utf8')) };
 }
 
+/** 只要名字（旧接口，编辑器载入下拉用） */
 export function listScenes() {
   try {
     return fs.readdirSync(SCENE_DIR)
       .filter(f => f.endsWith('.json'))
-      .map(f => f.replace(/\.json$/, ''));
+      .map(f => f.replace(/\.json$/, ''))
+      .filter(n => n !== 'index');
   } catch { return []; }
+}
+
+/** 带元数据的索引（导航用）；索引里没有的历史场景按 JSON 回填 */
+export function listSceneIndex() {
+  const idx = readSceneIndex().filter(e => e && e.name && fs.existsSync(path.join(SCENE_DIR, `${e.name}.json`)));
+  const known = new Set(idx.map(e => e.name));
+  for (const name of listScenes()) {
+    if (known.has(name)) continue;
+    try {
+      const scene = JSON.parse(fs.readFileSync(path.join(SCENE_DIR, `${name}.json`), 'utf8'));
+      idx.push({
+        name,
+        title: scene.title || name,
+        bg: scene.bg || null,
+        W: scene.W || null,
+        H: scene.H || null,
+        updated: null,
+      });
+    } catch { /* 坏文件跳过，不影响列表 */ }
+  }
+  return idx;
 }

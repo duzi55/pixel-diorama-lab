@@ -401,6 +401,11 @@ details.code pre, textarea.code-edit {
 .ref-row.drop-active {
   outline: 2px dashed var(--accent-2); outline-offset: 6px; border-radius: 10px;
 }
+
+/* 新建场景：迷你字段（宽/高/背景色） */
+.mini { display: flex; align-items: center; gap: 6px; flex: 1; font-size: 11px; color: var(--fg-dim); }
+.mini input[type="number"] { width: 100%; }
+#bg-presets .pill { padding: 3px 8px; font-size: 11px; }
 .ref-thumb {
   position: relative; width: 64px; height: 64px;
   border-radius: 8px; overflow: hidden; border: 1px solid var(--line);

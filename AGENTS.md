@@ -18,6 +18,7 @@
 | **启动 Studio** | `node demo/studio/server.mjs 5320`，打开 `http://127.0.0.1:5320/studio/` |
 | 构件生成页 | `http://127.0.0.1:5320/studio/index.html` |
 | 场景编辑器 | `http://127.0.0.1:5320/studio/editor.html` |
+| **场景查看器** | `http://127.0.0.1:5320/scenes/view.html?name=<场景名>`（保存的场景直接打开） |
 | Studio AI 配置 | `demo/studio/studio.config.json`（模型/思考强度/预算/超时，环境变量可覆盖） |
 | 编辑器冒烟测试 | `node tools/editor-test.mjs`（渲染并断言，导出 `docs/editor-screenshot.png`） |
 | **构件库全量实画测试** | `node tools/kit-test.mjs`（沙箱实画每个构件：崩溃/位置/像素数/极端参数） |
@@ -87,9 +88,13 @@
 | Studio 地形·共用 | `demo/studio/terrain-common.js` | 投影/归属/材质过渡混合/子项装饰/收边补洞 | `docs/modules/studio.md §4.2` |
 | Studio 地形·台阶 | `demo/studio/terrain-render.js` | 逐格 quad + 侧壁渲染（快，拖动时降级用） | `docs/modules/studio.md §4.2a` |
 | **Studio 地形·坡面** | `demo/studio/terrain-march.js` | 高度场 sphere tracing 光线步进：缓坡 + 坡度光照，默认渲染器 | `docs/modules/studio.md §4.2a` |
-| **Studio 编辑器** | `demo/studio/editor.html` | 场景为主的全屏画布 + 浮动面板；底图模式可编辑已有场景 | `docs/modules/studio.md §4` |
-| Studio 场景导入 | `demo/studio/scene-import.js` | 同源 iframe 抓取已有场景烘焙底图，进入底图编辑模式 | `docs/modules/studio.md §4.0b` |
 | Studio 服务端 | `demo/studio/server.mjs` | 静态服务 + AI 桥 + 落盘器（零依赖，只用 node: 内置模块） | `docs/modules/studio.md §6` |
+| **Studio 编辑器** | `demo/studio/editor.html` | 场景为主的全屏画布 + 浮动面板；**新建场景**（尺寸/背景色/地形预设）；底图模式可编辑已有场景 | `docs/modules/studio.md §4` |
+| Studio·场景存取 | `demo/studio/editor-scene.js` | 场景 JSON 序列化（W/H/S/bg/origin）· 新建 · 保存载入 · 默认地形预设 | `docs/modules/studio.md §4.0c` |
+| Studio·渲染 | `demo/studio/editor-render.js` | 背景色统一（画布/舞台/页面）+ 帧循环 + 场景合成管线 | `docs/modules/studio.md §4.0c` |
+| **场景查看器** | `demo/scenes/view.html` · `viewer.js` | 读 `scenes/<name>.json` 复现尺寸/背景/光照；导航「我的场景」入口 | `docs/modules/studio.md §4.0c` |
+| 场景索引 | `demo/scenes/index.json` | 保存时由 `persist.mjs` 维护（name/title/bg/W/H），nav.js 异步读取 | `docs/modules/studio.md §4.0c` |
+| 场景导入 | `demo/studio/scene-import.js` | 同源 iframe 抓取已有场景烘焙底图，进入底图编辑模式 | `docs/modules/studio.md §4.0b` |
 | **图集烘焙器** | `tools/bake-atlas.mjs` | 构件按 N 朝向离屏渲染 → `demo/export/atlas.png` + `atlas.json`（帧矩形/锚点/UV/碰撞体） | `docs/modules/export.md` |
 | **three.js 消费示例** | `demo/export/three-demo.html` | 读图集渲染等距场景：8 朝向切换/缩放平移/色调；three.js 走 CDN | `docs/modules/export.md §3` |
 | 技术分析 | `docs/analysis.md` | 原项目完整管线拆解与代码索引 | — |

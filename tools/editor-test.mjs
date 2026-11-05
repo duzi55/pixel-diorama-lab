@@ -86,6 +86,7 @@ function makeCtx() {
 
   const document = {
     querySelectorAll: () => [],
+    querySelector: () => null,
     getElementById(id) {
       if (id === 'c') return canvas;
       if (!elements[id]) {

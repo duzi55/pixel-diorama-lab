@@ -304,8 +304,8 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === '/api/scene' && req.method === 'GET') {
     try {
-      const { listScenes } = await import('./persist.mjs');
-      return sendJSON(res, 200, { ok: true, scenes: listScenes() });
+      const { listScenes, listSceneIndex } = await import('./persist.mjs');
+      return sendJSON(res, 200, { ok: true, scenes: listScenes(), index: listSceneIndex() });
     } catch (e) {
       return sendJSON(res, 500, { ok: false, error: String(e) });
     }

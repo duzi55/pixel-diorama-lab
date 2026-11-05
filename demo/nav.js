@@ -92,7 +92,7 @@
     <div id="pd-nav-menu" hidden>
       <div class="group">本工作区</div>
       ${sceneLinks}
-      <div class="group">参考项目 · 5300</div>
+      <div class="group" id="pd-nav-refs">参考项目 · 5300</div>
       ${refLinks}
     </div>
   `;
@@ -100,6 +100,36 @@
 
   const toggle = nav.querySelector('#pd-nav-toggle');
   const menu = nav.querySelector('#pd-nav-menu');
+
+  /* Studio 保存的场景：scene 索引由服务端写入 scenes/index.json，
+     这里异步追加「我的场景」分组（静态服务器 / 5310 也能用；file:// 下静默跳过） */
+  const viewName = /\/scenes\/view\.html$/.test(location.pathname)
+    ? new URLSearchParams(location.search).get('name') : null;
+  fetch('/scenes/index.json', { cache: 'no-store' })
+    .then(r => (r.ok ? r.json() : null))
+    .then(data => {
+      const list = (data && data.scenes) || [];
+      if (!list.length) return;
+      const frag = document.createDocumentFragment();
+      const group = document.createElement('div');
+      group.className = 'group';
+      group.textContent = '我的场景';
+      frag.appendChild(group);
+      for (const s of list) {
+        const a = document.createElement('a');
+        a.href = '/scenes/view.html?name=' + encodeURIComponent(s.name);
+        a.textContent = s.title || s.name;
+        if (viewName && viewName === s.name) {
+          a.className = 'current';
+          toggle.textContent = '场景 · ' + (s.title || s.name) + ' ▾';
+        }
+        frag.appendChild(a);
+      }
+      const refs = nav.querySelector('#pd-nav-refs');
+      (refs && refs.parentNode ? refs.parentNode : menu).insertBefore(frag, refs || null);
+    })
+    .catch(() => { /* 没有索引或跨域：跳过 */ });
+
   const setOpen = open => {
     menu.hidden = !open;
     toggle.setAttribute('aria-expanded', String(open));

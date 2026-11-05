@@ -269,6 +269,49 @@ window.PP_SCENE = {
 保存场景时底图以 base64 PNG 附在 JSON 里（`baseMap.png`），载入时还原。
 点「退出底图模式」回到地形编辑。
 
+### 4.0c 新建场景 · 背景色 · 查看器
+
+**新建场景**（右侧「新建场景」面板）：填名字 → 选尺寸 / 背景色 / 地形预设 →
+「＋ 新建」。会 `PP_setSize()` 重建画布、清空物体、铺预设地形。
+背景色是**一键**的：五个预设色块点一下立即生效，也可以自己取色。
+
+**背景色三处统一**（`ED_setBg`）：画布清屏 `pix.fill(bg)`、舞台 `.ed-stage`、
+页面 `.ed-full`。保存后查看器页面 `body` 与画布也用同一个色，整个页面没有色差。
+
+**保存 → 导航 → 查看**：
+
+```
+编辑器保存
+   ├─ demo/scenes/<name>.json     场景本体（含 W/H/S/bg/origin）
+   └─ demo/scenes/index.json      索引：name/title/bg/W/H/updated
+             │
+             ▼
+   nav.js 异步 fetch /scenes/index.json → 菜单追加「我的场景」分组
+             │
+             ▼
+   scenes/view.html?name=<name>   静态查看器（不依赖 Studio 服务端）
+```
+
+场景 JSON 的关键字段：
+
+| 字段 | 用途 |
+|------|------|
+| `W` / `H` | 画布尺寸；载入与查看器按它 `PP_setSize()` |
+| `S` | 像素/世界单位（`PP_SCALE`）；查看器复现同一比例 |
+| `originX` / `originY` | 投影原点偏移；保证查看器构图与编辑器一致 |
+| `bg` | `#rrggbb`；画布清屏 + 页面背景 |
+| `lighting` | 方向/色调/环境/暗角 |
+| `baseMap.png` | 底图模式场景（可选） |
+
+**查看器**（`demo/scenes/view.html` + `viewer.js`）：
+先 fetch JSON → 设置 `window.PP_W/H/PP_SCALE/PP_ORIGIN_*` →
+**动态按序加载** engine / kit / terrain 脚本（尺寸必须在 engine 顶层读取前就位，
+所以不能用静态 `<script>`）→ `terrainRender()` + 构件画家排序 → 一次性绘制。
+画布按整数倍缩放居中，`resize` 重算。
+
+兼容性：索引缺失的历史场景由 `listSceneIndex()` 从 JSON 回填元数据，
+不需要重新保存就能出现在导航里。
+
 ### 4.1 布局
 
 ```

@@ -112,12 +112,52 @@
     </div>
     <div class="fp-body">
       <div class="sec">
+        <h3>新建场景</h3>
+        <div class="stack">
+          <div class="row">
+            <input type="text" id="new-scene-name" placeholder="场景名（英文/数字/-）" value="my-scene">
+          </div>
+          <div class="row">
+            <label class="mini">宽
+              <input type="number" id="new-scene-w" value="520" min="80" max="2048" step="10">
+            </label>
+            <label class="mini">高
+              <input type="number" id="new-scene-h" value="380" min="60" max="2048" step="10">
+            </label>
+          </div>
+          <div class="row">
+            <label class="mini" style="flex:1">背景色
+              <input type="color" id="new-scene-bg" value="#16161c" style="flex:1;height:26px;padding:0">
+            </label>
+          </div>
+          <div class="pill-row" id="bg-presets">
+            <button class="pill" data-bg="#16161c">深灰</button>
+            <button class="pill" data-bg="#f4efe4">纸白</button>
+            <button class="pill" data-bg="#f7e9c8">米黄</button>
+            <button class="pill" data-bg="#1b2433">夜蓝</button>
+            <button class="pill" data-bg="#1e2a20">墨绿</button>
+          </div>
+          <div class="row">
+            <select id="new-scene-preset" style="flex:1">
+              <option value="blank">空白地形</option>
+              <option value="flat">平坦草地岛</option>
+              <option value="village" selected>山坡村落</option>
+            </select>
+            <button id="btn-new-scene" class="primary">＋ 新建</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec">
         <h3>场景存取</h3>
         <div class="stack">
           <div class="row">
             <input type="text" id="scene-name" placeholder="场景名" value="my-scene">
             <button id="btn-save-scene" class="primary">保存</button>
           </div>
+          <a id="scene-view-link" class="hint" style="display:none;margin:0" target="_blank">
+            在查看器中打开 →
+          </a>
           <div class="row">
             <select id="scene-list"><option value="">— 载入场景 —</option></select>
             <button id="btn-load-scene">载入</button>
@@ -227,6 +267,8 @@ window.PP_W=520;window.PP_H=380;window.PP_SCALE=11;window.PP_ORIGIN_X=0;window.P
 <script src="terrain-shapes.js"></script>
 <script src="editor-view.js"></script>
 <script src="editor-panels.js"></script>
+<script src="editor-scene.js"></script>
+<script src="editor-render.js"></script>
 <script src="editor-light.js"></script>
 <script src="editor.js"></script>
 <script src="thinking-panel.js"></script>

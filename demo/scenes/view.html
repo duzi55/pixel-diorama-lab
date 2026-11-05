@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>场景查看器</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #16161c; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas { image-rendering: pixelated; display: block; }
+  #err {
+    position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+    color: #e07a6a; font: 13px/1.9 ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace;
+    text-align: center; padding: 40px; background: #11131a;
+  }
+  #err code { color: #e8b64c; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="err"></div>
+<script src="../nav.js"></script>
+<script src="viewer.js"></script>
+</body>
+</html>
