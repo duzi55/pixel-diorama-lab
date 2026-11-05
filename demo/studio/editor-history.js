@@ -2,14 +2,24 @@
 /* ------------------------------------------------------------------
  * 编辑器 · 撤销 / 重做（editor-history.js）
  *
- * 快照式：只记录"对象层"（位置/参数/层级/编组），地形不进历史
- * （地形笔刷是连续的，逐笔快照太重；需要时可单独做地形历史）。
+ * 快照式：记录"对象层"（位置/参数/层级/编组）+ 地形（cells/blend）。
+ * 地形用字符串缓存共享：同一份地形只占一份内存，多步历史都指向它；
+ * 笔刷拖动算一笔（pointerdown 时快照），撤销回到落笔前。
  *
  * 用法：操作前调 ED_snapshot('描述')；⌘Z / ⇧⌘Z 撤销重做。
  * 连续滑块用 ED_snapshotThrottled 去抖，避免一次拖动塞几十条。
  * ------------------------------------------------------------------ */
 
 const HIST = { undo: [], redo: [], max: 60, lock: false, lastAt: 0 };
+
+/* 地形快照缓存：同一份地形只保留一个字符串引用，多步历史共享 */
+let ED_TERRAIN_CACHE = null;
+
+function ED_terrainSnapshot() {
+  const json = JSON.stringify(TERRAIN.toJSON());
+  if (json !== ED_TERRAIN_CACHE) ED_TERRAIN_CACHE = json;
+  return ED_TERRAIN_CACHE;
+}
 
 function ED_cloneObjects() {
   return JSON.parse(JSON.stringify(ED.objects));
@@ -20,6 +30,7 @@ function ED_snapshot(label) {
   HIST.undo.push({
     label: label || '',
     objects: ED_cloneObjects(),
+    terrain: ED_terrainSnapshot(),        /* 共享字符串，不重复占内存 */
     selected: ED_selectionList().map(o => o.id),
   });
   if (HIST.undo.length > HIST.max) HIST.undo.shift();
@@ -36,6 +47,10 @@ function ED_snapshotThrottled(label) {
 
 function ED_restoreSnapshot(snap) {
   HIST.lock = true;
+  if (snap.terrain) {
+    TERRAIN.fromJSON(JSON.parse(snap.terrain));
+    ED_TERRAIN_CACHE = snap.terrain;
+  }
   ED.objects = JSON.parse(JSON.stringify(snap.objects));
   ED.selection = new Set();
   ED.selected = null;
@@ -64,6 +79,7 @@ function ED_undo() {
   HIST.redo.push({
     label: '',
     objects: ED_cloneObjects(),
+    terrain: ED_terrainSnapshot(),
     selected: ED_selectionList().map(o => o.id),
   });
   const snap = HIST.undo.pop();
@@ -76,6 +92,7 @@ function ED_redo() {
   HIST.undo.push({
     label: '',
     objects: ED_cloneObjects(),
+    terrain: ED_terrainSnapshot(),
     selected: ED_selectionList().map(o => o.id),
   });
   const snap = HIST.redo.pop();
@@ -86,4 +103,5 @@ function ED_redo() {
 function ED_clearHistory() {
   HIST.undo.length = 0;
   HIST.redo.length = 0;
+  ED_TERRAIN_CACHE = null;
 }

@@ -119,6 +119,7 @@ function initTerrainAI() {
       if (errMsg) throw new Error(errMsg);
       if (!preset) throw new Error('没有收到地形预设');
 
+      ED_snapshot('AI 生成地形');
       const r = TERRAIN_SHAPES.apply(preset);
       ED.objects = [];
       ED.selected = null;

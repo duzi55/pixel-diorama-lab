@@ -151,6 +151,7 @@ function ED_buildTools() {
   const presetVillage = document.getElementById('preset-village');
   if (presetVillage) {
     presetVillage.addEventListener('click', () => {
+      ED_snapshot('预设：山坡村落');
       TERRAIN.clear();
       ED.objects = [];
       ED_seedDemo();
@@ -163,6 +164,7 @@ function ED_buildTools() {
   const presetFlat = document.getElementById('preset-flat');
   if (presetFlat) {
     presetFlat.addEventListener('click', () => {
+      ED_snapshot('预设：平坦草岛');
       TERRAIN.clear();
       for (let gx = -8; gx <= 8; gx++) for (let gy = -6; gy <= 6; gy++) {
         if (Math.hypot(gx / 8, gy / 6) <= 1) TERRAIN.set(gx, gy, 'grass', 0);
@@ -203,6 +205,10 @@ function ED_bindCanvas() {
     if (ED_toolLocked(ED.tool)) {
       studioStatus('底图模式下地形工具不可用（场景地面是烘焙产物）—— 构件放置/选择不受限', 'err');
       return;
+    }
+    /* 地形类工具：一笔开始前记一次快照（拖动期间连续绘制，算一笔） */
+    if (ED.tool !== 'select' && ED.tool !== 'place' && ED.tool !== 'pan') {
+      ED_snapshot('绘制地形');
     }
     ED.painting = true;
 
