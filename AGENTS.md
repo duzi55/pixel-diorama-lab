@@ -14,6 +14,7 @@
 |------|------|
 | 运行 demo | `cd demo && python3 -m http.server 5310`，打开 `http://127.0.0.1:5310/` |
 | 运行参考项目 | `cd reference/pixel-plays && node serve.mjs`，打开 `http://127.0.0.1:5300/` |
+| **运行 Lo-Fi Weather** | `cd reference/lofi-weather && node serve.mjs`，打开 `http://127.0.0.1:5302/?city=Tokyo&t=night`（夜景预览用非 embed 模式） |
 | 直接打开 demo | 双击 `demo/index.html`（无模块加载，可行） |
 | **启动 Studio** | `node demo/studio/server.mjs 5320`，打开 `http://127.0.0.1:5320/studio/` |
 | 构件生成页 | `http://127.0.0.1:5320/studio/index.html` |
@@ -42,6 +43,7 @@
 | 模块 | 路径 | 说明 | 详细文档 |
 |------|------|------|----------|
 | 参考项目 | `reference/pixel-plays/` | 原始 Pixel Plays 源码，**只读**，不作修改 | `docs/analysis.md` |
+| **参考项目·Lo-Fi Weather** | `reference/lofi-weather/` | 八城天气海报：烘焙静帧 + 逐像素天气/昼夜后处理；**发光物件系统**（emit 缓冲 / 开灯决策 / 灯池 / 泛光） | `docs/analysis-lofi-weather.md` |
 | **构件库索引** | `docs/kit/registry.md` | **80 个变体的活注册表**：树/建筑/花草/道具/姿态/人群/特效，每行带配方卡锚点链接 | `docs/kit/README.md` |
 | 构件库·树 | `docs/kit/trees.md` | 树变体配方卡（含秋日山村新增的 `pine` 锥面塔冠 / `shrub` 无干球丛） | — |
 | 构件库·建筑 | `docs/kit/buildings.md` | 20 种建筑变体配方卡 | — |

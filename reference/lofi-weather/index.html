@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Lo-Fi Weather</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/lofi-weather.css">
+</head>
+<body>
+<main id="wrap">
+  <article id="poster" aria-live="polite">
+    <header class="bar top"><span>Lo-Fi Weather</span><span id="coords"></span><span id="date"></span></header>
+    <canvas id="sky" aria-hidden="true"></canvas>
+    <h1 id="big"><span id="bigname">…</span></h1>
+    <div id="names"><span id="region"></span><span id="native"></span></div>
+    <canvas id="c" role="img" aria-label="The city's weather, drawn as a small pixel square"></canvas>
+    <section id="readout">
+      <div><div id="clock"></div><div id="cond"></div></div>
+      <div id="deg"><span id="temp"></span><span id="units"><b>°C</b><span id="tempF"></span></span></div>
+    </section>
+    <dl id="grid">
+      <div><dt>Wind</dt><dd><span id="arrow">↑</span> <span id="wind"></span></dd></div>
+      <div><dt>Clouds</dt><dd id="clouds"></dd></div>
+      <div><dt>Humidity</dt><dd id="humid"></dd></div>
+      <div><dt>Sun</dt><dd id="sun"></dd></div>
+    </dl>
+    <footer class="bar bottom"><a href="https://open-meteo.com/" target="_blank" rel="noopener">Data: Open-Meteo</a><span id="feels"></span><span id="status" role="status"></span><a href="https://x.com/AmirMushich" target="_blank" rel="noopener">by AmirMushich</a></footer>
+  </article>
+  <nav id="dock" aria-label="Poster controls">
+    <button class="pill" type="button" aria-expanded="false" aria-controls="sheet-city" data-sheet="city"><span id="dock-city">City</span><svg class="chev" width="8" height="5" viewBox="0 0 8 5" aria-hidden="true"><path d="M1 1l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button class="pill" type="button" aria-expanded="false" aria-controls="sheet-format" data-sheet="format"><span id="dock-format">4:5</span><svg class="chev" width="8" height="5" viewBox="0 0 8 5" aria-hidden="true"><path d="M1 1l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button class="pill" type="button" aria-expanded="false" aria-controls="sheet-sky" data-sheet="sky"><span id="dock-sky">Live</span><svg class="chev" width="8" height="5" viewBox="0 0 8 5" aria-hidden="true"><path d="M1 1l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <span class="gap"></span>
+    <button class="pill solid" type="button" aria-expanded="false" aria-controls="sheet-share" data-sheet="share">Share</button>
+
+    <div class="sheet" id="sheet-city" role="dialog" aria-label="City" hidden>
+      <form id="search" role="search" autocomplete="off">
+        <input id="q" type="search" placeholder="Search any city" aria-label="Search any city" aria-controls="results">
+        <ul id="results" role="listbox"></ul>
+        <div class="quick"><div class="label">Hand-drawn</div><div class="chips" id="quick"></div></div>
+      </form>
+    </div>
+    <div class="sheet" id="sheet-format" role="dialog" aria-label="Format" hidden><div id="formats"></div></div>
+    <div class="sheet" id="sheet-sky" role="dialog" aria-label="Sky" hidden>
+      <div class="label">Weather</div><div class="chips" id="lab-weather"></div>
+      <div class="label">Time</div><div class="chips" id="lab-time"></div>
+    </div>
+    <div class="sheet" id="sheet-share" role="dialog" aria-label="Share" hidden>
+      <button class="opt" id="get-png" type="button">Save image<span class="meta" id="png-size">PNG</span></button>
+      <button class="opt" id="get-video" type="button">Save video<span class="meta" id="video-type">6 s</span></button>
+      <div class="sep"></div>
+      <button class="opt" id="get-embed" type="button">Copy embed code<span class="meta">&lt;/&gt;</span></button>
+      <button class="opt" id="get-link" type="button">Copy link<span class="meta">↗</span></button>
+    </div>
+    <div class="sr" role="status" aria-live="polite" id="announce"></div>
+  </nav>
+</main>
+<script>window.PP_SCENE = { originY: 18, scale: 11, shadowX: 1.15, shadowY: -.3 };</script>
+<script src="js/engine.js"></script>
+<script src="js/scene.js"></script>
+<script src="js/cities/shared.js"></script>
+<script src="js/cities/mostar.js"></script>
+<script src="js/cities/london.js"></script>
+<script src="js/cities/reykjavik.js"></script>
+<script src="js/cities/newyork.js"></script>
+<script src="js/cities/tokyo.js"></script>
+<script src="js/cities/dubai.js"></script>
+<script src="js/cities/singapore.js"></script>
+<script src="js/cities/sydney.js"></script>
+<script src="js/bake.js"></script>
+<script src="js/weather.js"></script>
+<script src="js/life.js"></script>
+<script src="js/draw.js"></script>
+<script src="js/sound.js"></script>
+<script src="js/share.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
