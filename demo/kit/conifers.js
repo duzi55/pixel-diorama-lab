@@ -111,7 +111,10 @@ function coneCanopy(ctx, cx, cy, z0, z1, cr, seed, density) {
        抖动幅度随包络收窄（顶部不乱抖，否则树尖会断成悬空小簇） */
     const zj = (hash(k, 16) - .5) * h * .09 * Math.min(1, u * 2.2);
     const r = Math.max(.40, env * (.16 + hash(k, 14) * .10));
-    const lit = -(bx - cx) * .05 - (by - cy) * .04;
+    /* 受光侧提亮：投影到当前光源方向（不是写死的左上），光源转树冠亮面跟着转 */
+    const lx = (bx - cx) * (typeof LIGHT !== 'undefined' ? LIGHT.dir.x : -.55)
+             + (by - cy) * (typeof LIGHT !== 'undefined' ? LIGHT.dir.y : -.6);
+    const lit = -lx * .16;
     const tone = 1.5 + (1 - u) * .9 + lit * .8 + (hash(k, 15) - .5) * 1.1;
     blobs.push({ x: bx, y: by, z: z + zj, r, tone: clamp(Math.round(tone), 0, 3) });
   }

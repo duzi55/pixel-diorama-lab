@@ -131,9 +131,9 @@ function growFoliage() {
 /* 树影：轻——参考图是晴天，影子只是树根处一小片 */
 function castTreeShadows() {
   for (const t of folPlaced) {
-    /* 晴天柔影：贴地、小半径、极轻 —— 大偏移的深椭圆会读作"泥坑" */
-    castShadow(t.x, t.y, 1.0, t.cr * .55, 4, .85);
-    castShadow(t.x, t.y, 0, .28, 3, .85);
+    /* 树影要读得出来：常规影（strength 1）+ 树根接触影（strength 2） */
+    castShadow(t.x, t.y, 1.0, t.cr * .8, 1, .45);
+    castShadow(t.x, t.y, 0, .32, 2, .3);
   }
 }
 

@@ -271,9 +271,10 @@ function applyShadows(refZ) {
        塔林/房屋的影子若染上路，公路会被淹没读不出来 */
     if (kinds[i] === KIND_NONE) continue;
     /* 四档：1 常规 / 2 深（接触影）/ 3 轻（晴天植物影）/ 4 极轻（远景柔影） */
-    if (s === 4) tint(i, .90, .88, .93);
-    else if (s === 3) tint(i, .82, .80, .88);
-    else if (s === 1) tint(i, .62, .60, .78);
+    /* 对齐参考项目：常规影压到 46%，深影压到 64% */
+    if (s === 4) tint(i, .82, .80, .88);
+    else if (s === 3) tint(i, .64, .62, .76);
+    else if (s === 1) tint(i, .54, .52, .72);
     else tint(i, .36, .34, .56);
   }
 }
