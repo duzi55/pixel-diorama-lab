@@ -859,3 +859,11 @@ body.ed-paper .bar { padding-top: 4px; padding-bottom: 4px; }
   border: 1px solid var(--line); border-radius: 5px;
   background: #fffdf8; color: var(--fg); font: inherit; font-size: 11px;
 }
+
+/* 工具按钮：文字标签（Unicode 图标辨识度不够） */
+.fp-tools .pill {
+  width: auto; height: auto;
+  padding: 4px 9px;
+  font-size: 11.5px;
+  border-radius: 8px;
+}
