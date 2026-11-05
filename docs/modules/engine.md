@@ -48,6 +48,7 @@ win.PP_SCENE.W  / .H  / .pix / .bakedPix / .bakedZ / .ground / .groundZ
 | `project(x, y, z)` | 世界 → 屏幕 | 返回 `{ sx, sy, d }`，`d` 是深度 |
 | `unproject(sx, sy)` | 屏幕 → 地面 | 默认 `z = 0`，用于地面纹理和拖拽 |
 | `unprojectAt(sx, sy, z)` | 屏幕 → 高度 z 的水平面 | 逐像素绘制（树冠叶簇）用它反解像素；返回 `[x, y]` |
+| `litLevel(nx, ny, nz)` | 世界法线 → 色阶档位（0~4） | 面亮度由 `LIGHT.dir` 计算；构件的 `ctx.lit(nx,ny,nz)` 就是它。灯/窗等自发光不用它 |
 | `sphere(x, y, z, r, color, mode)` | 球体 | `mode`: `rough` / `gloss` / `solid` |
 | `capsule(a, b, r0, r1, colorOf, mode)` | 胶囊 | `colorOf(z)` 可按高度返回颜色 |
 | `box(x0, y0, z0, x1, y1, z1, color, seed)` | 盒子 | 只画顶/前/右三面 |

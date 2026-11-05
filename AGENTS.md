@@ -24,6 +24,7 @@
 | **构件库全量实画测试** | `node tools/kit-test.mjs`（沙箱实画每个构件：崩溃/位置/像素数/极端参数） |
 | **构件行为回归测试** | `node tools/behavior-test.mjs`（行为定义 / 构件引用 / 60 帧实跑 / sway·chop 效果断言） |
 | **构件接线检查** | `node tools/check-kit-wiring.mjs`（新增构件文件是否接进 gallery/catalog/preview/editor/viewer/server 六个入口） |
+| **光照跟随审计** | `node tools/light-audit.mjs`（两种光照方向各画一次，找出亮度写死、不跟随光源的构件） |
 | 人群模块测试 | `node tools/crowd-test.mjs`（避让/CLEARANCE/站桩断言） |
 | **批量补齐变体** | `node tools/fill-variants.mjs [id…]`（照 docs/kit/ 规格 AI 实现 + 三道闸落盘） |
 | 无头渲染 | `node tools/render.mjs <html> <out.png> [帧数]` |
