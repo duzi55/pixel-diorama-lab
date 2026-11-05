@@ -82,17 +82,16 @@ const TERRAIN = {
   /* 网格数据：key = (gy + R) * (2R+1) + (gx + R) */
   cells: new Map(),
 
-  key(gx, gy) { return (gy + TERRAIN.R) * (TERRAIN.R * 2 + 1) + (gx + TERRAIN.R); },
+  /* 字符串 key：不再有 ±R 的绘制范围限制（无限画布） */
+  key(gx, gy) { return gx + ',' + gy; },
 
   /* 取格，不存在返回 null */
   get(gx, gy) {
-    if (gx < -TERRAIN.R || gy < -TERRAIN.R || gx > TERRAIN.R || gy > TERRAIN.R) return null;
     return TERRAIN.cells.get(TERRAIN.key(gx, gy)) || null;
   },
 
   /* 写格 */
   set(gx, gy, mat, z) {
-    if (gx < -TERRAIN.R || gy < -TERRAIN.R || gx > TERRAIN.R || gy > TERRAIN.R) return;
     const c = TERRAIN.get(gx, gy);
     if (c) { c.mat = mat; c.z = z; }
     else TERRAIN.cells.set(TERRAIN.key(gx, gy), { gx, gy, mat, z });

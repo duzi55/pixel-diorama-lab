@@ -198,6 +198,7 @@ function ED_buildTools() {
 /* ---------------- 画布交互 ---------------- */
 
 function ED_bindCanvas() {
+  const stageEl = document.getElementById('stage');
   const toScreen = e => {
     const r = canvas.getBoundingClientRect();
     return {
@@ -212,17 +213,25 @@ function ED_bindCanvas() {
 
   /* 视图平移：中键拖拽 或 空格+左键拖拽 */
   let panning = false, panStart = null;
-  canvas.addEventListener('pointerdown', e => {
+  stageEl.addEventListener('pointerdown', e => {
     if (e.button === 1 || ED.spaceHeld || ED.tool === 'pan') {
       panning = true;
       panStart = { x: e.clientX, y: e.clientY, ox: ED.view.ox, oy: ED.view.oy };
-      canvas.setPointerCapture(e.pointerId);
+      stageEl.setPointerCapture(e.pointerId);
       e.preventDefault();
       return;
     }
-    canvas.setPointerCapture(e.pointerId);
+    stageEl.setPointerCapture(e.pointerId);
+
+    /* 点在画布之外：先把画布扩到覆盖该点，再按新坐标处理 */
+    let sp = toScreen(e);
+    if (sp.sx < 0 || sp.sy < 0 || sp.sx > W || sp.sy > H) {
+      if (typeof ED_expandToFit === 'function' && ED_expandToFit(sp.sx, sp.sy)) {
+        sp = toScreen(e);
+      }
+    }
+
     /* 太阳 gizmo 优先：拖它 = 转方向光，不影响地形/选择 */
-    const sp = toScreen(e);
     if (typeof ED_pickSun === 'function' && ED_pickSun(sp.sx, sp.sy)) {
       ED.sunDragging = true;
       ED_sunDragTo(sp.sx, sp.sy);
@@ -287,7 +296,7 @@ function ED_bindCanvas() {
     ED_applyTool(w);
   });
 
-  canvas.addEventListener('pointermove', e => {
+  stageEl.addEventListener('pointermove', e => {
     if (ED.sunDragging) {
       const s0 = toScreen(e);
       ED_sunDragTo(s0.sx, s0.sy);
@@ -336,7 +345,7 @@ function ED_bindCanvas() {
     }
   });
 
-  canvas.addEventListener('pointermove', e => {
+  stageEl.addEventListener('pointermove', e => {
     if (panning) {
       ED.view.ox = panStart.ox + (e.clientX - panStart.x);
       ED.view.oy = panStart.oy + (e.clientY - panStart.y);
@@ -379,21 +388,21 @@ function ED_bindCanvas() {
     ED.draggingObj = false;
     panning = false;
   };
-  canvas.addEventListener('pointerup', stopDrag);
-  canvas.addEventListener('pointerleave', () => {
+  stageEl.addEventListener('pointerup', stopDrag);
+  stageEl.addEventListener('pointerleave', () => {
     stopDrag();
     if (ED.ghost) { ED.ghost = null; ED.dirty = true; }
   });
 
   ED_bindKeys();
 
-  canvas.addEventListener('dblclick', () => {
+  stageEl.addEventListener('dblclick', () => {
     ED.view = { scale: 1, ox: 0, oy: 0 };
     ED_applyView();
     studioStatus('视图已复位');
   });
 
-  canvas.addEventListener('wheel', e => {
+  stageEl.addEventListener('wheel', e => {
     e.preventDefault();
     if (e.ctrlKey || e.metaKey) {
       ED_viewZoom(e);

@@ -134,19 +134,35 @@ function ED_drawObject(o) {
 
 /* ---------------- 画布扩展（无限画布的基础） ---------------- */
 
-/** 把画布扩大 dw×dh（内容仍在中心），上限 2048 */
+/** 把画布扩大 dw×dh；用视图偏移抵消内容位移，视觉上"原地长大" */
 function ED_expandCanvas(dw, dh) {
   const nw = Math.min(2048, W + (dw || 0));
   const nh = Math.min(2048, H + (dh || 0));
   if (nw === W && nh === H) { studioStatus('画布已达上限 2048', 'err'); return; }
+  const k = canvas.clientWidth ? canvas.clientWidth / W : 1;
   ED_snapshot('扩展画布');
   PP_setSize(nw, nh);
-  ED.view = { scale: 1, ox: 0, oy: 0 };
-  ED_fit();
+  /* 画布中心右移/下移了 (nw-W)/2 像素，视图反向偏移保持内容位置 */
+  ED.view.ox -= (nw - W) / 2 * k;
+  ED.view.oy -= (nh - H) / 2 * k;
+  ED_applyView();
   ED.dirty = true;
   const el = document.getElementById('canvas-size');
   if (el) el.textContent = `${nw} × ${nh}`;
-  studioStatus(`画布扩展为 ${nw}×${nh}`);
+  studioStatus(`画布扩展为 ${nw}×${nh}（可继续往外画）`);
+}
+
+/** 扩展画布直到覆盖屏幕坐标 (sx,sy)（可为负/超界） */
+function ED_expandToFit(sx, sy) {
+  const M = 64;
+  let dw = 0, dh = 0;
+  if (sx > W) dw = Math.ceil((sx - W + M) / 128) * 128;
+  else if (sx < 0) dw = Math.ceil((-sx + M) / 128) * 128;
+  if (sy > H) dh = Math.ceil((sy - H + M) / 128) * 128;
+  else if (sy < 0) dh = Math.ceil((-sy + M) / 128) * 128;
+  if (!dw && !dh) return false;
+  ED_expandCanvas(dw, dh);
+  return true;
 }
 
 /** 笔刷接近边缘时自动扩画布（拖动画布外也能继续画） */

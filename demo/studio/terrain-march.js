@@ -26,14 +26,28 @@ const TERRAIN_MARCH = {
 /* ---------------- 高度场 ---------------- */
 
 function terrainBuildHeightGrid() {
-  const R = TERRAIN.R, N = R * 2 + 1;
-  const H = new Float32Array(N * N);
-  const EX = new Uint8Array(N * N);      /* 格子是否存在（查表比 Map 快一个量级） */
+  /* 动态 bbox：地形可以画到任意远，高度网格跟着数据范围走 */
+  let minGx = Infinity, maxGx = -Infinity, minGy = Infinity, maxGy = -Infinity;
+  for (const c of TERRAIN.cells.values()) {
+    if (c.gx < minGx) minGx = c.gx;
+    if (c.gx > maxGx) maxGx = c.gx;
+    if (c.gy < minGy) minGy = c.gy;
+    if (c.gy > maxGy) maxGy = c.gy;
+  }
+  if (!TERRAIN.cells.size) { minGx = maxGx = minGy = maxGy = 0; }
+
+  const PAD = 2;
+  minGx -= PAD; maxGx += PAD; minGy -= PAD; maxGy += PAD;
+  const NX = maxGx - minGx + 1, NY = maxGy - minGy + 1;
+
+  const H = new Float32Array(NX * NY);
+  const EX = new Uint8Array(NX * NY);
   H.fill(NaN);
   let maxZ = 0;
 
   for (const c of TERRAIN.cells.values()) {
-    const idx = (c.gy + R) * N + (c.gx + R);
+    const idx = (c.gy - minGy) * NX + (c.gx - minGx);
+    if (idx < 0 || idx >= H.length) continue;
     H[idx] = c.z || 0;
     EX[idx] = 1;
     if ((c.z || 0) > maxZ) maxZ = c.z;
@@ -41,17 +55,20 @@ function terrainBuildHeightGrid() {
 
   TERRAIN_MARCH.H = H;
   TERRAIN_MARCH.EX = EX;
-  TERRAIN_MARCH.N = N;
+  TERRAIN_MARCH.NX = NX;
+  TERRAIN_MARCH.NY = NY;
+  TERRAIN_MARCH.minGx = minGx;
+  TERRAIN_MARCH.minGy = minGy;
+  TERRAIN_MARCH.N = NX;          /* 兼容旧字段 */
   TERRAIN_MARCH.maxZ = maxZ;
 
-  /* 高度场梯度上界（相邻格心最大高差 / 格距 1.0）—— sphere tracing 的
-     安全系数由它决定，宁大勿小（偏保守只损失速度，不损失正确性） */
+  /* 高度场梯度上界：sphere tracing 的安全系数 */
   let maxSlope = 0;
-  for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
-    const h0 = H[gy * N + gx];
+  for (let gy = 0; gy < NY; gy++) for (let gx = 0; gx < NX; gx++) {
+    const h0 = H[gy * NX + gx];
     if (Number.isNaN(h0)) continue;
-    if (gx + 1 < N && !Number.isNaN(H[gy * N + gx + 1])) maxSlope = Math.max(maxSlope, Math.abs(H[gy * N + gx + 1] - h0));
-    if (gy + 1 < N && !Number.isNaN(H[(gy + 1) * N + gx])) maxSlope = Math.max(maxSlope, Math.abs(H[(gy + 1) * N + gx] - h0));
+    if (gx + 1 < NX && !Number.isNaN(H[gy * NX + gx + 1])) maxSlope = Math.max(maxSlope, Math.abs(H[gy * NX + gx + 1] - h0));
+    if (gy + 1 < NY && !Number.isNaN(H[(gy + 1) * NX + gx])) maxSlope = Math.max(maxSlope, Math.abs(H[(gy + 1) * NX + gx] - h0));
   }
   TERRAIN_MARCH.maxSlope = maxSlope;
 }
@@ -62,10 +79,11 @@ function terrainBuildHeightGrid() {
  * 边缘格子的越界格心用本格高度兜底，避免岛缘被裁掉半格。
  */
 function terrainSampleHeight(x, y) {
-  const R = TERRAIN.R, N = TERRAIN_MARCH.N;
+  const NX = TERRAIN_MARCH.NX, NY = TERRAIN_MARCH.NY;
+  const minGx = TERRAIN_MARCH.minGx, minGy = TERRAIN_MARCH.minGy;
   const gx = Math.floor(x), gy = Math.floor(y);
-  if (gx < -R || gy < -R || gx > R || gy > R) return NaN;
-  const ci = (gy + R) * N + (gx + R);
+  if (gx < minGx || gy < minGy || gx >= minGx + NX || gy >= minGy + NY) return NaN;
+  const ci = (gy - minGy) * NX + (gx - minGx);
   if (!TERRAIN_MARCH.EX[ci]) return NaN;
 
   const H = TERRAIN_MARCH.H;
@@ -76,9 +94,9 @@ function terrainSampleHeight(x, y) {
   const tx = fx - x0, ty = fy - y0;
 
   /* 四个格心索引；越界或无效用本格高度兜底 */
-  const ax0 = x0 + R, ay0 = y0 + R;
-  const i00 = ay0 * N + ax0, i10 = i00 + 1, i01 = i00 + N, i11 = i01 + 1;
-  const okX = ax0 >= 0 && ax0 + 1 < N, okY = ay0 >= 0 && ay0 + 1 < N;
+  const ax0 = x0 - minGx, ay0 = y0 - minGy;
+  const i00 = ay0 * NX + ax0, i10 = i00 + 1, i01 = i00 + NX, i11 = i01 + 1;
+  const okX = ax0 >= 0 && ax0 + 1 < NX, okY = ay0 >= 0 && ay0 + 1 < NY;
 
   const h00 = okX && okY && !Number.isNaN(H[i00]) ? H[i00] : fallback;
   const h10 = okX && okY && !Number.isNaN(H[i10]) ? H[i10] : fallback;
