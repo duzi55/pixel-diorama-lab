@@ -188,6 +188,16 @@ event: done      → {ok, component}（或 event: error）
   eval 作用域里，`KIT.register` 反而找不到（这是预览最容易踩的坑）
 - 预览用精简版 KIT 运行时（`preview-kit.js`），只含 `register` / `get` / `resolve`
 - 12fps 步进渲染，与其他场景一致
+- `PV_makeCtx()` 把预览旋转/缩放包进 `ctx`：`sphere/capsule/plot/box` 之外，
+  还暴露 `ctx.screen(x,y,z)` 与 `ctx.unproject(ix,iy,z)`（`kit/render.js` 同款）。
+  逐像素绘制的构件（`leafBlob`）必须用这两个函数算包围盒、反解像素，
+  否则旋转预览里叶簇会被裁成碎片，空隙透出背景 → 满树黑点。
+  缺省回落到全局 `project()` / `coneUnproject()`，老构件不用改。
+
+**构件代码切块（`GET /api/kit`）**：服务端按注释/字符串感知的扫描器切
+`KIT.register(...)` 调用块（`codeMask` + `splitKitBlocks`），不能只数括号 ——
+`cart.js` 的注释「// 1) 斗身…」里的 `)` 会让括号深度提前归零，
+切出来的块缺一半，预览注入时直接 `SyntaxError`（构件点了没反应/空白）。
 
 ---
 

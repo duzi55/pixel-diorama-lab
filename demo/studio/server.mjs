@@ -73,6 +73,67 @@ function readBody(req) {
   });
 }
 
+/* 构件源码切块：把每个 KIT.register( ... ) 调用切成独立代码块
+ *
+ * ★ 不能只数括号：cart.js 的注释写着「// 1) 斗身…」，那个右括号会让
+ *   深度提前归零，切出来的块缺一半 —— 预览注入时直接 SyntaxError，
+ *   构件"点开是空白"就是这么来的。
+ *   所以先做一张"代码位"表：注释与字符串里的字符不参与配对。
+ */
+function codeMask(src) {
+  const n = src.length, mask = new Uint8Array(n);
+  let i = 0;
+  while (i < n) {
+    const c = src[i], d = src[i + 1];
+    if (c === '/' && d === '/') {                 // 行注释
+      i += 2;
+      while (i < n && src[i] !== '\n') i++;
+      continue;
+    }
+    if (c === '/' && d === '*') {                 // 块注释
+      i += 2;
+      while (i < n && !(src[i] === '*' && src[i + 1] === '/')) i++;
+      i = Math.min(n, i + 2);
+      continue;
+    }
+    if (c === '"' || c === "'" || c === '`') {    // 字符串 / 模板串
+      const q = c;
+      i++;
+      while (i < n) {
+        if (src[i] === '\\') { i += 2; continue; }
+        if (src[i] === q) { i++; break; }
+        i++;
+      }
+      continue;
+    }
+    mask[i] = 1;
+    i++;
+  }
+  return mask;
+}
+
+function splitKitBlocks(src) {
+  const n = src.length, mask = codeMask(src), out = [];
+  const needle = 'KIT.register(';
+  for (let at = 0; at <= n - needle.length; at++) {
+    if (!mask[at] || !src.startsWith(needle, at)) continue;
+    let depth = 0, end = -1;
+    for (let i = at + needle.length - 1; i < n; i++) {
+      if (!mask[i]) continue;
+      if (src[i] === '(') depth++;
+      else if (src[i] === ')') {
+        depth--;
+        if (depth === 0) { end = i + 1; break; }
+      }
+    }
+    if (end < 0) break;
+    while (src[end] === ';') end++;
+    out.push(src.slice(at, end));
+    at = end - 1;
+  }
+  return out;
+}
+
 function sendJSON(res, code, obj) {
   const buf = Buffer.from(JSON.stringify(obj), 'utf8');
   res.writeHead(code, {
@@ -319,28 +380,12 @@ const server = http.createServer(async (req, res) => {
         const p = path.join(DEMO_DIR, 'kit', f);
         if (!fs.existsSync(p)) continue;
         const txt = fs.readFileSync(p, 'utf8');
-        let pos = 0;
-        while (true) {
-          const callAt = txt.indexOf('KIT.register(', pos);
-          if (callAt < 0) break;
-          const open = txt.indexOf('(', callAt);
-          let depth = 0, end = -1;
-          for (let i = open; i < txt.length; i++) {
-            if (txt[i] === '(') depth++;
-            else if (txt[i] === ')') {
-              depth--;
-              if (depth === 0) { end = i + 1; break; }
-            }
-          }
-          if (end < 0) break;
-          while (txt[end] === ';') end++;
-          const block = txt.slice(callAt, end);
+        for (const block of splitKitBlocks(txt)) {
           const id = (block.match(/id:\s*'([^']+)'/) || [])[1];
           const name = (block.match(/name:\s*'([^']+)'/) || [])[1] || id;
           const category = (block.match(/category:\s*'([^']+)'/) || [])[1] || 'prop';
           const desc = (block.match(/desc:\s*'([^']*)'/) || [])[1] || '';
           if (id) items.push({ id, name, category, desc, file: f, code: block });
-          pos = end;
         }
       }
       return sendJSON(res, 200, { ok: true, items });

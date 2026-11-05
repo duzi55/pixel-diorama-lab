@@ -75,7 +75,7 @@
 | 构件库·构件 | `demo/kit/trees.js` · `demo/kit/plants.js` | 树 / 草木灌木构件（与 docs/kit/ 篇目对齐） | `docs/kit/registry.md` |
 | 构件库·构件 | `demo/kit/buildings.js` · `demo/kit/stoneworks.js` · `demo/kit/props.js` · `demo/kit/cart.js` | 建筑 / 石砌 / 道具 / 载具构件（AI 生成物按分类落对应模块） | `docs/kit/registry.md` |
 | **构件库 Gallery** | `demo/kit/gallery.html` | **构件陈列页（Bootstrap 风格）**：按分类列出全部构件，实时预览 + 参数滑块 + seed 换形 + 一键复制调用代码；数据来自运行时注册表，新构件自动出现 | `docs/kit/README.md` |
-| 构件库·锥状树 | `demo/kit/conifers.js` | `cone-mast` / `cone-spire`：**叶簇团块**锥冠（plot 逐像素填充，规避球体深描边）+ 粗直干根爪；`density` 控密度 | `docs/kit/trees.md §5.7-5.8` |
+| 构件库·锥状树 | `demo/kit/conifers.js` | `cone-mast` / `cone-spire`：**叶簇团块**锥冠（plot 逐像素填充 + 簇内球面光照，规避球体深描边）+ 粗直干根爪；走 `ctx.screen/unproject`，旋转/缩放预览不会碎成黑点；`density` 控密度 | `docs/kit/trees.md §5.7-5.8` |
 | 构件库·地面 | `demo/kit/ground.js` | 5 种地面材质（草地/泥土/沙地/石板/水面） | `docs/kit/scene.md` |
 | **构件工坊 App** | `demo/studio/app.html` · `app.js` · `app-history.js` · `app-props.js` · `app-ai.js` · `app.css` | **统一工作台**：左构件列表 / 中动画预览(iframe 沙箱)+参数+代码 / 右 AI 编辑（改当前构件或新建）；属性面板（名称/ID/分类/描述/碰撞体可视化编辑，补丁写回代码）+ AI 编辑（含参考图粘贴/拖拽）；「场景」tab 内嵌编辑器，`#scene` 直达 | `docs/modules/studio.md` |
 | **Studio 生成页** | `demo/studio/index.html` | 描述需求 → AI 按规范写代码 → 进度条 → 预览调参 → 确认保存；顶部可切换模型 | `docs/modules/studio.md` |
@@ -88,13 +88,13 @@
 | Studio 地形·共用 | `demo/studio/terrain-common.js` | 投影/归属/材质过渡混合/子项装饰/收边补洞 | `docs/modules/studio.md §4.2` |
 | Studio 地形·台阶 | `demo/studio/terrain-render.js` | 逐格 quad + 侧壁渲染（快，拖动时降级用） | `docs/modules/studio.md §4.2a` |
 | **Studio 地形·坡面** | `demo/studio/terrain-march.js` | 高度场 sphere tracing 光线步进：缓坡 + 坡度光照，默认渲染器 | `docs/modules/studio.md §4.2a` |
-| Studio 服务端 | `demo/studio/server.mjs` | 静态服务 + AI 桥 + 落盘器（零依赖，只用 node: 内置模块） | `docs/modules/studio.md §6` |
 | **Studio 编辑器** | `demo/studio/editor.html` | 场景为主的全屏画布 + 浮动面板；**新建场景**（尺寸/背景色/地形预设）；底图模式可编辑已有场景 | `docs/modules/studio.md §4` |
 | Studio·场景存取 | `demo/studio/editor-scene.js` | 场景 JSON 序列化（W/H/S/bg/origin）· 新建 · 保存载入 · 默认地形预设 | `docs/modules/studio.md §4.0c` |
 | Studio·渲染 | `demo/studio/editor-render.js` | 背景色统一（画布/舞台/页面）+ 帧循环 + 场景合成管线 | `docs/modules/studio.md §4.0c` |
 | **场景查看器** | `demo/scenes/view.html` · `viewer.js` | 读 `scenes/<name>.json` 复现尺寸/背景/光照；导航「我的场景」入口 | `docs/modules/studio.md §4.0c` |
 | 场景索引 | `demo/scenes/index.json` | 保存时由 `persist.mjs` 维护（name/title/bg/W/H），nav.js 异步读取 | `docs/modules/studio.md §4.0c` |
 | 场景导入 | `demo/studio/scene-import.js` | 同源 iframe 抓取已有场景烘焙底图，进入底图编辑模式 | `docs/modules/studio.md §4.0b` |
+| Studio 服务端 | `demo/studio/server.mjs` | 静态服务 + AI 桥 + 落盘器（零依赖，只用 node: 内置模块）；`/api/kit` 用**注释/字符串感知扫描器**切构件块（只数括号会被注释里的 `)` 截断） | `docs/modules/studio.md §6` |
 | **图集烘焙器** | `tools/bake-atlas.mjs` | 构件按 N 朝向离屏渲染 → `demo/export/atlas.png` + `atlas.json`（帧矩形/锚点/UV/碰撞体） | `docs/modules/export.md` |
 | **three.js 消费示例** | `demo/export/three-demo.html` | 读图集渲染等距场景：8 朝向切换/缩放平移/色调；three.js 走 CDN | `docs/modules/export.md §3` |
 | 技术分析 | `docs/analysis.md` | 原项目完整管线拆解与代码索引 | — |

@@ -62,12 +62,10 @@ function PP_setSize(w, h) {
 }
 PP_setSize(W, H);
 
-/* 顶层 let 不挂 window：跨 iframe 抓底图走这个 getter（PP_setSize 后自动跟随） */
-window.PP_SCENE = {
-  get W() { return W; }, get H() { return H; }, get pix() { return pix; },
+/* 顶层 let 不挂 window：跨 iframe 抓底图走这些 getter（PP_setSize 后自动跟随） */
+window.PP_SCENE = { get W() { return W; }, get H() { return H; }, get pix() { return pix; },
   get bakedPix() { return bakedPix; }, get bakedZ() { return bakedZ; },
-  get ground() { return ground; }, get groundZ() { return groundZ; },
-};
+  get ground() { return ground; }, get groundZ() { return groundZ; } };
 
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + .5) / 16);
 const COOL = [46, 38, 84], WARM = [255, 232, 180];
@@ -138,10 +136,12 @@ function project(x, y, z) {
     d: v * COS + z * SIN,
   };
 }
-function unproject(sx, sy) {
-  const u = (sx - OX) / S, v = (sy - OY) / (S * SIN);
+function unproject(sx, sy, z = 0) {
+  const u = (sx - OX) / S, v = ((sy - OY) / S + z * COS) / SIN;
   return { x: (u + v) / R2, y: (v - u) / R2 };
 }
+/* 屏幕 → 高度 z 水平面（树冠叶簇逐像素反解用），返回 [x, y] */
+function unprojectAt(sx, sy, z) { const g = unproject(sx, sy, z); return [g.x, g.y]; }
 
 /* capture 像素缓存：设了 capture，sphere 只记录像素不落笔 */
 let capture = null;

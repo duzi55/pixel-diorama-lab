@@ -144,6 +144,15 @@ function PV_makeCtx(p) {
     sphere: (x, y, z, r, c, mode) => { const q = unScaled(x, y); sphere(q[0], q[1], z * sc, r * sc, c, mode); },
     capsule: (a, b, r0, r1, f, mode) => capsule(wrapPScaled(a), wrapPScaled(b), r0 * sc, r1 * sc, f, mode),
     plot: (x, y, z, c) => { const q = unScaled(x, y); plot(q[0], q[1], z * sc, c); },
+    /* 局部坐标 → 屏幕像素（含旋转/缩放）。逐像素绘制（树冠叶簇）用它定位包围盒，
+       否则包围盒按未旋转位置取、像素却画在旋转后位置，叶簇会被裁成碎片。 */
+    screen: (x, y, z) => { const q = unScaled(x, y); return project(q[0], q[1], z * sc); },
+    /* 屏幕像素 → 局部坐标（screen 的逆）。返回 [x, y]，可直接喂回 plot。 */
+    unproject: (ix, iy, z) => {
+      const g = unprojectAt(ix + .5, iy + .5, z * sc);
+      const dx = g[0] - ox, dy = g[1] - oy;
+      return [ox + (dx * cs - dy * sn) / sc, oy + (dx * sn + dy * cs) / sc];
+    },
     box: (x0, y0, z0, x1, y1, z1, c, sd = 0) => {
       /* ★ 缩放必须作用到 box：否则 sphere/plot 放大了、墙体还是原尺寸，
          建筑看起来"镂空/半透明"（组件参数 scale 只是预览缩放） */

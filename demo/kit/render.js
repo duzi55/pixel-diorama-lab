@@ -153,6 +153,16 @@ const KIT_RENDER = {
         const q = un(x, y);
         plot(q[0], q[1], (o.z || 0) + z * sc, color);
       },
+      /* 局部坐标 → 屏幕像素（含旋转/缩放）。
+         逐像素绘制的构件（树冠叶簇）用它算包围盒，否则包围盒按未旋转
+         位置取、像素却画在旋转后的位置，叶簇会被裁成碎片。 */
+      screen(x, y, z) { const q = un(x, y); return project(q[0], q[1], (o.z || 0) + z * sc); },
+      /* 屏幕像素 → 局部坐标（screen 的逆），返回 [x, y] 可喂回 plot */
+      unproject(ix, iy, z) {
+        const g = unprojectAt(ix + .5, iy + .5, (o.z || 0) + z * sc);
+        const dx = g[0] - ox, dy = g[1] - oy;
+        return [ox + (dx * cs - dy * sn) / sc, oy + (dx * sn + dy * cs) / sc];
+      },
       rampOf, rgb, hash, noise, lerp, clamp,
       shadow: (r, strength, dither) => {
         castShadow(ox, oy, (o.z || 0) + .01, r * sc, strength == null ? 1 : strength, dither);
