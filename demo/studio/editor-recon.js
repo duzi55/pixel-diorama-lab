@@ -13,6 +13,26 @@
  * 还原结果就是普通编辑器场景：拖拽/缩放/旋转/碰撞体/保存全部可用。
  * ------------------------------------------------------------------ */
 
+/* ---------------- 后台任务条 ---------------- */
+
+function reconTaskShow(text) {
+  const bar = document.getElementById('recon-task');
+  const txt = document.getElementById('recon-task-text');
+  if (!bar || !txt) return;
+  if (text) txt.textContent = text;
+  bar.hidden = false;
+}
+
+function reconTaskUpdate(text) {
+  const txt = document.getElementById('recon-task-text');
+  if (txt && text) txt.textContent = text;
+}
+
+function reconTaskHide() {
+  const bar = document.getElementById('recon-task');
+  if (bar) bar.hidden = true;
+}
+
 const RECON = {
   image: null,        /* 压缩后的 dataURL */
   running: false,
@@ -89,6 +109,7 @@ async function reconRun() {
   btn.disabled = true;
   btn.textContent = '识别中…';
   prog.textContent = '正在提交任务…';
+  reconTaskShow('图片还原：正在提交…');   /* 同步显示，关弹窗后仍在 */
   reconEl('recon-result').innerHTML = '';
 
   /* 先落"提交意图"再发请求：响应丢了也能靠 dedupeKey 找回 */
@@ -113,14 +134,17 @@ async function reconRun() {
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
     saveRec(data.jobId);
+    reconTaskShow('图片还原中…（可关闭弹窗，后台继续）');
     prog.textContent = '任务已在后台运行 —— 可以关闭页面，稍后回来接着看';
     studioStatus('AI 任务已提交（关闭页面也不会丢）', 'busy');
 
-    const result = await reconFollowJob(data.jobId);
+    const result = await reconFollowJob(data.jobId, msg => reconTaskUpdate('图片还原：' + msg));
     reconFinish(result);
     localStorage.removeItem(RECON_JOB_KEY);
+    reconTaskHide();
   } catch (e) {
     prog.textContent = '';
+    reconTaskHide();
     studioStatus('还原失败：' + e.message, 'err');
     localStorage.removeItem(RECON_JOB_KEY);
   } finally {
@@ -192,6 +216,7 @@ async function reconResume() {
       return;
     }
 
+    reconTaskShow('图片还原：恢复上次任务…');
     reconEl('recon-modal').hidden = false;
     if (s.status === 'running') {
       RECON.running = true;
@@ -201,9 +226,11 @@ async function reconResume() {
       RECON.running = false;
       reconFinish(result);
       localStorage.removeItem(RECON_JOB_KEY);
+      reconTaskHide();
     } else if (s.status === 'done' && s.result) {
       reconFinish(s.result);
       localStorage.removeItem(RECON_JOB_KEY);
+      reconTaskHide();
       studioStatus('上次的 AI 任务已完成，结果已应用', 'ok');
     }
   } catch {
@@ -464,6 +491,11 @@ function reconInit() {
     if (!file) return;
     e.preventDefault();
     reconSetImage(file);
+  });
+
+  const taskOpen = document.getElementById('recon-task-open');
+  if (taskOpen) taskOpen.addEventListener('click', () => {
+    reconEl('recon-modal').hidden = false;
   });
 
   reconEl('btn-recon-run').addEventListener('click', reconRun);

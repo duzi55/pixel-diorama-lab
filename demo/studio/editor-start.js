@@ -80,6 +80,7 @@ async function startCompose() {
   btn.disabled = true;
   btn.textContent = '生成中…';
   startSetHint('正在提交…', 'busy');
+  if (typeof reconTaskShow === 'function') reconTaskShow('场景生成：正在提交…');
 
   const requestId = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2));
   startSaveRec({ v: 1, requestId, jobId: null, at: Date.now() });
@@ -98,17 +99,23 @@ async function startCompose() {
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
     startSaveRec({ v: 1, requestId, jobId: data.jobId, at: Date.now() });
+    reconTaskShow('场景生成中…（可关闭页面，后台继续）');
     startSetHint('任务在后台运行 —— 可以去做别的，回来结果还在', 'busy');
     studioStatus('AI 正在设计场景（可关闭页面）', 'busy');
 
-    const result = await reconFollowJob(data.jobId, msg => startSetHint(msg, 'busy'));
+    const result = await reconFollowJob(data.jobId, msg => {
+      startSetHint(msg, 'busy');
+      reconTaskUpdate('场景生成：' + msg);
+    });
     reconFinish(result);
     localStorage.removeItem(COMPOSE_JOB_KEY);
+    reconTaskHide();
     ED_hideEmpty();
     startSetHint('按 Enter 生成 · 约 30~90 秒 · 任务在后台跑，关掉页面也不会丢');
     studioStatus('场景已生成，可以继续编辑或保存', 'ok');
   } catch (e) {
     startSetHint('生成失败：' + e.message, 'err');
+    reconTaskHide();
     studioStatus('场景生成失败：' + e.message, 'err');
     localStorage.removeItem(COMPOSE_JOB_KEY);
   } finally {
@@ -151,6 +158,7 @@ async function startResume() {
       START.running = false;
       reconFinish(result);
       localStorage.removeItem(COMPOSE_JOB_KEY);
+      reconTaskHide();
     } else if (s.status === 'done' && s.result) {
       reconFinish(s.result);
       localStorage.removeItem(COMPOSE_JOB_KEY);
