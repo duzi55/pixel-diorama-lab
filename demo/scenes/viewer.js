@@ -43,6 +43,7 @@ const OPTIONAL_SCRIPTS = [
   '../kit/ref-surfaces.js',
   '../kit/ref-props.js',
   '../kit/ref-props-small.js',
+  '../kit/ref-shanghai.js',
 ];
 
 function viewerFail(msg) {

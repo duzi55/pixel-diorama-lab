@@ -23,6 +23,7 @@
 | Dubai | 哈利法塔 + 风塔 + 棕榈 + 阿布拉船 | `js/cities/dubai.js` |
 | Singapore | 三塔空中花园 + 超级树 + 店屋 | `js/cities/singapore.js` |
 | Sydney | 海港大桥 + 歌剧院 + 渡轮 | `js/cities/sydney.js` |
+| **Shanghai（本项目新增）** | 东方明珠 + 黄浦江 + 外滩钟楼 | `js/cities/shanghai.js` |
 
 画布固定 **360×280**，软件光栅化，零依赖、零构建。
 
@@ -260,7 +261,56 @@ const SOMECITY_LAYOUT = {
 
 ---
 
-## 7. 运行
+## 7. 复刻：上海 · 东方明珠
+
+按同一套约定新增的城市文件：`reference/lofi-weather/js/cities/shanghai.js`，在 `index.html` 里注册，入口是它自己的 `registerCity`（城市 = 场景组件：地面 + 静物 + 每帧动态 + 光源 + 人群路径）。
+
+```bash
+# http://127.0.0.1:5302/?city=Shanghai&w=clear&t=night
+```
+
+![上海夜景](lofi-weather-shanghai-night.png)
+
+![上海白天](lofi-weather-shanghai-noon.png)
+
+### 布局
+
+- **黄浦江**沿 y 轴穿过小岛（`SH_RIVER=-5.4`，半宽 2.5 + 岸线噪声），西岸外滩、东岸陆家嘴。
+- **外滩**：5 栋 `block()` 石砌楼，中间一栋加海关钟楼（钟面整面 `plotLit(..., PROP_WARM)`，夜里亮）；屋顶穹顶/旗杆各一。
+- **陆家嘴**：东方明珠在前，金茂（阶梯 `block` + 尖顶）、环球金融中心（方塔 + 顶部梯形开口）在后。删掉了上海中心，避免抢地标。
+- **滨江**：3 盏路灯（进 `lamps` 灯池）、银杏/梧桐、条石步道、人群路径；江里一艘观光船来回开。
+
+### 东方明珠的发光实现
+
+球体不能直接用 `sphere()`（它不写 `emit`），所以写了一个 `pearlOrb()`：复制参考项目球体的着色公式，逐像素写入 `pix/zb`，并按"赤道亮带 + 56% 网格"写 `emit/emitZ`：
+
+```js
+const l = clamp(-.55*dx - .6*dy + .58*nz, 0, 1);   // 与 engine.js sphere 完全同一条光照
+pix[i] = ramp[...];
+if (Math.abs(dy) < .12 || hash(ix, iy) < .42) { emit[i] = id; emitZ[i] = d; }
+```
+
+三个球分别挂 `SIGN_PINK / SIGN_CYAN / SIGN_YELLOW`，开灯后整球呈粉、青、琥珀色；塔尖航空灯挂 `SIGN_RED`。
+
+三根斜撑、三根立柱用 `capsule` + 沿柱面 `plotLit` 的青色灯带。**坑**：灯带必须画在柱面外侧（x/y 各偏移 .17），画在柱心会被柱体自己的深度挡掉，夜里塔身会整根消失。
+
+夜间水面额外叠一层粉紫倒影（`shanghaiWater`），观光船的窗按 `V.night` 直接换色（动态物不进 emit）。
+
+### 构图参数
+
+| 项 | 值 | 说明 |
+|----|-----|------|
+| `scale` | 11.4 | 岛宽约 200px，塔高约 140px |
+| `lift` | 72 | 塔顶压到海报标题以下 |
+| 塔位 | `(2.4, 0.6)` | 画面前景中心 |
+| 下/中/上球 | `r=1.15/0.82/0.6`，`z=3.5/8.2/11.3` | 塔总高 15.1 |
+| 斜撑 | 半径 2.95 → 0.62，z 0.35 → 3.55 | 三根，120° 分布 |
+
+同一造型也在我们自己的构件库注册为 `oriental-pearl`（`demo/kit/ref-shanghai.js`，配方卡见 `docs/kit/buildings.md`）。差异：构件库没有 emit/昼夜，球体用高饱和基色 + 固定光照表达发光感；场景版才有真正的夜间点亮与灯池。
+
+---
+
+## 8. 运行
 
 ```bash
 cd reference/lofi-weather && node serve.mjs

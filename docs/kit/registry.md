@@ -82,6 +82,7 @@
 | [`stone-mill`](buildings.md#stone-mill--石磨坊) | 石磨坊 | 石砌磨坊小屋，屋旁石台上立着可绕轴转动的石磨盘与十字木推杆 | `demo` `kit/buildings.js` | `width`/`depth`/`height`/`roofPitch`/`millRadius`/`grindAngle`/`tone` | ✅ |
 | [`well-house`](buildings.md#well-house--水井) | 水井 | 圆环石砌井台，两根木柱撑起横梁，麻绳吊着木桶 | `demo` `kit/buildings.js` | `radius`/`height`/`frameHeight` | ✅ |
 | [`forest-cabin`](buildings.md#forest-cabin--落叶小屋) | 落叶小屋 | 林中木屋：石基木板墙 + 陡坡屋顶覆满金黄落叶，檐口垂下叶串 | `demo` `kit/buildings.js` | `width`/`depth`/`height`/`pitch`/`leaves`/`warm`/`lamp` | ✅ |
+| [`oriental-pearl`](buildings.md#oriental-pearl--东方明珠) | 东方明珠 | 三球三柱电视塔：三根斜撑 + 粉/青/金三球 + 青色塔身灯带 + 天线 | `ref` `lofi-weather/shanghai.js` · `demo` `kit/ref-shanghai.js` | `height`/`ballScale`/`spread` | ✅ |
 
 ---
 

@@ -60,6 +60,7 @@ const FILES = [
   'demo/kit/buildings.js', 'demo/kit/stoneworks.js', 'demo/kit/cart.js', 'demo/kit/props.js',
   'demo/kit/ref-buildings.js', 'demo/kit/ref-structures.js', 'demo/kit/ref-plants.js',
   'demo/kit/ref-surfaces.js', 'demo/kit/ref-props.js', 'demo/kit/ref-props-small.js',
+  'demo/kit/ref-shanghai.js',
 ];
 for (const f of FILES) {
   const p = path.join(REPO, f);

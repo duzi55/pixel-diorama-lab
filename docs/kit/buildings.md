@@ -1386,3 +1386,51 @@ KIT.register({
   }
 });
 ```
+
+---
+
+## oriental-pearl — 东方明珠
+
+| 项 | 内容 |
+|---|---|
+| **ID** | `oriental-pearl` |
+| **来源** | `reference/lofi-weather/js/cities/shanghai.js` 的 `orientalPearl` / `pearlOrb` · `demo/kit/ref-shanghai.js` |
+| **形态** | 三球三柱电视塔：三根斜撑 + 三根立柱 + 粉/青/金三球 + 太空舱 + 天线 |
+| **分类** | 建筑 |
+
+### 参数
+
+| 参数 | 默认 | 区间 | 步进 | 说明 |
+|------|------|------|------|------|
+| `height` | 15 | 10 ~ 22 | 0.5 | 塔总高（世界单位），所有高度与半径同倍率缩放 |
+| `ballScale` | 1 | 0.6 ~ 1.5 | 0.05 | 三个球的大小倍率（只放大球，不改塔高） |
+| `spread` | 1 | 0.7 ~ 1.4 | 0.05 | 斜撑与底座的张开倍率 |
+
+### 碰撞体
+
+`{"type":"cylinder","r":3.4,"h":15}`（半径按 `spread=1` 的底座外沿；不含球体与天线）
+
+### 移植清单
+
+- 代码：`demo/kit/ref-shanghai.js`
+- 注册表：`docs/kit/registry.md` · 建筑节
+- 依赖引擎：`demo/engine.js` 的 `sphere/capsule/box/plot/rampOf/castShadow`
+- 场景版（带 emit 夜景发光）：`reference/lofi-weather/js/cities/shanghai.js`，说明见 `docs/analysis-lofi-weather.md §7`
+
+### 实现说明
+
+【与 lofi-weather 版的差异】场景版用 `emit` 缓冲 + 夜间后处理让球体和灯带真正发光，并有灯池；构件库没有昼夜系统，所以这里用高饱和基色（粉/青/金）+ 固定光照的 5 档色阶表达"发光球"，灯带用 `rampOf(OP_GLOW)[4]` 的亮青像素。形态、比例、三球配色与场景版一致。
+
+【关键实现】
+- 三根斜撑按 120° 分布（`π/2, 7π/6, 11π/6`），从半径 `2.95*spread` 的底座外沿汇到 `0.62*spread` 的塔心；三根立柱贯穿到 z=12.8。
+- 灯带必须画在柱面**外侧**：`ctx.plot(px + .17*k, py + .17*k, z, glow)`。画在柱心会被柱体自己的深度挡掉，整条灯带消失（场景版同样踩过这个坑）。
+- 高度参数 `k = height/15` 同时乘 z 与半径，保证任意高度比例不变；`ballScale` 只乘球半径。
+- 底座两级 box（±3.4 → ±3.0），斜撑落地处各加一个小球基座，避免"柱子插在空气里"。
+- 球体用 `ctx.sphere` 的默认球面着色；粉球最大（r 1.15k）、青球 0.82k、金球 0.6k，太空舱用 capsule 收口，天线到 15.1k。
+
+【坑】
+- 颜色两张皮：`OP_*` 基色数组只喂 `sphere/capsule/box`；`ctx.rampOf(OP_GLOW)[4]` 是打包像素，只能喂 `plot`。
+- 灯带步进 0.12 世界单位约 1px，再稀会断成虚线。
+- `collision` 是固定值，不随 `height/spread` 参数联动；极端参数下需要编辑器手动调碰撞体。
+
+【代码规模】约 95 行。

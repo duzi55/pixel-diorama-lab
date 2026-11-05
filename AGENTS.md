@@ -43,7 +43,7 @@
 | 模块 | 路径 | 说明 | 详细文档 |
 |------|------|------|----------|
 | 参考项目 | `reference/pixel-plays/` | 原始 Pixel Plays 源码，**只读**，不作修改 | `docs/analysis.md` |
-| **参考项目·Lo-Fi Weather** | `reference/lofi-weather/` | 八城天气海报：烘焙静帧 + 逐像素天气/昼夜后处理；**发光物件系统**（emit 缓冲 / 开灯决策 / 灯池 / 泛光） | `docs/analysis-lofi-weather.md` |
+| **参考项目·Lo-Fi Weather** | `reference/lofi-weather/` | 八城天气海报 + **上海东方明珠复刻场景**：烘焙静帧 + 逐像素天气/昼夜后处理；**发光物件系统**（emit 缓冲 / 开灯决策 / 灯池 / 泛光） | `docs/analysis-lofi-weather.md` |
 | **构件库索引** | `docs/kit/registry.md` | **80 个变体的活注册表**：树/建筑/花草/道具/姿态/人群/特效，每行带配方卡锚点链接 | `docs/kit/README.md` |
 | 构件库·树 | `docs/kit/trees.md` | 树变体配方卡（含秋日山村新增的 `pine` 锥面塔冠 / `shrub` 无干球丛） | — |
 | 构件库·建筑 | `docs/kit/buildings.md` | 20 种建筑变体配方卡 | — |
@@ -82,7 +82,7 @@
 | **构件库 Gallery** | `demo/kit/gallery.html` | **构件陈列页（Bootstrap 风格）**：按分类列出全部构件，实时预览 + 参数滑块 + seed 换形 + 一键复制调用代码；数据来自运行时注册表，新构件自动出现 | `docs/kit/README.md` |
 | 构件库·锥状树 | `demo/kit/conifers.js` | `cone-mast` / `cone-spire`：**叶簇团块**锥冠（plot 逐像素填充 + 簇内球面光照，规避球体深描边）+ 粗直干根爪；走 `ctx.screen/unproject`，旋转/缩放预览不会碎成黑点；`density` 控密度；绑定 `sway` + `chop` 行为 | `docs/kit/trees.md §5.7-5.8` |
 | **构件行为运行时** | `demo/kit/behavior.js` · `demo/kit/behavior-extra.js` | **行为 = 构件的逻辑层**：`KIT_BEHAVIOR.register` 注册可复用行为（sway/chop/flicker/wander/flee/greet/spin + burn/bob/open/patrol/grow/shake），构件用 `behavior.default/allow` 声明；`tick` 改 `inst.anim`（dx/dy/rot/scale/z/hidden），渲染器叠加到所有原语 | `docs/modules/behavior.md` |
-| **参考构件·建筑** | `demo/kit/ref-buildings.js` · `ref-surfaces.js` | 从参考项目移植：house / square-tower / round-tower / pitched-roof / parapet / water-tank / chimney / stairs + masonry-wall / plaster-wall / stair-house | `docs/kit/ref-port.md` · `ref-surfaces.md` |
+| **参考构件·建筑** | `demo/kit/ref-buildings.js` · `ref-surfaces.js` · `ref-shanghai.js` | 从参考项目移植：house / square-tower / round-tower / pitched-roof / parapet / water-tank / chimney / stairs + masonry-wall / plaster-wall / stair-house + **东方明珠 oriental-pearl** | `docs/kit/ref-port.md` · `ref-surfaces.md` |
 | **参考构件·结构与植被** | `demo/kit/ref-structures.js` · `ref-plants.js` | wood-fence / wire-fence / net / ramp + palm / flower / potted-plant / moss | `docs/kit/ref-port.md` · `ref-plants.md` |
 | **参考构件·道具** | `demo/kit/ref-props.js` · `ref-props-small.js` | ball / bottle / wicker-basket / cloth / racket + cone / bench / awning / ball-basket | `docs/kit/ref-props.md` |
 | **特效与天气** | `demo/kit/effects.js` · `weather.js` | `KIT_EFFECT`：arrow/bang/target-ring/charge-bar/halo/dust/spark/splash/ring/track-mark；`KIT_WEATHER`：rain/cloud/bolt/gradeStorm。UI 覆盖层走 `ctx.dot/dots`（不写 zb） | `docs/kit/effects-weather.md` |

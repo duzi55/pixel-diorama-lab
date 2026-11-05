@@ -98,6 +98,7 @@ const files = [
   'demo/kit/ref-surfaces.js',
   'demo/kit/ref-props.js',
   'demo/kit/ref-props-small.js',
+  'demo/kit/ref-shanghai.js',
 ];
 for (const f of files) {
   const p = path.join(REPO, f);

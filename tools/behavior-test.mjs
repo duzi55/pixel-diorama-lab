@@ -84,6 +84,7 @@ const KIT_FILES = [
   ['demo/kit/ref-surfaces.js', true],
   ['demo/kit/ref-props.js', true],
   ['demo/kit/ref-props-small.js', true],
+  ['demo/kit/ref-shanghai.js', true],
 ];
 
 const cx = makeSandbox();
