@@ -458,7 +458,14 @@ function PV_frame(now) {
   if (step !== PV.lastStep) {
     const dt = PV.lastStep < 0 ? 1 / 12 : Math.min(.25, (step - PV.lastStep) / 12);
     PV.lastStep = step;
-    if (PV.spin) PV.rot = (PV.rot + .06) % (Math.PI * 2);
+    /* 自动旋转：累计到 720°（4π）再回绕。角度本身没有上限，
+       回绕只是为了让"转两圈"这件事在界面上可预期。 */
+    if (PV.spin) {
+      PV.rot += .06;
+      if (PV.rot >= Math.PI * 4) PV.rot -= Math.PI * 4;
+      /* 每半秒回报一次角度，父页面的旋转条跟着走 */
+      if (step % 6 === 0) parent.postMessage({ type: 'rot-info', deg: PV.rot * 180 / Math.PI }, '*');
+    }
     /* 行为：全局风势 + 实例状态机 */
     if (PV.inst && typeof KIT_BEHAVIOR !== 'undefined') {
       KIT_BH_WORLD.t += dt;

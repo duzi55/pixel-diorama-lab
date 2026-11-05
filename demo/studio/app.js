@@ -152,6 +152,13 @@ window.addEventListener('message', e => {
     state.behaviors = msg.behaviors || [];
     state.allowedBehaviors = msg.allowed || [];
     if (window.BehaviorPanel) BehaviorPanel.render(state);
+  } else if (msg.type === 'rot-info') {
+    /* 自动旋转中：旋转条跟着走（0~720° 两圈） */
+    if (pvSpin.checked) {
+      const deg = Math.round(msg.deg);
+      pvRot.value = String(deg);
+      pvRotVal.textContent = deg + '°';
+    }
   } else if (msg.type === 'preview-error') {
     $('#params').innerHTML = '';
     const warn = el('div', 'param');

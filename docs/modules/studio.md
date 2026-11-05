@@ -14,7 +14,9 @@
 >   会让墙体停在原尺寸，建筑看起来"镂空/半透明"（已修）
 > - 预览环境控制（postMessage）：`{type:'bg', tone:'dark'|'paper'}` 背景、
 >   `{type:'light', on, tone:'warm'|'cool'|'neutral'}` 光源开关与色系、
->   `{type:'rot', rot}` 手动旋转、`{type:'spin', on}` 自动旋转
+>   `{type:'rot', rot}` 手动旋转（0~720°，720° = 两整圈；角度本身无上限，
+>   cos/sin 是周期函数）、`{type:'spin', on}` 自动旋转（累计到 4π 回绕，
+>   每半秒回报 `rot-info` 让旋转条跟随）
 > - 参数标签中英对照：`height · 树高`（英文键 + 中文 desc）
 > - **属性面板**（可视化配置代码里的字段）：名称 / ID / 分类 / 描述 /
 >   碰撞体（box 的 w·d·h 或 cylinder 的 radius·height / 无）→「应用并预览」
