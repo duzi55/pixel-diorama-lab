@@ -118,8 +118,8 @@ const KIT_RENDER = {
       const z1 = dy * sX + dz * cX;
       const x2 = dx * cY + z1 * sY;          // Ry（翻滚）
       const z2 = -dx * sY + z1 * cY;
-      const x3 = x2 * cZ + y1 * sZ;          // Rz（yaw，旧方向）
-      const y3 = -x2 * sZ + y1 * cZ;
+      const x3 = x2 * cZ - y1 * sZ;          // Rz（yaw，标准右手）
+      const y3 = x2 * sZ + y1 * cZ;
       return [ox + x3 + aX, oy + y3 + aY, pivotZ + z2 + aZ];
     };
     /* 无旋转快速路径：与原实现逐字节一致，零三角函数开销 */
@@ -127,9 +127,9 @@ const KIT_RENDER = {
     const P = spinnable ? T : flat;
 
     /* R 的三列：把世界向量转回局部（L = Rᵀ·W，Rᵀ 的行就是 R 的列） */
-    const col0 = [cZ * cY, -sZ * cY, -sY];
-    const col1 = [cZ * sY * sX + sZ * cX, -sZ * sY * sX + cZ * cX, cY * sX];
-    const col2 = [cZ * sY * cX - sZ * sX, -sZ * sY * cX - cZ * sX, cY * cX];
+    const col0 = [cZ * cY, sZ * cY, -sY];
+    const col1 = [cZ * sY * sX - sZ * cX, sZ * sY * sX + cZ * cX, cY * sX];
+    const col2 = [cZ * sY * cX + sZ * sX, sZ * sY * cX - cZ * sX, cY * cX];
 
     const wrapPoint = p => P(p[0], p[1], p[2]);
 

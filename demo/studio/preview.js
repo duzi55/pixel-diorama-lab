@@ -111,15 +111,15 @@ function PV_makeCtx(p) {
     const z1 = dy * sX + dz * cX;
     const x2 = dx * cY + z1 * sY;          // Ry
     const z2 = -dx * sY + z1 * cY;
-    const x3 = x2 * cZ + y1 * sZ;          // Rz（沿用旧方向）
-    const y3 = -x2 * sZ + y1 * cZ;
+    const x3 = x2 * cZ - y1 * sZ;          // Rz（yaw，标准右手）
+    const y3 = x2 * sZ + y1 * cZ;
     return [x3 + aX, y3 + aY, pivotZ + z2 + aZ];
   };
   const flat = (x, y, z) => [x * sc + aX, y * sc + aY, z * sc + aZ];
   const P = spinnable ? T : flat;
-  const col0 = [cZ * cY, -sZ * cY, -sY];
-  const col1 = [cZ * sY * sX + sZ * cX, -sZ * sY * sX + cZ * cX, cY * sX];
-  const col2 = [cZ * sY * cX - sZ * sX, -sZ * sY * cX - cZ * sX, cY * cX];
+  const col0 = [cZ * cY, sZ * cY, -sY];
+  const col1 = [cZ * sY * sX - sZ * cX, sZ * sY * sX + cZ * cX, cY * sX];
+  const col2 = [cZ * sY * cX + sZ * sX, sZ * sY * cX - cZ * sX, cY * cX];
   const wrapPScaled = p2 => P(p2[0], p2[1], p2[2]);
 
   return {

@@ -201,7 +201,6 @@ function sendCode(item) {
   pv.contentWindow.postMessage({ type: 'code', code, id, params: {} }, '*');
   pv.contentWindow.postMessage({ type: 'fit' }, '*');   // 让构件自动取景
   pv.contentWindow.postMessage({ type: 'box', on: $('#pv-box').checked }, '*');
-  sendRot3();   // 切换构件后保持 X/Y 倾角
 }
 
 /* ---------------- 预览环境控制 ---------------- */
@@ -225,22 +224,6 @@ pvRot.addEventListener('input', () => {
   pv.contentWindow.postMessage({ type: 'rot', rot: deg * Math.PI / 180 }, '*');
 });
 
-/* 三轴旋转（Blender 视角）：X = 俯仰、Y = 翻滚，与 Z（上面的旋转条）组合 */
-const pvRotX = $('#pv-rotx'), pvRotY = $('#pv-roty');
-function sendRot3() {
-  pv.contentWindow.postMessage({
-    type: 'rot3',
-    x: Number(pvRotX.value) * Math.PI / 180,
-    y: Number(pvRotY.value) * Math.PI / 180,
-  }, '*');
-}
-pvRotX.addEventListener('input', sendRot3);
-pvRotY.addEventListener('input', sendRot3);
-$('#pv-rot-reset').addEventListener('click', () => {
-  pvRotX.value = '0';
-  pvRotY.value = '0';
-  sendRot3();
-});
 
 $('#pv-bg').addEventListener('click', e => {
   const btn = e.target.closest('button');
