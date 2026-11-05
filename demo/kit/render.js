@@ -89,56 +89,75 @@ const KIT_RENDER = {
     const seed = o.seed == null ? 1 : o.seed;
     const ox = o.x, oy = o.y;
     /* 行为动画：tick 写入 inst.anim，绘制时叠加到所有原语上。
-       rot 绕实例原点、dx/dy 是世界单位平移、z 抬升、scale 整体缩放。 */
+       rot 绕实例原点（yaw）、rotX/rotY 是俯仰/翻滚、dx/dy 世界位移、
+       z 抬升、scale 整体缩放。 */
     const anim = o.anim || null;
-    const arot = anim ? (anim.rot || 0) : 0;
     const aScale = anim && Number.isFinite(anim.scale) && anim.scale > 0 ? anim.scale : 1;
     const aX = anim ? (anim.dx || 0) : 0;
     const aY = anim ? (anim.dy || 0) : 0;
     const aZ = anim ? (anim.z || 0) : 0;
-    const rot = (o.rot || 0) + arot;
+    const rotZ = (o.rot || 0) + (anim ? (anim.rot || 0) : 0);
+    const rotX = (o.rotX || 0) + (anim ? (anim.rotX || 0) : 0);
+    const rotY = (o.rotY || 0) + (anim ? (anim.rotY || 0) : 0);
     const sc = ((o.scale == null || !Number.isFinite(o.scale) || o.scale <= 0) ? 1 : o.scale) * aScale;
-    const cs = Math.cos(rot), sn = Math.sin(rot);
-    /* 构件坐标是「世界坐标」（ctx.x + 偏移 的形式），
-       所以缩放必须绕实例原点 (ox,oy) 做 —— ox + (x-ox)*sc。
-       写成 ox + x*sc 会把位置加两次，scale≠1 时整个图形飞离碰撞体。
-       sc=1 时严格恒等。 */
-    const un = (x, y) => {
-      const dx = (x - ox) * sc, dy = (y - oy) * sc;
-      if (rot) {
-        return [ox + dx * cs + dy * sn + aX, oy - dx * sn + dy * cs + aY];
-      }
-      return [ox + dx + aX, oy + dy + aY];
+    const pz = o.z || 0;
+    /* 旋转轴心：默认底面中心；o.pivotZ 可把轴心抬到物体中部（像 Blender 绕物体中心转） */
+    const pivotZ = pz + (Number.isFinite(o.pivotZ) ? o.pivotZ : 0);
+    const has3D = rotX !== 0 || rotY !== 0;
+    const spinnable = !!rotZ || has3D;
+
+    const cX = Math.cos(rotX), sX = Math.sin(rotX);
+    const cY = Math.cos(rotY), sY = Math.sin(rotY);
+    const cZ = Math.cos(rotZ), sZ = Math.sin(rotZ);
+
+    /* 局部 (x,y,z) → 世界 (x,y,z)。缩放绕实例原点；三轴旋转绕实例底面中心
+       (ox, oy, pz)，顺序 Rz·Ry·Rx。Rz 沿用旧的顺时针方向（历史朝向不变）。 */
+    const T = (x, y, z) => {
+      const dx = (x - ox) * sc, dy = (y - oy) * sc, dz = (z - pivotZ) * sc;
+      const y1 = dy * cX - dz * sX;          // Rx（俯仰）
+      const z1 = dy * sX + dz * cX;
+      const x2 = dx * cY + z1 * sY;          // Ry（翻滚）
+      const z2 = -dx * sY + z1 * cY;
+      const x3 = x2 * cZ + y1 * sZ;          // Rz（yaw，旧方向）
+      const y3 = -x2 * sZ + y1 * cZ;
+      return [ox + x3 + aX, oy + y3 + aY, pivotZ + z2 + aZ];
     };
-    const zAt = z => (o.z || 0) + z * sc + aZ;
-    const wrapPoint = p => { const q = un(p[0], p[1]); return [q[0], q[1], zAt(p[2])]; };
+    /* 无旋转快速路径：与原实现逐字节一致，零三角函数开销 */
+    const flat = (x, y, z) => [ox + (x - ox) * sc + aX, oy + (y - oy) * sc + aY, pz + z * sc + aZ];
+    const P = spinnable ? T : flat;
+
+    /* R 的三列：把世界向量转回局部（L = Rᵀ·W，Rᵀ 的行就是 R 的列） */
+    const col0 = [cZ * cY, -sZ * cY, -sY];
+    const col1 = [cZ * sY * sX + sZ * cX, -sZ * sY * sX + cZ * cX, cY * sX];
+    const col2 = [cZ * sY * cX - sZ * sX, -sZ * sY * cX - cZ * sX, cY * cX];
+
+    const wrapPoint = p => P(p[0], p[1], p[2]);
 
     return {
-      x: ox, y: oy, z: o.z || 0,
+      x: ox, y: oy, z: pz,
       params, seed,
-      rot, scale: sc,
+      rot: rotZ, rotX, rotY, scale: sc,
       anim: anim || null,
       sphere(x, y, z, r, c, mode) {
-        const q = un(x, y);
-        sphere(q[0], q[1], zAt(z), r * sc, c, mode);
+        const q = P(x, y, z);
+        sphere(q[0], q[1], q[2], r * sc, c, mode);
       },
       capsule(a, b, r0, r1, colorOf, mode) {
         const qa = wrapPoint(a), qb = wrapPoint(b);
         capsule(qa, qb, r0 * sc, r1 * sc, colorOf, mode);
       },
       box(x0, y0, z0, x1, y1, z1, c, seed2 = 0) {
-        const zz0 = zAt(z0), zz1 = zAt(z1);
-        if (!rot) {
-          const [ax, ay] = un(x0, y0), [bx, by] = un(x1, y1);
-          box(Math.min(ax, bx), Math.min(ay, by), zz0,
-              Math.max(ax, bx), Math.max(ay, by), zz1, c, seed2);
+        if (!spinnable) {
+          const zz0 = pz + z0 * sc + aZ, zz1 = pz + z1 * sc + aZ;
+          box(ox + (x0 - ox) * sc + aX, oy + (y0 - oy) * sc + aY, zz0,
+              ox + (x1 - ox) * sc + aX, oy + (y1 - oy) * sc + aY, zz1, c, seed2);
           return;
         }
         /* 旋转盒子：对顶面与四个侧面采样，经 un() 旋转后写入 zb 与 pix */
         const ramp = rampOf(c);
         const paint = (lx, ly, lz, base, grain) => {
-          const q = un(lx, ly);
-          const p = project(q[0], q[1], lz), ix = p.sx | 0, iy = p.sy | 0;
+          const q = P(lx, ly, lz);
+          const p = project(q[0], q[1], q[2]), ix = p.sx | 0, iy = p.sy | 0;
           if (ix < 0 || iy < 0 || ix >= W || iy >= H) return;
           const i = iy * W + ix;
           if (p.d <= zb[i]) return;
@@ -147,7 +166,7 @@ const KIT_RENDER = {
         };
         const step = .045, longX = x1 - x0 >= y1 - y0;
         for (let a = x0; a <= x1; a += step) for (let b = y0; b <= y1; b += step)
-          paint(a, b, zz1, 3.4, longX ? noise(a * .8 + seed2, b * 9) : noise(a * 9, b * .8 + seed2));
+          paint(a, b, z1, 3.4, longX ? noise(a * .8 + seed2, b * 9) : noise(a * 9, b * .8 + seed2));
         for (let a = x0; a <= x1; a += step) for (let b = z0; b <= z1; b += step) {
           const g = noise(a * .8 + seed2, b * 9);
           paint(a, y1, b, 2.3, g);
@@ -160,26 +179,40 @@ const KIT_RENDER = {
         }
       },
       plot(x, y, z, color) {
-        const q = un(x, y);
-        plot(q[0], q[1], zAt(z), color);
+        const q = P(x, y, z);
+        plot(q[0], q[1], q[2], color);
       },
-      /* 局部坐标 → 屏幕像素（含旋转/缩放/行为动画）。
+      /* 局部坐标 → 屏幕像素（含三轴旋转/缩放/行为动画）。
          逐像素绘制的构件（树冠叶簇）用它算包围盒，否则包围盒按未旋转
          位置取、像素却画在旋转后的位置，叶簇会被裁成碎片。 */
-      screen(x, y, z) { const q = un(x, y); return project(q[0], q[1], zAt(z)); },
-      /* 屏幕像素 → 局部坐标（screen 的逆），返回 [x, y] 可喂回 plot */
+      screen(x, y, z) { const q = P(x, y, z); return project(q[0], q[1], q[2]); },
+      /* 屏幕像素 → 局部坐标（screen 的逆），返回 [x, y] 可喂回 plot。
+         三轴旋转下：屏幕像素确定一条世界射线，求它与"局部 z 平面"的交点。 */
       unproject(ix, iy, z) {
-        const g = unprojectAt(ix + .5 - aX, iy + .5 - aY, zAt(z));
-        const dx = g[0] - ox, dy = g[1] - oy;
-        return [ox + (dx * cs - dy * sn) / sc, oy + (dx * sn + dy * cs) / sc];
+        if (!has3D) {
+          /* 平面旋转：直接反解到该局部的 z 平面（旧行为） */
+          const P0 = unprojectAt(ix + .5 - aX, iy + .5 - aY, pz + z * sc + aZ);
+          const dx = P0[0] - ox, dy = P0[1] - oy;
+          return [ox + (dx * cZ - dy * sZ) / sc, oy + (dx * sZ + dy * cZ) / sc];
+        }
+        /* 三轴旋转：屏幕像素确定一条世界射线，求它与"局部 z 平面"的交点 */
+        const P0 = unprojectAt(ix + .5 - aX, iy + .5 - aY, pivotZ + aZ);
+        const kd = R2 / 2 * COS / SIN;
+        const A = col2[0] * (P0[0] - ox) + col2[1] * (P0[1] - oy);
+        const B = col2[0] * kd + col2[1] * kd + col2[2];
+        const t = Math.abs(B) < 1e-6 ? 0 : (z * sc - A) / B;
+        const wx = P0[0] + t * kd - ox, wy = P0[1] + t * kd - oy, wz = t;
+        const lx = col0[0] * wx + col0[1] * wy + col0[2] * wz;
+        const ly = col1[0] * wx + col1[1] * wy + col1[2] * wz;
+        return [ox + lx / sc, oy + ly / sc];
       },
       rampOf, rgb, hash, noise, lerp, clamp,
       shadow: (r, strength, dither) => {
-        castShadow(ox, oy, (o.z || 0) + .01, r * sc, strength == null ? 1 : strength, dither);
+        castShadow(ox, oy, pz + .01, r * sc, strength == null ? 1 : strength, dither);
       },
       shadowAt: (x, y, z, r, strength, dither) => {
-        const q = un(x, y);
-        castShadow(q[0], q[1], zAt(z), r * sc, strength, dither);
+        const q = P(x, y, z);
+        castShadow(q[0], q[1], q[2], r * sc, strength, dither);
       },
     };
   },

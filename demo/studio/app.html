@@ -14,6 +14,7 @@
     <button data-view="kit" class="on">构件库</button>
     <button data-view="scene">场景</button>
   </nav>
+  <button id="btn-sidebar" class="mini" title="收起 / 展开构件列表">☰ 构件库</button>
   <span class="status" id="status">加载中…</span>
 </header>
 
@@ -39,8 +40,13 @@
 
     <div class="pv-toolbar">
       <label class="chk"><input type="checkbox" id="pv-spin" checked> 自动旋转</label>
-      <input type="range" id="pv-rot" min="0" max="720" step="1" value="23" title="旋转角度（0~720°，720° = 两整圈）">
+      <input type="range" id="pv-rot" min="0" max="720" step="1" value="23" title="绕竖轴旋转（0~720°，720° = 两整圈）">
       <span class="pv-rot-val" id="pv-rot-val">23°</span>
+      <span class="lbl" title="俯仰：绕 X 轴">X</span>
+      <input type="range" id="pv-rotx" class="rot3" min="-180" max="180" step="1" value="0" title="俯仰（绕 X 轴，-180~180°）">
+      <span class="lbl" title="翻滚：绕 Y 轴">Y</span>
+      <input type="range" id="pv-roty" class="rot3" min="-180" max="180" step="1" value="0" title="翻滚（绕 Y 轴，-180~180°）">
+      <button class="mini" id="pv-rot-reset" title="三轴归零">归零</button>
       <span class="sep"></span>
       <span class="lbl">背景</span>
       <div class="seg small" id="pv-bg">

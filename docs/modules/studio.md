@@ -17,6 +17,12 @@
 >   `{type:'rot', rot}` 手动旋转（0~720°，720° = 两整圈；角度本身无上限，
 >   cos/sin 是周期函数）、`{type:'spin', on}` 自动旋转（累计到 4π 回绕，
 >   每半秒回报 `rot-info` 让旋转条跟随）
+> - **三轴旋转（Blender 视角）**：工具条 X / Y 滑块（-180~180°）给
+>   `makeCtx` 的 `rotX` / `rotY`，与 Z 按 Rz·Ry·Rx 组合。轴心默认抬到
+>   物体中部（`PV_measure` 由包围盒估算 `pivotZ`），看起来像转物体而不是推倒它。
+>   逐像素构件（锥树叶簇）倾斜后会退化成条纹，`leafBlob` 的 3D 分支改用球体绘制。
+> - **左侧构件列表可折叠**：顶栏「☰ 构件库」切换，状态存
+>   `localStorage['studio-sidebar-collapsed']`；折叠后中栏占满并自动重新取景
 > - 参数标签中英对照：`height · 树高`（英文键 + 中文 desc）
 > - **属性面板**（可视化配置代码里的字段）：名称 / ID / 分类 / 描述 /
 >   碰撞体（box 的 w·d·h 或 cylinder 的 radius·height / 无）→「应用并预览」

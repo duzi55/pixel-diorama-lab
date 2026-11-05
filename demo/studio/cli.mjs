@@ -94,7 +94,17 @@ export function runClaude(prompt, schema, onEvent, images) {
         if (result.result) {
           try { return resolve(JSON.parse(result.result)); } catch { /* 兜底 */ }
         }
-        if (result.is_error) return reject(new Error(result.result || 'CLI 返回错误结果'));
+        if (result.is_error) {
+          /* ★ 不能只回退到 result.result：预算/超时这类错误时它是空的，
+             用户只会看到"CLI 返回错误结果"，真实原因被吞掉。
+             把 subtype 和 errors 一起带出来。 */
+          const detail = Array.isArray(result.errors) && result.errors.length
+            ? result.errors.join('；')
+            : (result.result || '无详情');
+          const sub = result.subtype ? `（${result.subtype}）` : '';
+          const cost = result.total_cost_usd != null ? ` · 本次花费 $${result.total_cost_usd}` : '';
+          return reject(new Error(`CLI 返回错误${sub}：${detail}${cost}`));
+        }
       }
       if (code !== 0) {
         reject(new Error(`claude CLI 退出码 ${code}: ${err.slice(0, 800)}`));

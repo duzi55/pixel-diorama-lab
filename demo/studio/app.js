@@ -131,6 +131,24 @@ function select(item) {
   if (state.aiMode === 'new') setAiMode('edit');
 }
 
+/* ---------------- 左侧构件列表折叠 ---------------- */
+
+const SIDEBAR_KEY = 'studio-sidebar-collapsed';
+
+function setSidebar(collapsed) {
+  const ws = $('#view-kit');
+  if (ws) ws.classList.toggle('list-collapsed', collapsed);
+  $('#btn-sidebar').classList.toggle('on', !collapsed);
+  try { localStorage.setItem(SIDEBAR_KEY, collapsed ? '1' : '0'); } catch { /* 隐私模式 */ }
+  /* 舞台宽度变了，重新取景 */
+  setTimeout(() => pv.contentWindow.postMessage({ type: 'fit' }, '*'), 220);
+}
+
+$('#btn-sidebar').addEventListener('click', () => {
+  setSidebar(!$('#view-kit').classList.contains('list-collapsed'));
+});
+try { setSidebar(localStorage.getItem(SIDEBAR_KEY) === '1'); } catch { /* ignore */ }
+
 /* ---------------- 预览 iframe 消息 ---------------- */
 
 window.addEventListener('message', e => {
@@ -183,6 +201,7 @@ function sendCode(item) {
   pv.contentWindow.postMessage({ type: 'code', code, id, params: {} }, '*');
   pv.contentWindow.postMessage({ type: 'fit' }, '*');   // 让构件自动取景
   pv.contentWindow.postMessage({ type: 'box', on: $('#pv-box').checked }, '*');
+  sendRot3();   // 切换构件后保持 X/Y 倾角
 }
 
 /* ---------------- 预览环境控制 ---------------- */
@@ -204,6 +223,23 @@ pvRot.addEventListener('input', () => {
   if (pvSpin.checked) { pvSpin.checked = false; pvRot.disabled = false; }
   pv.contentWindow.postMessage({ type: 'spin', on: false }, '*');
   pv.contentWindow.postMessage({ type: 'rot', rot: deg * Math.PI / 180 }, '*');
+});
+
+/* 三轴旋转（Blender 视角）：X = 俯仰、Y = 翻滚，与 Z（上面的旋转条）组合 */
+const pvRotX = $('#pv-rotx'), pvRotY = $('#pv-roty');
+function sendRot3() {
+  pv.contentWindow.postMessage({
+    type: 'rot3',
+    x: Number(pvRotX.value) * Math.PI / 180,
+    y: Number(pvRotY.value) * Math.PI / 180,
+  }, '*');
+}
+pvRotX.addEventListener('input', sendRot3);
+pvRotY.addEventListener('input', sendRot3);
+$('#pv-rot-reset').addEventListener('click', () => {
+  pvRotX.value = '0';
+  pvRotY.value = '0';
+  sendRot3();
 });
 
 $('#pv-bg').addEventListener('click', e => {

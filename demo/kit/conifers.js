@@ -35,11 +35,38 @@ function coneUnproject(ix, iy, z) {
 function leafBlob(ctx, cx, cy, z, r, tone) {
   const toScreen = ctx.screen || ((x, y, zz) => project(x, y, zz));
   const toLocal = ctx.unproject || coneUnproject;
-  const p = toScreen(cx, cy, z);
-  const hw = r * S, hh = r * .5 * S + .6;
-  const x0 = Math.max(0, Math.floor(p.sx - hw)), x1 = Math.min(W - 1, Math.ceil(p.sx + hw));
-  const y0 = Math.max(0, Math.floor(p.sy - hh)), y1 = Math.min(H - 1, Math.ceil(p.sy + hh));
   const dir = typeof LIGHT !== 'undefined' && LIGHT.dir ? LIGHT.dir : { x: -.55, y: -.6, z: .58 };
+  /* 颜色：球面法线光照 + 颗粒 */
+  const shade = (nx, ny, hx, hy) => {
+    const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny));
+    const l = -dir.x * nx - dir.y * ny + dir.z * nz;
+    const t = tone + (l - .55) * 2.4 + (hash(hx, hy) - .5) * 1.1;
+    return CONE_PACKED[clamp(Math.round(t), 0, 3)];
+  };
+
+  const is3D = (ctx.rotX || 0) !== 0 || (ctx.rotY || 0) !== 0;
+  if (is3D) {
+    /* ★ 叶簇是"水平圆盘"：2D 等距下投影成 2:1 椭圆刚好读作叶团，
+       但三轴倾斜后圆盘几乎侧对视线，会被压成细线 —— 树冠变条纹草裙。
+       3D 预览时改用球体（任意视角投影都是圆），形态才立得住。
+       球体的深描边在 2D 下会爆米花，3D 下由 shadeEdges 统一压边，观感可接受。 */
+    ctx.sphere(cx, cy, z, r * .92, CONE_TONES[tone], 'rough');
+    return;
+  }
+
+  /* 包围盒：把圆盘边缘 8 个点投影后取 min/max。
+     三轴旋转后圆盘在屏幕上是斜椭圆，用未旋转的 r*S 取盒会把椭圆裁成条纹。 */
+  let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+  for (let k = 0; k < 8; k++) {
+    const a = k * Math.PI / 4;
+    const sp = toScreen(cx + Math.cos(a) * r, cy + Math.sin(a) * r, z);
+    if (sp.sx < minX) minX = sp.sx;
+    if (sp.sx > maxX) maxX = sp.sx;
+    if (sp.sy < minY) minY = sp.sy;
+    if (sp.sy > maxY) maxY = sp.sy;
+  }
+  const x0 = Math.max(0, Math.floor(minX - 1)), x1 = Math.min(W - 1, Math.ceil(maxX + 1));
+  const y0 = Math.max(0, Math.floor(minY - 1)), y1 = Math.min(H - 1, Math.ceil(maxY + 1));
   for (let iy = y0; iy <= y1; iy++) {
     for (let ix = x0; ix <= x1; ix++) {
       const g = toLocal(ix, iy, z);
@@ -50,12 +77,7 @@ function leafBlob(ctx, cx, cy, z, r, tone) {
       const re = r * (1 + .07 * Math.sin(a * 5 + z * 3.1));
       if (d > re) continue;
       if (d > re * .90 && hash(ix * .9, iy * .9) > .55) continue;
-      /* 球面法线光照：左上亮、右下暗，簇才有体积 */
-      const nx = dx / re, ny = dy / re;
-      const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny));
-      const l = -dir.x * nx - dir.y * ny + dir.z * nz;
-      const t = tone + (l - .55) * 2.4 + (hash(ix * 1.7 + 3, iy * 1.3 + 7) - .5) * 1.1;
-      ctx.plot(g[0], g[1], z, CONE_PACKED[clamp(Math.round(t), 0, 3)]);
+      ctx.plot(g[0], g[1], z, shade(dx / re, dy / re, ix * 1.7 + 3, iy * 1.3 + 7));
     }
   }
 }
@@ -63,6 +85,7 @@ function leafBlob(ctx, cx, cy, z, r, tone) {
 /* 锥形树冠：叶簇团块堆叠 */
 function coneCanopy(ctx, cx, cy, z0, z1, cr, seed, density) {
   const h = z1 - z0;
+  const blobs = [];              // { x, y, z, r, tone }
   /* 内芯：沿轴心的一串大簇，先垫出实心体块（防止叶缝透背景） */
   const coreN = Math.max(8, Math.round(h / (cr * .22)));
   for (let i = 0; i <= coreN; i++) {
@@ -70,7 +93,7 @@ function coneCanopy(ctx, cx, cy, z0, z1, cr, seed, density) {
     const z = z1 - u * h;
     const env = cr * Math.pow(u, .9);          // u=0 顶 → 窄；u=1 底 → 宽
     if (env < .3) continue;
-    leafBlob(ctx, cx, cy, z, Math.max(.45, env * .58), u > .6 ? 1 : 2);
+    blobs.push({ x: cx, y: cy, z, r: Math.max(.45, env * .58), tone: u > .6 ? 1 : 2 });
   }
   /* 外壳叶簇：沿锥面密排，半径大、重叠 → 蓬松轮廓 */
   const N = Math.round(density);
@@ -90,10 +113,20 @@ function coneCanopy(ctx, cx, cy, z0, z1, cr, seed, density) {
     const r = Math.max(.40, env * (.16 + hash(k, 14) * .10));
     const lit = -(bx - cx) * .05 - (by - cy) * .04;
     const tone = 1.5 + (1 - u) * .9 + lit * .8 + (hash(k, 15) - .5) * 1.1;
-    leafBlob(ctx, bx, by, z + zj, r, clamp(Math.round(tone), 0, 3));
+    blobs.push({ x: bx, y: by, z: z + zj, r, tone: clamp(Math.round(tone), 0, 3) });
   }
   /* 顶层亮簇 */
-  leafBlob(ctx, cx, cy, z1 - .55, Math.max(.45, cr * .14), 3);
+  blobs.push({ x: cx, y: cy, z: z1 - .55, r: Math.max(.45, cr * .14), tone: 3 });
+
+  /* ★ 三轴旋转时叶簇的深度沿倾斜平面线性变化：若按原顺序画，
+     后画的簇只有"比已有更近"的一条等深线能通过深度测试 → 树冠变条纹。
+     先按深度从远到近排序（画家算法），每簇都能完整画上。 */
+  if ((ctx.rotX || 0) !== 0 || (ctx.rotY || 0) !== 0) {
+    const toScreen = ctx.screen || ((x, y, z) => project(x, y, z));
+    for (const b of blobs) b.d = toScreen(b.x, b.y, b.z).d;
+    blobs.sort((a, b) => a.d - b.d);
+  }
+  for (const b of blobs) leafBlob(ctx, b.x, b.y, b.z, b.r, b.tone);
 }
 
 /* ---- 巨层塔树 ---- */

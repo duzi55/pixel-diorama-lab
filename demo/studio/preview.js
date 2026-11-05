@@ -17,7 +17,7 @@
 
 const PV = {
   code: '', id: null, params: {}, collision: null,
-  spin: true, showBox: true, rot: 0.4, lastStep: -1,
+  spin: true, showBox: true, rot: 0.4, rotX: 0, rotY: 0, lastStep: -1,
   scale: 1,
   drawFn: null, error: null,
   groundR: 3.2,          // 地面圆盘半径（按构件大小自适应）
@@ -81,43 +81,6 @@ function PV_line(x0, y0, x1, y1, color, dash) {
   }
 }
 
-function PV_drawCollision() {
-  const c = PV.collision;
-  if (!c) return;
-  const cy = rgb(120, 210, 255);
-  const cs = Math.cos(PV.rot), sn = Math.sin(PV.rot);
-  const un = (x, y) => [x * cs + y * sn, -x * sn + y * cs];
-  const BACK = [[-1, 0], [0, -1]];
-
-  if (c.type === 'cylinder') {
-    const r = c.radius || .3, h = c.height || 1, seg = 24;
-    for (let i = 0; i < seg; i++) {
-      const a0 = i / seg * 6.283, a1 = (i + 1) / seg * 6.283;
-      const u0 = un(Math.cos(a0) * r, Math.sin(a0) * r);
-      const u1 = un(Math.cos(a1) * r, Math.sin(a1) * r);
-      const p0 = project(u0[0], u0[1], 0), p1 = project(u1[0], u1[1], 0);
-      PV_line(p0.sx, p0.sy, p1.sx, p1.sy, cy, true);
-      const q0 = project(u0[0], u0[1], h), q1 = project(u1[0], u1[1], h);
-      PV_line(q0.sx, q0.sy, q1.sx, q1.sy, cy, true);
-    }
-    for (const [dx, dy] of BACK) {
-      const p0 = project(dx * r, dy * r, 0), q0 = project(dx * r, dy * r, h);
-      PV_line(p0.sx, p0.sy, q0.sx, q0.sy, cy, true);
-    }
-  } else {
-    const w = (c.w || c.width || 1) / 2, d = (c.d || c.depth || 1) / 2, h = c.h || c.height || 1;
-    const corners = [[-w, -d], [w, -d], [w, d], [-w, d]];
-    for (let i = 0; i < 4; i++) {
-      const a = un(corners[i][0], corners[i][1]);
-      const b = un(corners[(i + 1) % 4][0], corners[(i + 1) % 4][1]);
-      const p0 = project(a[0], a[1], 0), p1 = project(b[0], b[1], 0);
-      PV_line(p0.sx, p0.sy, p1.sx, p1.sy, cy, true);
-      const q0 = project(a[0], a[1], h), q1 = project(b[0], b[1], h);
-      PV_line(q0.sx, q0.sy, q1.sx, q1.sy, cy, true);
-      PV_line(p0.sx, p0.sy, q0.sx, q0.sy, cy, true);
-    }
-  }
-}
 
 function PV_makeCtx(p) {
   /* 行为动画：KIT_BEHAVIOR.tick 写进 PV.inst.anim，这里叠加到所有原语 */
@@ -125,51 +88,77 @@ function PV_makeCtx(p) {
   const aX = anim ? (anim.dx || 0) : 0;
   const aY = anim ? (anim.dy || 0) : 0;
   const aZ = anim ? (anim.z || 0) : 0;
-  const aRot = anim ? (anim.rot || 0) : 0;
   const aScale = anim && Number.isFinite(anim.scale) && anim.scale > 0 ? anim.scale : 1;
 
-  const rot = (PV.rot || 0) + aRot;
-  const cs = Math.cos(rot), sn = Math.sin(rot);
-  const un = (x, y) => [x * cs + y * sn, -x * sn + y * cs];
-  const wrapP = p2 => { const q = un(p2[0], p2[1]); return [q[0], q[1], p2[2]]; };
-
+  /* 三轴旋转：rotZ = 绕竖轴（yaw），rotX/rotY = 俯仰/翻滚（Blender 视角） */
+  const rotZ = (PV.rot || 0) + (anim ? (anim.rot || 0) : 0);
+  const rotX = (PV.rotX || 0) + (anim ? (anim.rotX || 0) : 0);
+  const rotY = (PV.rotY || 0) + (anim ? (anim.rotY || 0) : 0);
   const sc = ((PV.scale == null || !Number.isFinite(PV.scale) || PV.scale <= 0) ? 1 : PV.scale) * aScale;
-  const ox = 0, oy = 0;
-  const unScaled = (x, y) => {
-    const dx = x * sc, dy = y * sc;
-    if (rot) {
-      const rx = dx * cs + dy * sn, ry = -dx * sn + dy * cs;
-      return [ox + rx + aX, oy + ry + aY];
-    }
-    return [ox + dx + aX, oy + dy + aY];
+  /* 旋转轴心：默认物体中部（像 Blender 绕物体中心转），由量测估算 */
+  const pivotZ = PV.pivotZ || 0;
+  const has3D = rotX !== 0 || rotY !== 0;
+  const spinnable = !!rotZ || has3D;
+
+  const cX = Math.cos(rotX), sX = Math.sin(rotX);
+  const cY = Math.cos(rotY), sY = Math.sin(rotY);
+  const cZ = Math.cos(rotZ), sZ = Math.sin(rotZ);
+
+  /* 局部 → 世界：缩放绕原点；三轴旋转绕原点（预览实例就在原点） */
+  const T = (x, y, z) => {
+    const dx = x * sc, dy = y * sc, dz = (z - pivotZ) * sc;
+    const y1 = dy * cX - dz * sX;          // Rx
+    const z1 = dy * sX + dz * cX;
+    const x2 = dx * cY + z1 * sY;          // Ry
+    const z2 = -dx * sY + z1 * cY;
+    const x3 = x2 * cZ + y1 * sZ;          // Rz（沿用旧方向）
+    const y3 = -x2 * sZ + y1 * cZ;
+    return [x3 + aX, y3 + aY, pivotZ + z2 + aZ];
   };
-  const zAt = z => z * sc + aZ;
-  const wrapPScaled = p2 => { const q = unScaled(p2[0], p2[1]); return [q[0], q[1], zAt(p2[2])]; };
+  const flat = (x, y, z) => [x * sc + aX, y * sc + aY, z * sc + aZ];
+  const P = spinnable ? T : flat;
+  const col0 = [cZ * cY, -sZ * cY, -sY];
+  const col1 = [cZ * sY * sX + sZ * cX, -sZ * sY * sX + cZ * cX, cY * sX];
+  const col2 = [cZ * sY * cX - sZ * sX, -sZ * sY * cX - cZ * sX, cY * cX];
+  const wrapPScaled = p2 => P(p2[0], p2[1], p2[2]);
 
   return {
-    x: 0, y: 0, z: 0, params: p, seed: 7, rot, scale: sc, anim: anim || null,
+    x: 0, y: 0, z: 0, params: p, seed: 7, rot: rotZ, rotX, rotY, scale: sc, anim: anim || null,
     /* ★ 只保留带缩放的版本：重复定义会被后者覆盖，
        导致 PV.scale（预览缩放）完全失效 —— 曾经的 bug */
-    sphere: (x, y, z, r, c, mode) => { const q = unScaled(x, y); sphere(q[0], q[1], zAt(z), r * sc, c, mode); },
+    sphere: (x, y, z, r, c, mode) => { const q = P(x, y, z); sphere(q[0], q[1], q[2], r * sc, c, mode); },
     capsule: (a, b, r0, r1, f, mode) => capsule(wrapPScaled(a), wrapPScaled(b), r0 * sc, r1 * sc, f, mode),
-    plot: (x, y, z, c) => { const q = unScaled(x, y); plot(q[0], q[1], zAt(z), c); },
-    /* 局部坐标 → 屏幕像素（含旋转/缩放）。逐像素绘制（树冠叶簇）用它定位包围盒，
+    plot: (x, y, z, c) => { const q = P(x, y, z); plot(q[0], q[1], q[2], c); },
+    /* 局部坐标 → 屏幕像素（含三轴旋转/缩放）。逐像素绘制（树冠叶簇）用它定位包围盒，
        否则包围盒按未旋转位置取、像素却画在旋转后位置，叶簇会被裁成碎片。 */
-    screen: (x, y, z) => { const q = unScaled(x, y); return project(q[0], q[1], zAt(z)); },
-    /* 屏幕像素 → 局部坐标（screen 的逆）。返回 [x, y]，可直接喂回 plot。 */
+    screen: (x, y, z) => { const q = P(x, y, z); return project(q[0], q[1], q[2]); },
+    /* 屏幕像素 → 局部坐标（screen 的逆）。三轴旋转下求射线与局部 z 平面的交点。 */
     unproject: (ix, iy, z) => {
-      const g = unprojectAt(ix + .5 - aX, iy + .5 - aY, zAt(z));
-      const dx = g[0] - ox, dy = g[1] - oy;
-      return [ox + (dx * cs - dy * sn) / sc, oy + (dx * sn + dy * cs) / sc];
+      if (!has3D) {
+        const P0 = unprojectAt(ix + .5 - aX, iy + .5 - aY, z * sc + aZ);
+        return [(P0[0] * cZ - P0[1] * sZ) / sc, (P0[0] * sZ + P0[1] * cZ) / sc];
+      }
+      const P0 = unprojectAt(ix + .5 - aX, iy + .5 - aY, pivotZ + aZ);
+      const kd = R2 / 2 * COS / SIN;
+      const A = col2[0] * P0[0] + col2[1] * P0[1];
+      const B = col2[0] * kd + col2[1] * kd + col2[2];
+      const t = Math.abs(B) < 1e-6 ? 0 : (z * sc - A) / B;
+      const wx = P0[0] + t * kd, wy = P0[1] + t * kd, wz = t;
+      return [(col0[0] * wx + col0[1] * wy + col0[2] * wz) / sc,
+              (col1[0] * wx + col1[1] * wy + col1[2] * wz) / sc];
     },
     box: (x0, y0, z0, x1, y1, z1, c, sd = 0) => {
       /* ★ 缩放必须作用到 box：否则 sphere/plot 放大了、墙体还是原尺寸，
          建筑看起来"镂空/半透明"（组件参数 scale 只是预览缩放） */
-      if (!rot) { box(x0 * sc, y0 * sc, z0 * sc, x1 * sc, y1 * sc, z1 * sc, c, sd); return; }
+      if (!spinnable) {
+        box(x0 * sc + aX, y0 * sc + aY, z0 * sc + aZ,
+            x1 * sc + aX, y1 * sc + aY, z1 * sc + aZ, c, sd);
+        return;
+      }
       const ramp = rampOf(c);
       const paint = (lx, ly, lz, base, grain) => {
-        const q = unScaled(lx, ly);
-        const pr = project(q[0], q[1], lz * sc), ix = pr.sx | 0, iy = pr.sy | 0;
+        const q = P(lx, ly, lz);
+        const pr = project(q[0], q[1], q[2]), ix = pr.sx | 0, iy = pr.sy | 0;
         if (ix < 0 || iy < 0 || ix >= W || iy >= H) return;
         const i = iy * W + ix;
         if (pr.d <= zb[i]) return;
@@ -368,6 +357,14 @@ window.addEventListener('message', e => {
     PV_render();
     return;
   }
+  if (msg.type === 'rot3') {
+    /* 三轴旋转：x = 俯仰（绕 X 轴）、y = 翻滚（绕 Y 轴） */
+    const x = Number(msg.x), y = Number(msg.y);
+    if (Number.isFinite(x)) PV.rotX = x;
+    if (Number.isFinite(y)) PV.rotY = y;
+    PV_render();
+    return;
+  }
   if (msg.type === 'fit') { PV_measure(); return; }
   if (msg.type === 'view') { PV_applyView(msg); return; }
   if (msg.type === 'bg') {
@@ -431,6 +428,8 @@ function PV_measure() {
   if (maxX >= 0) {
     const span = Math.max(maxX - minX + 1, maxY - minY + 1);
     PV.groundR = Math.max(1.2, Math.min(9, (span / S) * .50));
+    /* 旋转轴心抬到物体中部：三轴旋转时看起来像在转物体，而不是推倒它 */
+    PV.pivotZ = Math.max(.2, ((maxY - minY + 1) / (S * 1.15)) * .5);
   }
   PV_render();
 

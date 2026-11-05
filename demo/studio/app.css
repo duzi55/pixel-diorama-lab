@@ -45,9 +45,19 @@ html, body {
 .workspace {
   position: fixed; inset: 46px 0 0;
   display: none; grid-template-columns: 208px minmax(0, 1fr) 372px;
+  transition: grid-template-columns .18s ease;
 }
 .workspace.on { display: grid; }
+/* 左侧构件列表可收起：中间舞台占满 */
+.workspace.list-collapsed { grid-template-columns: 0 minmax(0, 1fr) 372px; }
+.workspace.list-collapsed .list-pane { display: none; }
+#btn-sidebar { margin-right: 10px; }
+#btn-sidebar.on { border-color: var(--accent); color: var(--accent); }
 .pane { overflow: auto; min-height: 0; }
+/* 显式列位：折叠时 display:none 不会让后两栏挤到错误的列 */
+.list-pane { grid-column: 1; }
+.stage-pane { grid-column: 2; }
+.right-pane { grid-column: 3; }
 .list-pane { border-right: 1px solid var(--line); background: var(--bg-2); padding: 12px; }
 
 /* 中栏：预览舞台撑满，代码块固定高度可收起 */
@@ -106,6 +116,9 @@ html, body {
 .pv-toolbar .chk { display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .pv-toolbar input[type=checkbox] { accent-color: var(--accent); }
 #pv-rot { width: 190px; accent-color: var(--accent); }
+/* 三轴旋转的两个小滑块（X 俯仰 / Y 翻滚） */
+input.rot3 { width: 76px; accent-color: var(--accent-2); }
+#pv-rot-reset { margin-left: 2px; }
 .pv-rot-val { color: var(--accent); font-family: var(--mono); font-size: 11.5px; width: 38px; }
 .pv-toolbar .sep { width: 1px; height: 18px; background: var(--line); }
 .pv-toolbar .lbl { font-size: 11.5px; }

@@ -24,7 +24,7 @@ const CFG_PATH = path.join(__dirname, 'studio.config.json');
 const DEFAULTS = {
   model: '',
   effort: '',
-  maxBudgetUsd: 2,
+  maxBudgetUsd: 6,
   timeoutMs: 300_000,
 };
 
