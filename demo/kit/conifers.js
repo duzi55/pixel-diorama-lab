@@ -26,32 +26,35 @@ function coneUnproject(ix, iy, z) {
    ★ tone 是色阶索引（不是颜色）：簇内按球面法线算光照 + 颗粒抖动，
      否则每簇是一整块纯色，放大后读作"叠盘子"。 */
 function leafBlob(ctx, cx, cy, z, r, tone) {
-  /* 复刻参考项目 sphere() 的像素画法：
-     球面光照 → 5 级色阶 + **Bayer 有序抖动**，硬边。
-     ★ 必须用 ctx.plot 逐像素写（village 的树冠风动靠 plotCapture 录像素），
-     所以不用 ctx.sphere —— 那是球体原语，录不进树冠精灵。 */
+  /* 叶簇 = 不规则的面片（不是球、不是圆盘）：
+     - 轮廓：多频正弦扰动 + 边缘缺口，读作手绘叶团
+     - 明暗：平面光照（面片倾斜），不是球面法线
+     - 色阶：5 档 + Bayer 抖动，硬边（像素画）
+     ★ 用 ctx.plot 写像素：village 的树冠风动靠 plotCapture 录像素。 */
   const toScreen = ctx.screen || ((x, y, zz) => project(x, y, zz));
   const toLocal = ctx.unproject || coneUnproject;
-  let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
-  for (let k = 0; k < 8; k++) {
-    const a = k * Math.PI / 4;
-    const sp = toScreen(cx + Math.cos(a) * r, cy + Math.sin(a) * r, z);
-    if (sp.sx < minX) minX = sp.sx; if (sp.sx > maxX) maxX = sp.sx;
-    if (sp.sy < minY) minY = sp.sy; if (sp.sy > maxY) maxY = sp.sy;
-  }
-  const x0 = Math.max(0, Math.floor(minX - 1)), x1 = Math.min(W - 1, Math.ceil(maxX + 1));
-  const y0 = Math.max(0, Math.floor(minY - 1)), y1 = Math.min(H - 1, Math.ceil(maxY + 1));
-  const off = Math.round(tone) - 2;          // 簇间色差：整体偏移一两档
+  const p = toScreen(cx, cy, z);
+  const rp = Math.max(r * S, 1.5);
+  const x0 = Math.max(0, Math.floor(p.sx - rp * 1.35)), x1 = Math.min(W - 1, Math.ceil(p.sx + rp * 1.35));
+  const y0 = Math.max(0, Math.floor(p.sy - rp * 1.35)), y1 = Math.min(H - 1, Math.ceil(p.sy + rp * 1.35));
+  const seed = hash(cx * 13.1 + 3, cy * 7.7 + z * 11.3) * 6.283;
+  const off = Math.round(tone) - 2;
   for (let iy = y0; iy <= y1; iy++) {
     for (let ix = x0; ix <= x1; ix++) {
-      const g = toLocal(ix, iy, z);
-      const dx = g[0] - cx, dy = g[1] - cy;
+      const dx = (ix + .5 - p.sx) / rp, dy = (iy + .5 - p.sy) / rp;
       const d = Math.hypot(dx, dy);
-      if (d > r) continue;                   // 硬边，不做噪点抽稀
-      const nx = dx / r, ny = dy / r;
-      const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny));
-      const l = clamp(-.55 * nx - .6 * ny + .58 * nz, 0, 1);
+      if (d > 1.4) continue;
+      const a = Math.atan2(dy, dx);
+      /* 不规则边缘：三个频率的鼓包，轮廓不再是圆 */
+      const re = 1 + .22 * Math.sin(a * 3 + seed) + .13 * Math.sin(a * 5 + seed * 2.3)
+                   + .07 * Math.sin(a * 8 + seed * 1.7);
+      if (d > re) continue;
+      /* 边缘缺口：碎叶感 */
+      if (d > re * .86 && hash(ix * .8 + 5, iy * .8 + 9) > .55) continue;
+      /* 平面光照：面片朝左上亮、右下暗（不是球面法线） */
+      const l = clamp(.58 - dx * .34 - dy * .22, 0, 1);
       const idx = Math.floor(l * 4.4 + .2 + (bayerAt(ix, iy) - .5) * .7);
+      const g = toLocal(ix, iy, z);
       ctx.plot(g[0], g[1], z, CONE_PACKED[clamp(idx + off, 0, 4)]);
     }
   }
@@ -68,7 +71,7 @@ function coneCanopy(ctx, cx, cy, z0, z1, cr, seed, density) {
     const z = z1 - u * h;
     const env = cr * Math.pow(u, .9);          // u=0 顶 → 窄；u=1 底 → 宽
     if (env < .3) continue;
-    blobs.push({ x: cx, y: cy, z, r: Math.max(.38, env * .46), tone: u > .6 ? 1 : 2 });
+    blobs.push({ x: cx, y: cy, z, r: Math.max(.34, env * .38), tone: u > .6 ? 1 : 2 });
   }
   /* 外壳叶簇：沿锥面密排，半径大、重叠 → 蓬松轮廓 */
   const N = Math.round(density);
@@ -85,7 +88,7 @@ function coneCanopy(ctx, cx, cy, z0, z1, cr, seed, density) {
     /* 簇要小、要高低错落：大簇在同一锥面上会连成"鳞片"。
        抖动幅度随包络收窄（顶部不乱抖，否则树尖会断成悬空小簇） */
     const zj = (hash(k, 16) - .5) * h * .09 * Math.min(1, u * 2.2);
-    const r = Math.max(.30, env * (.12 + hash(k, 14) * .075));
+    const r = Math.max(.22, env * (.10 + hash(k, 14) * .07));
     /* 受光侧提亮：投影到当前光源方向（不是写死的左上），光源转树冠亮面跟着转 */
     const lx = (bx - cx) * (typeof LIGHT !== 'undefined' ? LIGHT.dir.x : -.55)
              + (by - cy) * (typeof LIGHT !== 'undefined' ? LIGHT.dir.y : -.6);
@@ -117,7 +120,7 @@ KIT.register({
     height: { def: 24.0, min: 10.0, max: 34.0, step: .5, desc: '整树高度' },
     crownR: { def: 5.8,  min: 2.5, max: 9.5,  step: .2, desc: '底层冠幅' },
     trunkH: { def: 6.5,  min: 1.5, max: 12.0, step: .2, desc: '树干裸露高度' },
-    density: { def: 560, min: 240, max: 760, step: 10, desc: '叶簇数量（越大越密实）' },
+    density: { def: 700, min: 300, max: 1000, step: 10, desc: '叶簇数量（越大越密实）' },
   },
   collision: { type: 'cylinder', radius: .9, height: 24 },
   behavior: {
@@ -162,7 +165,7 @@ KIT.register({
     height: { def: 17.0, min: 8.0, max: 26.0, step: .5, desc: '整树高度' },
     crownR: { def: 3.5,  min: 1.4, max: 6.0,  step: .1, desc: '锥底冠幅' },
     trunkH: { def: 4.0,  min: 1.2, max: 8.0,  step: .2, desc: '树干裸露高度' },
-    density: { def: 360, min: 160, max: 560, step: 10, desc: '叶簇数量' },
+    density: { def: 460, min: 200, max: 700, step: 10, desc: '叶簇数量' },
   },
   collision: { type: 'cylinder', radius: .6, height: 17 },
   behavior: {
