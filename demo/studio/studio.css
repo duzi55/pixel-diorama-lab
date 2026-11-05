@@ -823,3 +823,24 @@ body.ed-paper .bar { padding-top: 4px; padding-bottom: 4px; }
 /* 图层拖拽排序 */
 .layer-row.dragging { opacity: .45; }
 .layer-row.drop-on { outline: 1px dashed var(--accent); outline-offset: -1px; }
+
+/* ---------- 面板内 tab（构件/地形/场景 · 属性/场景/光照） ---------- */
+.fp-tools {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  padding: 8px 10px 7px;
+  border-bottom: 1px solid var(--line);
+}
+.fp-tools .pill { padding: 3px 7px; font-size: 11px; }
+.fp-tabs {
+  display: flex; padding: 0 8px;
+  border-bottom: 1px solid var(--line);
+}
+.fp-tab {
+  flex: 1; padding: 7px 4px;
+  border: 0; background: transparent;
+  color: var(--fg-dim); font: inherit; font-size: 11.5px;
+  cursor: pointer; border-bottom: 2px solid transparent;
+}
+.fp-tab:hover { color: var(--fg); }
+.fp-tab.on { color: var(--fg); border-bottom-color: var(--accent); }
+.fp-body .pane[hidden] { display: none; }

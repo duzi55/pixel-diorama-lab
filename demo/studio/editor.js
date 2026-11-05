@@ -56,6 +56,7 @@ function ED_init() {
   ED_buildTools();
   ED_bindCanvas();
   ED_bindPanels();
+  ED_bindPanelTabs();
 
   ED_initLightingUI();
   /* 不再默认塞场景：空态由 editor-start.js 接管 */

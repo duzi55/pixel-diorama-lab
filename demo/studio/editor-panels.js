@@ -122,6 +122,22 @@ async function ED_aiCollision() {
   }
 }
 
+/** 左右面板的 tab 切换（构件/地形/场景，属性/场景/光照） */
+function ED_bindPanelTabs() {
+  for (const bar of document.querySelectorAll('.fp-tabs')) {
+    const panel = bar.closest('.float-panel');
+    if (!panel) continue;
+    const panes = panel.querySelectorAll('.pane');
+    bar.addEventListener('click', e => {
+      const btn = e.target.closest('.fp-tab');
+      if (!btn) return;
+      const name = btn.dataset.pane;
+      for (const b of bar.querySelectorAll('.fp-tab')) b.classList.toggle('on', b === btn);
+      for (const p of panes) p.hidden = p.dataset.pane !== name;
+    });
+  }
+}
+
 function ED_bindPanels() {
   document.getElementById('btn-col-ai').addEventListener('click', ED_aiCollision);
   document.getElementById('btn-col-reset').addEventListener('click', () => {

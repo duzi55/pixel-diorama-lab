@@ -46,40 +46,8 @@
       <span>工具箱</span>
       <button class="fp-collapse" id="tg-left">–</button>
     </div>
-    <div class="fp-body">
-      <div class="sec">
-        <h3>从图片还原</h3>
-        <button id="btn-recon-open" class="primary" style="width:100%">🖼 粘贴图片还原场景</button>
-        <div class="hint" style="margin:6px 0 0">给一张等距场景截图，AI 用现有素材摆出来</div>
-      </div>
-
-      <div class="sec">
-        <h3>构件库 <span id="kit-count" style="opacity:.55"></span></h3>
-        <input type="search" id="kit-search" placeholder="搜索构件…" style="width:100%;margin-bottom:8px">
-        <div class="pill-row" id="cats" style="margin-bottom:8px"></div>
-        <div id="comp-list" class="kit-grid"></div>
-      </div>
-
-      <div class="sec">
-        <h3>场景底图</h3>
-        <div class="row">
-          <select id="scene-import-sel" style="flex:1">
-            <option value="">— 导入已有场景 —</option>
-            <option value="../village/index.html">秋日山村</option>
-            <option value="../autumn.html">秋日野餐</option>
-            <option value="../forest.html">翠绿树林</option>
-            <option value="../index.html">最小演示</option>
-          </select>
-          <button id="btn-scene-import" class="primary">导入</button>
-        </div>
-        <div class="row" style="margin-top:6px">
-          <button id="btn-exit-basemap" class="ghost" style="display:none;flex:1">退出底图模式</button>
-        </div>
-      </div>
-
-      <div class="sec" id="sec-tools">
-        <h3>编辑工具</h3>
-        <div class="pill-row" id="tools">
+    <div class="fp-tools">
+      <div class="pill-row" id="tools">
           <button class="pill on" data-tool="paint">画地形</button>
           <button class="pill" data-tool="erase">擦除</button>
           <button class="pill" data-tool="raise">抬高</button>
@@ -88,7 +56,23 @@
           <button class="pill" data-tool="select">选择</button>
           <button class="pill" data-tool="pan">平移</button>
         </div>
+    </div>
+    <div class="fp-tabs" data-tabs="left">
+      <button class="fp-tab on" data-pane="kit">构件</button>
+      <button class="fp-tab" data-pane="terrain">地形</button>
+      <button class="fp-tab" data-pane="scene">场景</button>
+    </div>
+    <div class="fp-body">
+      <div class="pane" data-pane="kit">
+
+      <div class="sec">
+        <h3>构件库 <span id="kit-count" style="opacity:.55"></span></h3>
+        <input type="search" id="kit-search" placeholder="搜索构件…" style="width:100%;margin-bottom:8px">
+        <div class="pill-row" id="cats" style="margin-bottom:8px"></div>
+        <div id="comp-list" class="kit-grid"></div>
       </div>
+      </div>
+      <div class="pane" data-pane="terrain" hidden>
 
       <div class="sec" id="sec-mats">
         <h3>地形材质与笔刷</h3>
@@ -133,6 +117,33 @@
 
       </div>
     </div>
+      </div>
+      <div class="pane" data-pane="scene" hidden>
+
+      <div class="sec">
+        <h3>从图片还原</h3>
+        <button id="btn-recon-open" class="primary" style="width:100%">🖼 粘贴图片还原场景</button>
+        <div class="hint" style="margin:6px 0 0">给一张等距场景截图，AI 用现有素材摆出来</div>
+      </div>
+
+      <div class="sec">
+        <h3>场景底图</h3>
+        <div class="row">
+          <select id="scene-import-sel" style="flex:1">
+            <option value="">— 导入已有场景 —</option>
+            <option value="../village/index.html">秋日山村</option>
+            <option value="../autumn.html">秋日野餐</option>
+            <option value="../forest.html">翠绿树林</option>
+            <option value="../index.html">最小演示</option>
+          </select>
+          <button id="btn-scene-import" class="primary">导入</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button id="btn-exit-basemap" class="ghost" style="display:none;flex:1">退出底图模式</button>
+        </div>
+      </div>
+      </div>
+    </div>
   </aside>
 
   <!-- 浮动：右侧属性 -->
@@ -141,7 +152,14 @@
       <span>属性</span>
       <button class="fp-collapse" id="tg-right">–</button>
     </div>
+    <div class="fp-tabs" data-tabs="right">
+      <button class="fp-tab on" data-pane="props">属性</button>
+      <button class="fp-tab" data-pane="scene">场景</button>
+      <button class="fp-tab" data-pane="light">光照</button>
+    </div>
     <div class="fp-body">
+      <div class="pane" data-pane="props">
+
       <div class="sec" id="sel-sec">
         <h3>选中对象属性</h3>
         <div id="sel-info"><div class="empty-note">用「选择」工具点物体；空白拖拽框选，Shift 加选</div></div>
@@ -160,6 +178,8 @@
         <h3>场景物体列表 <span id="obj-count" style="opacity:.6"></span></h3>
         <div id="obj-list" style="max-height:280px;overflow-y:auto"></div>
       </div>
+      </div>
+      <div class="pane" data-pane="scene" hidden>
 
       <div class="sec">
         <h3>新建场景</h3>
@@ -224,6 +244,8 @@
           </a>
         </div>
       </div>
+      </div>
+      <div class="pane" data-pane="light" hidden>
 
       <div class="sec">
         <h3>光照 · 色调 · 层级</h3>
@@ -255,6 +277,8 @@
       </div>
 
 
+    </div>
+      </div>
     </div>
   </aside>
 
