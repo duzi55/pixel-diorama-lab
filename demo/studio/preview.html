@@ -5,13 +5,15 @@
 <title>构件预览</title>
 <style>
   html,body{margin:0;height:100%;background:#0e0e11;overflow:hidden}
-  body{display:flex;align-items:center;justify-content:center}
-  canvas{image-rendering:pixelated;display:block;width:100%;height:100%;object-fit:contain}
+  body{position:relative}
+  /* 画布由 JS 设 width/height + transform 平移，永远居中显示 */
+  canvas{position:absolute;left:50%;top:50%;display:block;image-rendering:pixelated;
+         transform:translate(-50%,-50%);transform-origin:center}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
-<script>window.PP_W=520;window.PP_H=380;window.PP_SCALE=14;window.PP_ORIGIN_X=0;window.PP_ORIGIN_Y=34;</script>
+<script>window.PP_W=520;window.PP_H=560;window.PP_SCALE=14;window.PP_ORIGIN_X=0;window.PP_ORIGIN_Y=34;</script>
 <script src="../engine.js"></script>
 <script src="../engine-light.js"></script>
 <script src="preview-kit.js"></script>

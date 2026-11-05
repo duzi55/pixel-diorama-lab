@@ -20,6 +20,7 @@ const PV = {
   spin: true, showBox: true, rot: 0.4, lastStep: -1,
   scale: 1,
   drawFn: null, error: null,
+  groundR: 3.2,          // 地面圆盘半径（按构件大小自适应）
   /* 预览环境：背景色调 / 光源开关 / 光源色系 */
   bgTone: 'dark',        // dark | paper
   lightOn: true,
@@ -57,7 +58,7 @@ function PV_drawGround() {
     const g = unproject(ix + .5, iy + .5);
     const d = Math.hypot(g.x, g.y);
     const edge = 1 + (noise(g.x * 1.3, g.y * 1.3) - .5) * .12;
-    if (d / 3.2 > edge) continue;      // 地面盘别太大：放大预览时它会抢掉构件的画面
+    if (d / (PV.groundR || 3.2) > edge) continue;   // 半径随构件大小自适应
     const i = iy * W + ix;
     const v = .5 + noise(g.x * .9, g.y * .9) * .3 + (hash(ix, iy) - .5) * .2;
     const idx = clamp(Math.floor(v * 3.999 + (bayerAt(ix, iy) - .5) * .6), 0, 3);
@@ -326,12 +327,8 @@ window.addEventListener('message', e => {
     PV_render();
     return;
   }
-  if (msg.type === 'fit') { PV_autofit(); return; }
-  if (msg.type === 'zoom') {
-    const k = Number(msg.k);
-    PV_applyZoom(Number.isFinite(k) ? k : 1);
-    return;
-  }
+  if (msg.type === 'fit') { PV_measure(); return; }
+  if (msg.type === 'view') { PV_applyView(msg); return; }
   if (msg.type === 'bg') {
     PV.bgTone = msg.tone === 'paper' ? 'paper' : 'dark';
     PV_render();
@@ -346,12 +343,11 @@ window.addEventListener('message', e => {
   if (msg.type === 'box') { PV.showBox = !!msg.on; PV_render(); return; }
 });
 
-/* 构件自动适应：量出构件包围盒，算出**画布 CSS 缩放**（不是模型缩放）。
-   ★ 不能用 PV.scale 放大模型：逐像素绘制（plot）的构件，坐标被放大而点仍是
-     1px，表面会碎成筛网状（semi-truck 的"透明"就是这样来的）。
-   量法：先画地面取快照，再以原尺寸画构件做像素 diff，得到构件自身 bbox
-   （地面圆盘不计入），再按 bbox 与画布的比例算缩放倍数。 */
-function PV_autofit() {
+/* 构件包围盒测量：先画地面取快照，再以原尺寸画构件做像素 diff，
+   得到构件自身 bbox（地面圆盘不计入），上报给父页做自动取景。
+   ★ 模型始终以 scale=1 绘制；缩放/平移由父页通过 view 消息控制画布 transform，
+     这样逐像素绘制（plot）的构件不会被"拉开成筛网"。 */
+function PV_measure() {
   if (!PV.drawFn) return;
   let p;
   try { p = KIT.resolve(PV.id, PV.params); } catch { return; }
@@ -370,25 +366,27 @@ function PV_autofit() {
     if (y < minY) minY = y;
     if (y > maxY) maxY = y;
   }
-  let k = 1;
+  /* 地面盘半径按构件 footprint 自适应：太大在放大预览时会抢画面，太小又没有落地感 */
   if (maxX >= 0) {
-    const tw = maxX - minX + 1, th = maxY - minY + 1;
-    k = Math.min((W * .82) / tw, (H * .82) / th);
-    k = Math.max(1, Math.min(5, k));          // 只放大不缩小（缩小会把地面挤爆）
+    const span = Math.max(maxX - minX + 1, maxY - minY + 1);
+    PV.groundR = Math.max(1.2, Math.min(9, (span / S) * .50));
   }
-  PV_applyZoom(k);
   PV_render();
-  /* 回报画布缩放倍数 + 构件包围盒中心（画布坐标），供父页把视口对准模型 */
-  const cx = maxX >= 0 ? (minX + maxX) / 2 : W / 2;
-  const cy = maxY >= 0 ? (minY + maxY) / 2 : H / 2;
-  parent.postMessage({ type: 'fit-k', k, cx, cy }, '*');
+
+  parent.postMessage({
+    type: 'bbox',
+    bbox: maxX >= 0 ? { minX, maxX, minY, maxY } : null,
+    W, H,
+  }, '*');
 }
 
-/* 画布缩放：改 canvas 的 CSS 尺寸（image-rendering: pixelated 保持锐利） */
-function PV_applyZoom(k) {
-  const z = Math.max(.5, Math.min(4, k));
+/* 视图：画布 CSS 尺寸 = W×z / H×z，再 translate 平移（父页算好的值） */
+function PV_applyView(v) {
+  const z = Math.max(.2, Math.min(8, v.z || 1));
   canvas.style.width = Math.round(W * z) + 'px';
   canvas.style.height = Math.round(H * z) + 'px';
+  canvas.style.transform =
+    `translate(calc(-50% + ${Math.round(v.px || 0)}px), calc(-50% + ${Math.round(v.py || 0)}px))`;
 }
 
 addEventListener('resize', PV_fit);

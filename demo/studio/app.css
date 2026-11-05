@@ -125,12 +125,12 @@ html, body {
 
 /* ---------- 预览舞台（自适应 + 拖拽平移） ---------- */
 .preview-wrap {
-  position: relative; flex: 1; min-height: 220px; overflow: auto;
+  position: relative; flex: 1; min-height: 220px; overflow: hidden;   /* 平移靠 iframe 内 transform，不需要滚动条 */
   border: 1px solid var(--line); border-radius: 10px; background: #0e0e11;
   cursor: grab;
 }
 .preview-wrap.dragging { cursor: grabbing; }
-#pv { display: block; margin: auto; width: 520px; height: 380px; border: 0; background: #0e0e11; }
+#pv { display: block; width: 100%; height: 100%; border: 0; background: #0e0e11; }
 /* 透明挡板盖住 iframe：拖拽/滚轮才能在父页面接住 */
 .pv-shield { position: absolute; inset: 0; }
 .pv-hint {
