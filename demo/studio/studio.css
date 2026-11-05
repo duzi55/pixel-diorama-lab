@@ -416,3 +416,54 @@ details.code pre, textarea.code-edit {
   padding: 0; line-height: 14px; font-size: 11px; border-radius: 50%;
   background: rgba(0,0,0,.65); border: 0; color: #fff; cursor: pointer;
 }
+
+/* ---------- 模态框（图片还原场景） ---------- */
+.modal {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, .62);
+}
+.modal[hidden] { display: none; }
+.modal-box {
+  width: min(700px, calc(100vw - 40px));
+  max-height: calc(100vh - 60px);
+  display: flex; flex-direction: column;
+  background: var(--bg-2); border: 1px solid var(--line);
+  border-radius: 12px; box-shadow: 0 20px 60px rgba(0, 0, 0, .5);
+}
+.modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-bottom: 1px solid var(--line); font-size: 13px;
+}
+.modal-close {
+  background: none; border: 0; color: var(--fg-dim);
+  font-size: 20px; line-height: 1; cursor: pointer; padding: 0 4px;
+}
+.modal-close:hover { color: var(--fg); }
+.modal-body {
+  padding: 14px 16px 18px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.recon-drop {
+  position: relative; min-height: 190px; padding: 12px;
+  border: 1px dashed var(--line); border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; overflow: hidden; text-align: center;
+}
+.recon-drop:hover, .recon-drop.over { border-color: var(--accent-2); }
+.recon-drop.over { background: rgba(232, 182, 76, .06); }
+.recon-drop img { max-width: 100%; max-height: 340px; display: block; }
+.recon-drop img[hidden] { display: none; }
+#recon-drop-hint { color: var(--fg-dim); font-size: 12px; line-height: 1.8; }
+.recon-progress { font-size: 12px; color: var(--fg-dim); min-height: 18px; white-space: pre-wrap; }
+.recon-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 9px 0; border-top: 1px solid var(--line); font-size: 12px;
+}
+.recon-item .nm { flex: 1; }
+.recon-item .why { color: var(--fg-dim); font-size: 11px; }
+.recon-item button {
+  padding: 5px 10px; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--bg-3); color: var(--fg); cursor: pointer; font: inherit; font-size: 12px;
+}
+.recon-item button:hover { border-color: var(--accent-2); }

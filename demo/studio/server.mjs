@@ -256,12 +256,17 @@ const server = http.createServer(async (req, res) => {
      请求体经查询参数太长，改为：POST /api/generate-stream 先拿 taskId，
      再 GET /api/progress/<taskId> 收 SSE。简化实现：body 先读入，
      用 GET 式 SSE 不方便带 body —— 这里用单连接：POST 且 Accept: text/event-stream。 */
-  const isGeneratePath = url.pathname === '/api/generate' || url.pathname === '/api/generate-from-spec';
+  const AI_ROUTES = {
+    '/api/generate': 'generate',
+    '/api/generate-from-spec': 'generateFromSpec',
+    '/api/reconstruct': 'reconstructScene',
+  };
+  const isGeneratePath = !!AI_ROUTES[url.pathname];
   if (isGeneratePath && req.method === 'POST') {
     const wantsStream = (req.headers.accept || '').includes('text/event-stream');
     try {
       const body = await readBody(req);
-      const fnName = url.pathname === '/api/generate' ? 'generate' : 'generateFromSpec';
+      const fnName = AI_ROUTES[url.pathname];
 
       if (!wantsStream) {
         const { [fnName]: fn } = await import('./ai.mjs');

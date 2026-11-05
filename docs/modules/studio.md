@@ -119,7 +119,13 @@ open http://127.0.0.1:5320/studio/editor.html
 - 非图片文件（如 `text/plain` 文件）不拦截、不入口。
 - 满 3 张后 ＋ 按钮置灰，状态栏提示「已添加 N 张；参考图最多 3 张」。
 
-CLI 侧为带图请求放开了窄白名单（`--allowedTools Read`，其余工具仍禁用）——
+CLI 侧为带图请求**只启用 Read 一个工具**：`--tools Read`（无图时是 `--tools ''`，全部禁用）。
+
+> ⚠️ 这里踩过坑：曾经写成 `--tools ''` + `--allowedTools Read`，
+> 结果前者把所有工具禁掉，`--allowedTools` 只是权限白名单，救不回来 ——
+> AI 收到的提示里只会说「Read is disabled for this session」。
+> 判断"能不能读图"要看 `--tools`，不是 `--allowedTools`。
+
 AI 只能读那张图，不能执行命令。推理面板里能看到它读图后的分析原文。
 
 ### 2.3c 自定义命名
@@ -321,6 +327,31 @@ window.PP_SCENE = {
 
 兼容性：索引缺失的历史场景由 `listSceneIndex()` 从 JSON 回填元数据，
 不需要重新保存就能出现在导航里。
+
+### 4.0d 图片还原场景（图片 → 场景）
+
+编辑器左侧「从图片还原」→ 粘贴 / 拖入 / 选择一张等距场景截图 → AI 用**现有构件库**摆出场景。
+
+```
+图片 → 压缩 1024px → POST /api/reconstruct（带 KIT.list() 清单 + 画布尺寸）
+     → AI 读图，输出 { terrain, objects, missing }
+     → terrain 走 TERRAIN_SHAPES.apply
+     → objects 的 (u,v) 反投影成世界坐标，z 取 TERRAIN.heightAt
+     → 缺的素材列成 missing，可逐项「生成并入库」
+```
+
+**坐标约定**：AI 不自己算世界坐标，只给画面相对坐标 `u/v ∈ [0,1]`；
+前端用 `unproject(u*W, v*H)` 反投影。这样换画布尺寸也不影响还原逻辑。
+
+**missing → 生成 → 入库**：每项调用 `/api/generate`（brief 当需求）→ `/api/save`
+（三道闸：语法 → 沙箱实画 → 合并语法）→ 当前页用 `new Function('KIT', code)` 动态注册，
+立即可用；刷新后从文件加载。已存在的 id 保存会失败并提示，不会覆盖。
+
+**还原结果就是普通场景**：拖拽 / 缩放 / 旋转 / 碰撞体 / 保存全部可用。
+AI 选错的构件可以删掉手动换，位置不对可以拖——AI 只做第一版摆位。
+
+服务端校验（`normalizeRecon`）：`kind` 必须在当前构件库清单里，否则自动转进 missing；
+`params` 只保留该构件真实存在的键并夹到区间；`u/v` 夹到 `[0,1]`。
 
 ### 4.1 布局
 

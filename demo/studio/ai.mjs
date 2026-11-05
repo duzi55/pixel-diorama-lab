@@ -378,3 +378,6 @@ function normalize(c) {
     notes: c.notes || '',
   };
 }
+
+/* 场景还原在 ai-recon.mjs（500 行约束），re-export 供 /api/reconstruct 路由查找 */
+export { reconstructScene } from './ai-recon.mjs';

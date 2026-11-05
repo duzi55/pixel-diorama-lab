@@ -21,12 +21,31 @@ const REPO_DIR = path.resolve(__dirname, '..', '..');
 export function runClaude(prompt, schema, onEvent, images) {
   const cfg = getConfig();
   return new Promise((resolve, reject) => {
+    /* 参考图先落盘：它决定 --tools 是否放开 Read */
+    const imagePaths = [];
+    if (Array.isArray(images) && images.length) {
+      const fs = await_fs();
+      const dir = path.join(REPO_DIR, 'demo', 'studio', '.ref-images');
+      fs.mkdirSync(dir, { recursive: true });
+      images.forEach((dataUrl, k) => {
+        const m = /^data:image\/(png|jpeg|jpg|webp);base64,(.+)$/.exec(dataUrl);
+        if (!m) return;
+        const ext = m[1] === 'jpeg' ? 'jpg' : m[1];
+        const p = path.join(dir, `ref-${Date.now()}-${k}.${ext}`);
+        fs.writeFileSync(p, Buffer.from(m[2], 'base64'));
+        imagePaths.push(p);
+      });
+    }
+
     const args = [
       '-p', prompt,
       '--output-format', 'stream-json',
       '--verbose',                /* stream-json 需要 verbose，否则 CLI 拒绝 */
       '--json-schema', JSON.stringify(schema),
-      '--tools', '',            /* 禁用工具：AI 只写代码 */
+      /* 无图：禁用全部工具（AI 只写代码）；
+         有图：只启用 Read（只能看图，不能碰别的）——
+         ★ 不能用 `--tools ''` + `--allowedTools Read`：前者会连 Read 一起禁掉 */
+      '--tools', imagePaths.length ? 'Read' : '',
       '--permission-mode', 'dontAsk',
       '--no-session-persistence',
       '--max-budget-usd', String(cfg.maxBudgetUsd),
@@ -34,31 +53,11 @@ export function runClaude(prompt, schema, onEvent, images) {
     if (cfg.model) args.push('--model', cfg.model);
     if (cfg.effort) args.push('--effort', cfg.effort);
 
-    /* 参考图：写到临时目录，提示词里引导 AI 读图。
-       CLI 的图片输入走「提示词中引用本地图」，--restricted 下用 Read 工具，
-       所以这里不传 --tools ''，改传允许 Read 一张图的窄白名单。 */
-    let imageNote = '';
-    if (Array.isArray(images) && images.length) {
-      const fs = await_fs();
-      const dir = path.join(REPO_DIR, 'demo', 'studio', '.ref-images');
-      fs.mkdirSync(dir, { recursive: true });
-      const paths = [];
-      images.forEach((dataUrl, k) => {
-        const m = /^data:image\/(png|jpeg|jpg|webp);base64,(.+)$/.exec(dataUrl);
-        if (!m) return;
-        const ext = m[1] === 'jpeg' ? 'jpg' : m[1];
-        const p = path.join(dir, `ref-${Date.now()}-${k}.${ext}`);
-        fs.writeFileSync(p, Buffer.from(m[2], 'base64'));
-        paths.push(p);
-      });
-      if (paths.length) {
-        imageNote = '\n\n## 参考图\n用户附了参考图（用 Read 工具查看）：\n'
-          + paths.map(p => `- ${p}`).join('\n')
-          + '\n请先读图，从图中提取形态/配色/构图特征，再按规范实现。';
-        /* 允许 Read 工具读参考图（其余工具仍禁用） */
-        args.splice(args.indexOf('--tools') + 2, 0, '--allowedTools', 'Read');
-      }
-    }
+    const imageNote = imagePaths.length
+      ? '\n\n## 参考图\n用户附了参考图（用 Read 工具查看）：\n'
+        + imagePaths.map(p => `- ${p}`).join('\n')
+        + '\n请先读图，从图中提取形态/配色/构图特征，再按要求输出。'
+      : '';
     const fullPrompt = prompt + imageNote;
 
     const child = spawn('claude', args.slice(0, args.indexOf('-p') + 1).concat([fullPrompt], args.slice(args.indexOf('-p') + 1)), { cwd: REPO_DIR, env: { ...process.env } });

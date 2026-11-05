@@ -28,6 +28,12 @@
     </div>
     <div class="fp-body">
       <div class="sec">
+        <h3>从图片还原</h3>
+        <button id="btn-recon-open" class="primary" style="width:100%">🖼 粘贴图片还原场景</button>
+        <div class="hint" style="margin:6px 0 0">给一张等距场景截图，AI 用现有素材摆出来</div>
+      </div>
+
+      <div class="sec">
         <h3>场景底图</h3>
         <div class="row">
           <select id="scene-import-sel" style="flex:1">
@@ -244,6 +250,30 @@
   </div>
 </main>
 
+<!-- 图片还原场景（模态框） -->
+<div class="modal" id="recon-modal" hidden>
+  <div class="modal-box">
+    <div class="modal-head">
+      <span>图片还原场景</span>
+      <button class="modal-close" id="recon-close" title="关闭">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="recon-drop" id="recon-drop">
+        <input type="file" id="recon-file" accept="image/*" hidden>
+        <div id="recon-drop-hint">粘贴图片（⌘/Ctrl+V）· 拖入 · 点击选择</div>
+        <img id="recon-preview" alt="参考图" hidden>
+      </div>
+      <div class="row" style="align-items:center">
+        <label class="chk" style="flex:1"><input type="checkbox" id="recon-terrain" checked> 同时还原地形</label>
+        <button id="btn-recon-run" class="primary" disabled>开始还原</button>
+        <button id="recon-reset" class="ghost">换一张</button>
+      </div>
+      <div class="recon-progress" id="recon-progress"></div>
+      <div id="recon-result"></div>
+    </div>
+  </div>
+</div>
+
 <script>/* 编辑器画布：横向，适配舞台；底图导入时会按场景尺寸重建 */
 window.PP_W=520;window.PP_H=380;window.PP_SCALE=11;window.PP_ORIGIN_X=0;window.PP_ORIGIN_Y=24;</script>
 <script src="studio.js"></script>
@@ -271,6 +301,7 @@ window.PP_W=520;window.PP_H=380;window.PP_SCALE=11;window.PP_ORIGIN_X=0;window.P
 <script src="editor-render.js"></script>
 <script src="editor-light.js"></script>
 <script src="editor.js"></script>
+<script src="editor-recon.js"></script>
 <script src="thinking-panel.js"></script>
 <script src="terrain-ui.js"></script>
 <script src="scene-import.js"></script>
