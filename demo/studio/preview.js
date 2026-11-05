@@ -326,6 +326,7 @@ window.addEventListener('message', e => {
     PV_render();
     return;
   }
+  if (msg.type === 'fit') { PV_autofit(); return; }
   if (msg.type === 'zoom') {
     const k = Number(msg.k);
     PV_applyZoom(Number.isFinite(k) ? k : 1);
@@ -344,6 +345,43 @@ window.addEventListener('message', e => {
   }
   if (msg.type === 'box') { PV.showBox = !!msg.on; PV_render(); return; }
 });
+
+/* 构件自动适应：量出构件包围盒，算出让它在画布里四周留白的最小缩放。
+   先画地面取快照，再以 scale=1 画构件，逐像素 diff 得到构件自身的 bbox
+   （地面圆盘不计入，否则小构件永远填不满）。 */
+function PV_autofit() {
+  if (!PV.drawFn) return;
+  let p;
+  try { p = KIT.resolve(PV.id, PV.params); } catch { return; }
+
+  PV_drawGround();
+  const groundPix = pix.slice();
+
+  PV.scale = 1;
+  try { PV.drawFn(PV_makeCtx(p), {}); } catch { return; }
+
+  let minX = W, maxX = -1, minY = H, maxY = -1;
+  for (let i = 0; i < pix.length; i++) {
+    if (pix[i] === groundPix[i]) continue;
+    const x = i % W, y = (i / W) | 0;
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+  if (maxX < 0) { PV.scale = 1; PV_render(); return; }
+
+  const pad = 18;
+  const tw = maxX - minX + 1, th = maxY - minY + 1;
+  /* 缩放绕世界原点（投影到屏幕的 OX/OY）进行 → 四向分别约束 */
+  const fit = Math.min((W - pad * 2) / tw, (H - pad * 2) / th);
+  const sTop = (OY - pad) / Math.max(1, OY - minY);
+  const sBot = (H - pad - OY) / Math.max(1, maxY - OY);
+  const sLeft = (OX - pad) / Math.max(1, OX - minX);
+  const sRight = (W - pad - OX) / Math.max(1, maxX - OX);
+  PV.scale = Math.max(.12, Math.min(8, Math.min(fit, sTop, sBot, sLeft, sRight)));
+  PV_render();
+}
 
 /* 画布缩放：改 canvas 的 CSS 尺寸（image-rendering: pixelated 保持锐利） */
 function PV_applyZoom(k) {

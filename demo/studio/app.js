@@ -155,7 +155,7 @@ function sendCode(item) {
   state.code = code;
   const id = (item && item.id) || (state.meta && state.meta.id);
   pv.contentWindow.postMessage({ type: 'code', code, id, params: {} }, '*');
-  pv.contentWindow.postMessage({ type: 'scale', scale: 2.1 }, '*');
+  pv.contentWindow.postMessage({ type: 'fit' }, '*');   // 让构件自动适应画布
   pv.contentWindow.postMessage({ type: 'box', on: $('#pv-box').checked }, '*');
 }
 
@@ -203,49 +203,104 @@ $('#pv-tone').addEventListener('change', () => {
 pv.addEventListener('mouseenter', () => pv.contentWindow.postMessage({ type: 'spin', on: false }, '*'));
 pv.addEventListener('mouseleave', () => pv.contentWindow.postMessage({ type: 'spin', on: pvSpin.checked }, '*'));
 
-/* ---------------- 画布缩放（预览视图，不改网页） ---------------- */
+/* ---------------- 预览舞台：自适应 / 拖拽平移 / 滚轮缩放 ---------------- */
 
-const ZOOM_STEPS = [.5, .75, 1, 1.5, 2, 3, 4];
-state.zoom = 1;
+const PV_BASE_W = 520, PV_BASE_H = 380;
+const ZOOM_MIN = .5, ZOOM_MAX = 4;
+let stageFit = 1;        // 「适应舞台」时的缩放倍数
+let userZoom = null;     // 用户手动缩放（null = 跟随舞台自适应）
 
-function applyZoom(k) {
-  const z = Math.max(ZOOM_STEPS[0], Math.min(ZOOM_STEPS[ZOOM_STEPS.length - 1], k));
-  state.zoom = z;
-  const pvEl = $('#pv');
-  pvEl.style.width = Math.round(420 * z) + 'px';
-  pvEl.style.height = Math.round(340 * z) + 'px';
-  $('#pv-zoom-val').textContent = Math.round(z * 100) + '%';
-  pv.contentWindow.postMessage({ type: 'zoom', k: z }, '*');
-  /* 缩放后把视口对准画布中心（模型大致在中心），而不是停在左上角 */
-  const wrap = document.querySelector('.preview-wrap');
+const pvWrap = document.getElementById('pv-wrap');
+const pvShield = document.getElementById('pv-shield');
+
+function computeStageFit() {
+  const w = Math.max(200, pvWrap.clientWidth - 16);
+  const h = Math.max(160, pvWrap.clientHeight - 16);
+  return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.min(w / PV_BASE_W, h / PV_BASE_H)));
+}
+
+function applyZoom(z) {
+  const k = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+  state.zoom = k;
+  pv.style.width = Math.round(PV_BASE_W * k) + 'px';
+  pv.style.height = Math.round(PV_BASE_H * k) + 'px';
+  $('#pv-zoom-val').textContent = Math.round(k * 100) + '%';
+  pv.contentWindow.postMessage({ type: 'zoom', k }, '*');
+  /* 放大后把视口对准画布中心 */
   requestAnimationFrame(() => {
-    wrap.scrollLeft = Math.max(0, (wrap.scrollWidth - wrap.clientWidth) / 2);
-    wrap.scrollTop = Math.max(0, (wrap.scrollHeight - wrap.clientHeight) / 2);
+    pvWrap.scrollLeft = Math.max(0, (pvWrap.scrollWidth - pvWrap.clientWidth) / 2);
+    pvWrap.scrollTop = Math.max(0, (pvWrap.scrollHeight - pvWrap.clientHeight) / 2);
   });
 }
 
-function zoomStep(dir) {
-  const i = ZOOM_STEPS.findIndex(v => Math.abs(v - state.zoom) < .01);
-  const next = ZOOM_STEPS[Math.max(0, Math.min(ZOOM_STEPS.length - 1, (i < 0 ? 2 : i) + dir))];
-  applyZoom(next);
+/* 舞台尺寸变化：未手动缩放时跟随适应 */
+function refitStage() {
+  stageFit = computeStageFit();
+  if (userZoom == null) applyZoom(stageFit);
 }
 
-$('#pv-zoom-in').addEventListener('click', () => zoomStep(1));
-$('#pv-zoom-out').addEventListener('click', () => zoomStep(-1));
-$('#pv-zoom-fit').addEventListener('click', () => applyZoom(1));
+if (window.ResizeObserver) new ResizeObserver(refitStage).observe(pvWrap);
+addEventListener('resize', refitStage);
 
-/* 滚轮缩放（在预览框内直接滚，不改网页缩放） */
-document.querySelector('.preview-wrap').addEventListener('wheel', e => {
-  e.preventDefault();
-  zoomStep(e.deltaY < 0 ? 1 : -1);
-}, { passive: false });
-
-/* iframe 重载后补发当前缩放 */
-pv.addEventListener('load', () => {
-  pv.contentWindow.postMessage({ type: 'zoom', k: state.zoom }, '*');
+$('#pv-zoom-in').addEventListener('click', () => {
+  userZoom = Math.min(ZOOM_MAX, (userZoom || stageFit) * 1.25);
+  applyZoom(userZoom);
+});
+$('#pv-zoom-out').addEventListener('click', () => {
+  userZoom = Math.max(ZOOM_MIN, (userZoom || stageFit) / 1.25);
+  applyZoom(userZoom);
+});
+/* 适应 = 舞台自适应 + 让构件在画布内填满 */
+$('#pv-zoom-fit').addEventListener('click', () => {
+  userZoom = null;
+  refitStage();
+  pv.contentWindow.postMessage({ type: 'fit' }, '*');
 });
 
-/* ---------------- 参数滑块 ---------------- */
+/* 滚轮缩放（指针位置为中心） */
+pvShield.addEventListener('wheel', e => {
+  e.preventDefault();
+  const before = userZoom || stageFit;
+  const k = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, before * (e.deltaY < 0 ? 1.15 : 1 / 1.15)));
+  userZoom = k;
+  applyZoom(k);
+}, { passive: false });
+
+/* 拖拽平移 */
+let pvDrag = null;
+pvShield.addEventListener('pointerdown', e => {
+  pvDrag = { x: e.clientX, y: e.clientY, l: pvWrap.scrollLeft, t: pvWrap.scrollTop };
+  pvWrap.classList.add('dragging');
+  pvShield.setPointerCapture(e.pointerId);
+});
+pvShield.addEventListener('pointermove', e => {
+  if (!pvDrag) return;
+  pvWrap.scrollLeft = pvDrag.l - (e.clientX - pvDrag.x);
+  pvWrap.scrollTop = pvDrag.t - (e.clientY - pvDrag.y);
+});
+['pointerup', 'pointercancel'].forEach(ev => pvShield.addEventListener(ev, () => {
+  pvDrag = null;
+  pvWrap.classList.remove('dragging');
+}));
+
+/* 代码块收起/展开 */
+$('#btn-code-toggle').addEventListener('click', () => {
+  const blk = $('#code-block');
+  blk.classList.toggle('collapsed');
+  $('#btn-code-toggle').textContent = blk.classList.contains('collapsed') ? '展开' : '收起';
+});
+
+/* 右侧标签页 */
+$('#rtabs').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  for (const b of document.querySelectorAll('#rtabs button')) b.classList.toggle('on', b === btn);
+  for (const p of document.querySelectorAll('.rpanel')) {
+    p.classList.toggle('on', p.dataset.panel === btn.dataset.tab);
+  }
+});
+
+/* ---------------- 参数滑块 ---------------- *//* ---------------- 参数滑块 ---------------- */
 
 function buildParams() {
   const box = $('#params');

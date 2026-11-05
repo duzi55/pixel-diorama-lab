@@ -17,7 +17,7 @@
   <span class="status" id="status">加载中…</span>
 </header>
 
-<!-- ============ 构件库：左列表 / 中预览+代码 / 右 AI ============ -->
+<!-- ============ 构件库：左列表 / 中预览舞台 / 右侧面板 ============ -->
 <div class="workspace on" id="view-kit">
 
   <aside class="pane list-pane">
@@ -25,11 +25,11 @@
     <div id="list"></div>
   </aside>
 
-  <main class="pane stage-pane">
+  <main class="stage-pane">
     <div class="stage-head">
       <div>
         <h2 id="cur-name">选择左侧构件</h2>
-        <p id="cur-desc">从构件库挑一个，或点「生成」新建。</p>
+        <p id="cur-desc">从构件库挑一个，或用右侧「新建构件」。</p>
       </div>
       <div class="stage-meta">
         <code id="cur-id"></code>
@@ -47,33 +47,109 @@
         <button data-tone="dark" class="on">深灰</button>
         <button data-tone="paper">纸色</button>
       </div>
-      <span class="sep"></span>
       <label class="chk"><input type="checkbox" id="pv-light" checked> 光源</label>
-      <label class="chk"><input type="checkbox" id="pv-box"> 碰撞体</label>
       <select id="pv-tone" class="mini-select">
         <option value="warm">暖白</option>
         <option value="cool">冷白</option>
         <option value="neutral">中性</option>
       </select>
+      <label class="chk"><input type="checkbox" id="pv-box"> 碰撞体</label>
       <span class="sep"></span>
       <span class="lbl">缩放</span>
       <button class="mini" id="pv-zoom-out" title="缩小">−</button>
       <span class="pv-zoom-val" id="pv-zoom-val">100%</span>
       <button class="mini" id="pv-zoom-in" title="放大">＋</button>
-      <button class="mini" id="pv-zoom-fit" title="恢复 100%">适应</button>
+      <button class="mini" id="pv-zoom-fit" title="适应窗口，并让构件填满画布">适应</button>
     </div>
 
-    <div class="preview-wrap">
+    <div class="preview-wrap" id="pv-wrap">
       <iframe id="pv" src="preview.html" title="构件动画预览"></iframe>
+      <div class="pv-shield" id="pv-shield" title="拖拽平移 · 滚轮缩放"></div>
+      <div class="pv-hint">拖拽平移 · 滚轮缩放</div>
     </div>
 
-    <div class="block">
+    <div class="code-block collapsed" id="code-block">
+      <div class="block-head">
+        <span>代码</span>
+        <span>
+          <button class="mini" id="btn-copy">复制</button>
+          <button class="mini" id="btn-code-toggle">展开</button>
+        </span>
+      </div>
+      <pre class="code" id="code"></pre>
+    </div>
+  </main>
+
+  <aside class="pane right-pane">
+    <div class="rtabs" id="rtabs">
+      <button data-tab="ai" class="on">AI</button>
+      <button data-tab="props">属性</button>
+      <button data-tab="params">参数</button>
+      <button data-tab="hist">记录</button>
+    </div>
+
+    <!-- AI -->
+    <section class="rpanel on" data-panel="ai">
+      <div class="ai-pane">
+        <div class="ai-head">
+          <h3>AI 编辑</h3>
+          <div class="seg" id="ai-mode">
+            <button data-mode="edit" class="on">修改当前</button>
+            <button data-mode="new">新建构件</button>
+          </div>
+        </div>
+        <p class="ai-tip" id="ai-tip">说明你想怎么改这个构件，AI 会按项目规范重写代码（id 保持不变）。</p>
+        <textarea id="ai-prompt" rows="4" placeholder="例如：把树冠改窄一点，树干更粗，颜色偏橙（可直接粘贴 / 拖入参考图）"></textarea>
+
+        <div class="ai-images">
+          <div class="ai-images-head">
+            <span>参考图（可选）</span>
+            <span class="count" id="ai-img-count">0 / 3</span>
+          </div>
+          <div class="thumbs" id="ai-thumbs"></div>
+          <label class="upload">
+            <input type="file" id="ai-file" accept="image/png,image/jpeg,image/webp" multiple hidden>
+            <span>＋ 添加图片</span>
+          </label>
+        </div>
+
+        <div class="ai-actions">
+          <button class="primary" id="btn-ai">让 AI 修改</button>
+          <span class="ai-status" id="ai-status"></span>
+        </div>
+
+        <div class="ai-progress"><div class="ai-progress-bar" id="ai-progress-bar"></div></div>
+
+        <div class="ai-think">
+          <div class="ai-think-head">
+            <span>思考 / 进度</span>
+            <button class="mini" id="ai-think-clear">清空</button>
+          </div>
+          <div class="ai-think-body" id="ai-think-body">
+            <div class="think-empty">AI 生成时，这里实时显示推理过程与进度。</div>
+          </div>
+        </div>
+
+        <div class="ai-result">
+          <div class="block-head"><span>AI 结果（可手动改）</span><span class="mini" id="ai-metaline"></span></div>
+          <textarea class="code-edit" id="ai-code" spellcheck="false"
+            placeholder="AI 返回的完整构件代码会出现在这里，可先预览再保存。"></textarea>
+          <div class="ai-actions">
+            <button id="btn-apply">应用预览</button>
+            <button class="primary" id="btn-save">保存到构件库</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 属性 -->
+    <section class="rpanel" data-panel="props">
       <div class="block-head">
         <span>属性</span>
         <span><button class="mini" id="btn-props-apply">应用并预览</button></span>
       </div>
       <div class="props">
-        <label>名称<input id="p-name" type="text"></label>
+        <label class="wide">名称<input id="p-name" type="text"></label>
         <label>ID<input id="p-id" type="text"></label>
         <label>分类
           <select id="p-cat">
@@ -97,73 +173,25 @@
         <label id="p-col-r-wrap">半径 R<input id="p-col-r" type="number" step=".1" min="0"></label>
         <label id="p-col-h-wrap">高 H<input id="p-col-h" type="number" step=".1" min="0"></label>
       </div>
-    </div>
+    </section>
 
-    <div class="block">
-      <div class="block-head"><span>参数</span><span><button class="mini" id="btn-save-defaults">当前值存为默认</button> <button class="mini" id="btn-reset">重置</button></span></div>
+    <!-- 参数 -->
+    <section class="rpanel" data-panel="params">
+      <div class="block-head">
+        <span>参数</span>
+        <span>
+          <button class="mini" id="btn-save-defaults">当前值存为默认</button>
+          <button class="mini" id="btn-reset">重置</button>
+        </span>
+      </div>
       <div class="params" id="params"></div>
-    </div>
+    </section>
 
-    <div class="block">
-      <div class="block-head"><span>代码</span><button class="mini" id="btn-copy">复制</button></div>
-      <pre class="code" id="code"></pre>
-    </div>
-
-    <div class="block">
+    <!-- 记录 -->
+    <section class="rpanel" data-panel="hist">
       <div class="block-head"><span>修改记录</span><span class="mini" id="hist-count">0</span></div>
       <div class="hist" id="hist"></div>
-    </div>
-  </main>
-
-  <aside class="pane ai-pane">
-    <div class="ai-head">
-      <h3>AI 编辑</h3>
-      <div class="seg" id="ai-mode">
-        <button data-mode="edit" class="on">修改当前</button>
-        <button data-mode="new">新建构件</button>
-      </div>
-    </div>
-    <p class="ai-tip" id="ai-tip">说明你想怎么改这个构件，AI 会按项目规范重写代码。</p>
-    <textarea id="ai-prompt" rows="4" placeholder="例如：把树冠改窄一点，树干更粗，颜色偏橙（可直接粘贴 / 拖入参考图）"></textarea>
-
-    <div class="ai-images">
-      <div class="ai-images-head">
-        <span>参考图（可选）</span>
-        <span class="count" id="ai-img-count">0 / 3</span>
-      </div>
-      <div class="thumbs" id="ai-thumbs"></div>
-      <label class="upload">
-        <input type="file" id="ai-file" accept="image/png,image/jpeg,image/webp" multiple hidden>
-        <span>＋ 添加图片</span>
-      </label>
-    </div>
-
-    <div class="ai-actions">
-      <button class="primary" id="btn-ai">让 AI 生成</button>
-      <span class="ai-status" id="ai-status"></span>
-    </div>
-
-    <div class="ai-progress"><div class="ai-progress-bar" id="ai-progress-bar"></div></div>
-
-    <div class="ai-think">
-      <div class="ai-think-head">
-        <span>思考 / 进度</span>
-        <button class="mini" id="ai-think-clear">清空</button>
-      </div>
-      <div class="ai-think-body" id="ai-think-body">
-        <div class="think-empty">AI 生成时，这里实时显示推理过程与进度。</div>
-      </div>
-    </div>
-
-    <div class="block grow">
-      <div class="block-head"><span>AI 结果（可手动改）</span><span class="mini" id="ai-metaline"></span></div>
-      <textarea class="code-edit" id="ai-code" spellcheck="false"
-        placeholder="AI 返回的完整构件代码会出现在这里，可先预览再保存。"></textarea>
-      <div class="ai-actions">
-        <button id="btn-apply">应用预览</button>
-        <button class="primary" id="btn-save">保存到构件库</button>
-      </div>
-    </div>
+    </section>
   </aside>
 </div>
 
