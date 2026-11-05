@@ -166,16 +166,16 @@ const KIT_RENDER = {
         };
         const step = .045, longX = x1 - x0 >= y1 - y0;
         for (let a = x0; a <= x1; a += step) for (let b = y0; b <= y1; b += step)
-          paint(a, b, z1, 3.4, longX ? noise(a * .8 + seed2, b * 9) : noise(a * 9, b * .8 + seed2));
+          paint(a, b, z1, litLevel(0, 0, 1), longX ? noise(a * .8 + seed2, b * 9) : noise(a * 9, b * .8 + seed2));
         for (let a = x0; a <= x1; a += step) for (let b = z0; b <= z1; b += step) {
           const g = noise(a * .8 + seed2, b * 9);
-          paint(a, y1, b, 2.3, g);
-          paint(a, y0, b, 1.5, g);
+          paint(a, y1, b, litLevel(0, 1, 0), g);
+          paint(a, y0, b, litLevel(0, -1, 0), g);
         }
         for (let a = y0; a <= y1; a += step) for (let b = z0; b <= z1; b += step) {
           const g = noise(a * .8 + seed2, b * 9);
-          paint(x1, a, b, 1.2, g);
-          paint(x0, a, b, 2.0, g);
+          paint(x1, a, b, litLevel(1, 0, 0), g);
+          paint(x0, a, b, litLevel(-1, 0, 0), g);
         }
       },
       plot(x, y, z, color) {
@@ -206,6 +206,8 @@ const KIT_RENDER = {
         const ly = col1[0] * wx + col1[1] * wy + col1[2] * wz;
         return [ox + lx / sc, oy + ly / sc];
       },
+      /* 世界法线 → 光照档位（0~4）：构件用它代替写死的亮暗 */
+      lit: (nx, ny, nz) => litLevel(nx, ny, nz),
       rampOf, rgb, hash, noise, lerp, clamp,
       shadow: (r, strength, dither) => {
         castShadow(ox, oy, pz + .01, r * sc, strength == null ? 1 : strength, dither);

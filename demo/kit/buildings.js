@@ -18,7 +18,8 @@ function kitWoodWall(a, z, base, seed) {
   const tone = hash(plank, seed);
   const foot = z < .55 ? -1 : 0;
   const sun = z > 1.9 ? 1 : 0;
-  const level = clamp(base + (tone > .78 ? 1 : tone < .16 ? -1 : 0) + seam + foot + sun, 0, 4);
+  /* base 可能是光照算出的浮点：索引色阶前必须取整，否则 ramp[1.98] 是 undefined */
+  const level = clamp(Math.round(base) + (tone > .78 ? 1 : tone < .16 ? -1 : 0) + seam + foot + sun, 0, 4);
   return rampOf(KIT_WOOD)[level];
 }
 
@@ -58,10 +59,12 @@ KIT.register({
     const balD = ctx.params.balconyDepth || 0;
     const balRail = ctx.params.balconyRail || 0;
 
+    /* 墙面亮度由光源决定，不写死：+y 面与 +x 面各自按法线取档 */
+    const litY = ctx.lit(0, 1, 0), litX = ctx.lit(1, 0, 0);
     for (let a = x0; a <= x1; a += step) for (let z = 0; z <= h; z += step)
-      ctx.plot(a, y1, z, kitWoodWall(a, z, 3, seed));
+      ctx.plot(a, y1, z, kitWoodWall(a, z, litY, seed));
     for (let a = y0; a <= y1; a += step) for (let z = 0; z <= h; z += step)
-      ctx.plot(x1, a, z, kitWoodWall(a, z, 2, seed + 7));
+      ctx.plot(x1, a, z, kitWoodWall(a, z, litX, seed + 7));
 
     const nw = ctx.params.windows | 0;
     for (let i = 0; i < nw; i++) {
@@ -93,7 +96,7 @@ KIT.register({
       const bz = h * .55, bx0 = x0 + .35, bx1 = x1 - .35, by = y1 + balD;
       for (let a = bx0; a <= bx1; a += step)
         for (let b = y1; b <= by; b += step)
-          ctx.plot(a, b, bz, kitWoodWall(a, bz, 2, seed + 3));
+          ctx.plot(a, b, bz, kitWoodWall(a, bz, ctx.lit(0, 1, 0) - .4, seed + 3));
       for (let a = bx0; a <= bx1; a += step)
         for (let z = bz - .16; z < bz; z += .04)
           ctx.plot(a, by, z, rampOf(KIT_WOOD_DARK)[2]);

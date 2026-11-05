@@ -5,36 +5,29 @@
  * 等距投影 / 深度缓冲 / 球体+胶囊+盒子 / 5 级色阶 / Bayer 抖动 /
  * 投影阴影 / 深度边缘
  *
- * 引擎级设施（跨场景复用）：
- *   capture 像素缓存  —— 树/花草"生成一次、每帧平移"的风动基础
- *   staticShadow 联动 —— 影子里的草/水/叶自动变暗
- *   bakeOcclusion()   —— 屏幕空间 AO，物体脚下落地感
+ * 引擎级设施：capture 像素缓存（风动基础）/ staticShadow 联动 / bakeOcclusion()。
  * ------------------------------------------------------------------ */
 
-/* 画布尺寸：默认 360×280，可用 PP_W / PP_H 覆盖（竖构图场景需要）。
- * PP_FULLSCREEN=true 时画布铺满浏览器窗口（像素数 = 窗口 / PP_SCALE）。
- * 尺寸变化走 PP_setSize() 重建全部缓冲，并回调 window.PP_ONRESIZE
- * （场景在里面重跑 bake）。 */
+/* 画布尺寸：PP_W/PP_H 覆盖；PP_FULLSCREEN=true 时铺满窗口（像素数 = 窗口 / PP_SCALE）。
+   尺寸变化走 PP_setSize() 重建缓冲，并回调 window.PP_ONRESIZE（场景重跑 bake）。 */
 let W = window.PP_W || 380, H = window.PP_H || 560;
 const S = window.PP_SCALE || 11;
 const SIN = 0.5, COS = Math.sqrt(3) / 2, R2 = Math.SQRT2;
 let OX = W / 2 + (window.PP_ORIGIN_X || 0);
 let OY = H / 2 + (window.PP_ORIGIN_Y == null ? 18 : window.PP_ORIGIN_Y);
-const SHADOW_X = 1.3, SHADOW_Y = -0.12;
 
 /* 全局光照配置（兼容 Studio 光照系统，默认等距斜上方平行光） */
 const LIGHT = window.LIGHT || {
-  dir: { x: -0.55, y: -0.6, z: 0.58 },
-  shadow: { x: 1.3, y: -0.12 },
+  /* 方向光：x/y 光来自哪侧，z 高度角；构件不自己定义光源。阴影由它派生。 */
+  dir: { x: -0.22, y: -0.5, z: 0.84 },
+  shadow: { x: 0.39, y: 0.89 },
   tint: [1, 1, 1],
   ambient: 1,
   vignette: 0,
   points: [],          /* [{x,y,z,r,color,power}] 点光源（路灯等） */
 };
-
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
-
 /* 地面材质标记：KIND_GRASS 的像素才长草，球场/屋顶上自动没有草 */
 const KIND_NONE = 0, KIND_GRASS = 3;
 
@@ -128,6 +121,13 @@ function tint(i, r, g, b) {
 }
 
 /* 30° 正交等距投影 */
+/* 世界法线 → 色阶档位（0~4）。由 LIGHT.dir 驱动：光从哪边来，朝那边的面就亮。 */
+function litLevel(nx, ny, nz) {
+  const d = LIGHT.dir;
+  const l = clamp(-(d.x * nx + d.y * ny) + d.z * nz, 0, 1);
+  return clamp(1.1 + 2.6 * Math.pow(l, 1.3), 0, 4);
+}
+
 function project(x, y, z) {
   const u = (x - y) / R2, v = (x + y) / R2;
   return {
@@ -235,12 +235,13 @@ function box(x0, y0, z0, x1, y1, z1, c, seed = 0) {
     pix[i] = ramp[clamp(Math.floor(base + (grain - .5) * 1.3 + (bayerAt(ix, iy) - .5) * .5), 0, 4)];
   };
   const step = .045, longX = x1 - x0 >= y1 - y0;
+  const lvTop = litLevel(0, 0, 1), lvY = litLevel(0, 1, 0), lvX = litLevel(1, 0, 0);
   for (let a = x0; a <= x1; a += step) for (let b = y0; b <= y1; b += step)
-    paint(a, b, z1, 3.4, longX ? noise(a * .8 + seed, b * 9) : noise(a * 9, b * .8 + seed));
+    paint(a, b, z1, lvTop, longX ? noise(a * .8 + seed, b * 9) : noise(a * 9, b * .8 + seed));
   for (let a = x0; a <= x1; a += step) for (let b = z0; b <= z1; b += step)
-    paint(a, y1, b, 2.3, noise(a * .8 + seed, b * 9));
+    paint(a, y1, b, lvY, noise(a * .8 + seed, b * 9));
   for (let a = y0; a <= y1; a += step) for (let b = z0; b <= z1; b += step)
-    paint(x1, a, b, 1.2, noise(a * .8 + seed, b * 9));
+    paint(x1, a, b, lvX, noise(a * .8 + seed, b * 9));
 }
 
 /* 投影阴影：把 (x,y,z) 沿光方向压到地面，写椭圆 mask */
@@ -488,8 +489,7 @@ function drawArrow(sx, sy, time) {
 function fit() {
   /* 全屏模式：画布缓冲已经是窗口尺寸（1 画布像素 = 1 CSS 像素），1:1 显示 */
   if (window.PP_FULLSCREEN) {
-    canvas.style.width = W + 'px';
-    canvas.style.height = H + 'px';
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
     return;
   }
   const fitScale = Math.min(window.innerWidth / W, window.innerHeight / H);

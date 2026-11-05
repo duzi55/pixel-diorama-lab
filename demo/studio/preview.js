@@ -167,16 +167,17 @@ function PV_makeCtx(p) {
       };
       const step = .045, longX = x1 - x0 >= y1 - y0;
       for (let a = x0; a <= x1; a += step) for (let b = y0; b <= y1; b += step)
-        paint(a, b, z1, 3.4, longX ? noise(a * .8 + sd, b * 9) : noise(a * 9, b * .8 + sd));
+        paint(a, b, z1, litLevel(0, 0, 1), longX ? noise(a * .8 + sd, b * 9) : noise(a * 9, b * .8 + sd));
       for (let a = x0; a <= x1; a += step) for (let b = z0; b <= z1; b += step) {
         const g = noise(a * .8 + sd, b * 9);
-        paint(a, y1, b, 2.3, g); paint(a, y0, b, 1.5, g);
+        paint(a, y1, b, litLevel(0, 1, 0), g); paint(a, y0, b, litLevel(0, -1, 0), g);
       }
       for (let a = y0; a <= y1; a += step) for (let b = z0; b <= z1; b += step) {
         const g = noise(a * .8 + sd, b * 9);
-        paint(x1, a, b, 1.2, g); paint(x0, a, b, 2.0, g);
+        paint(x1, a, b, litLevel(1, 0, 0), g); paint(x0, a, b, litLevel(-1, 0, 0), g);
       }
     },
+    lit: (nx, ny, nz) => litLevel(nx, ny, nz),
     rampOf, rgb, hash, noise, lerp, clamp,
     shadow: (r, s, d) => castShadow(0, 0, .01, r * sc, s == null ? 1 : s, d),
     shadowAt: (x, y, z, r, s, d) => { const q = unScaled(x, y); castShadow(q[0], q[1], z * sc, r * sc, s, d); },

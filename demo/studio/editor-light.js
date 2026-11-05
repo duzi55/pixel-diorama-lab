@@ -26,9 +26,9 @@ function ED_initLightingUI() {
     LIGHT.dir.x = -Math.cos(a) * horiz;
     LIGHT.dir.y = -Math.sin(a) * horiz;
     LIGHT.dir.z = hz;
-    /* 阴影方向与光照水平分量一致（影子投向背光侧） */
-    LIGHT.shadow.x = 1.3 * Math.cos(a) - 0.12 * Math.sin(a);
-    LIGHT.shadow.y = -1.3 * Math.sin(a) - 0.12 * Math.cos(a);
+    /* 阴影投向背光侧 = 光传播方向的水平投影（与 dir.xy 同向） */
+    LIGHT.shadow.x = 1.5 * LIGHT.dir.x / Math.max(.2, LIGHT.dir.z);
+    LIGHT.shadow.y = 1.5 * LIGHT.dir.y / Math.max(.2, LIGHT.dir.z);
     document.getElementById('v-lightz').textContent = hz.toFixed(2);
     document.getElementById('v-lightrot').textContent = lr.value + '°';
     ED.dirty = true;
@@ -251,7 +251,8 @@ function ED_sunPos() {
   const horiz = Math.hypot(LIGHT.dir.x, LIGHT.dir.y) || .001;
   /* 光传播方向的反向 = 光源所在侧 */
   const ux = -LIGHT.dir.x / horiz, uy = -LIGHT.dir.y / horiz;
-  const dist = (1 - LIGHT.dir.z) * maxR;
+  /* 绘制半径留一个下限，顶光时太阳也看得见（不被中心物体盖住） */
+  const dist = (0.28 + 0.62 * (1 - LIGHT.dir.z)) * maxR;
   return { x: cx + ux * dist, y: cy + uy * dist, cx, cy, maxR };
 }
 
