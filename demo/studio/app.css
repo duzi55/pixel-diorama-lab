@@ -343,3 +343,15 @@ button.primary:disabled { opacity: .45; cursor: default; }
 .ai-settings input:focus, .ai-settings select:focus { border-color: var(--accent); }
 .ai-settings .actions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; margin-top: 6px; }
 .ai-settings .set-status { margin-right: auto; font-size: 11px; color: var(--accent); }
+
+/* ---------- 预览里的太阳控件（方向光） ---------- */
+.pv-sun {
+  position: absolute; top: 10px; right: 10px; z-index: 3;
+  width: 34px; height: 34px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 18px; line-height: 1;
+  background: rgba(30, 30, 38, .72); border: 1px solid var(--line);
+  color: #ffd86a; cursor: grab; user-select: none; touch-action: none;
+  box-shadow: 0 2px 10px rgba(0,0,0,.35);
+}
+.pv-sun:hover { border-color: var(--accent); }
+.pv-sun.dragging { cursor: grabbing; background: rgba(60, 50, 20, .9); border-color: var(--accent); }
