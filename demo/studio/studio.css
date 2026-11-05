@@ -748,3 +748,41 @@ body.ed-paper .tab.active {
   border-bottom-color: var(--accent);
 }
 body.ed-paper .bar { padding-top: 4px; padding-bottom: 4px; }
+
+/* ---------- 构件库：搜索 + 缩略图网格 ---------- */
+.kit-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 2px;
+}
+.kit-grid > .empty-note { grid-column: 1 / -1; }
+.kit-card {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 6px 4px 5px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fffdf8;
+  color: var(--fg);
+  cursor: pointer;
+  font: inherit;
+  min-width: 0;
+  transition: border-color .12s ease, box-shadow .12s ease;
+}
+.kit-card:hover { border-color: var(--accent-2); }
+.kit-card.on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.kit-card img {
+  width: 100%; height: 42px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.kit-card .nm {
+  font-size: 10.5px; line-height: 1.2;
+  max-width: 100%;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}

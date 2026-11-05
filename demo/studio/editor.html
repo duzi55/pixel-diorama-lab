@@ -41,7 +41,7 @@
   </div>
 
   <!-- 浮动：左侧工具箱 -->
-  <aside class="float-panel fp-left fp-collapsed" id="fp-left">
+  <aside class="float-panel fp-left" id="fp-left">
     <div class="fp-head">
       <span>工具箱</span>
       <button class="fp-collapse" id="tg-left">–</button>
@@ -51,6 +51,13 @@
         <h3>从图片还原</h3>
         <button id="btn-recon-open" class="primary" style="width:100%">🖼 粘贴图片还原场景</button>
         <div class="hint" style="margin:6px 0 0">给一张等距场景截图，AI 用现有素材摆出来</div>
+      </div>
+
+      <div class="sec">
+        <h3>构件库 <span id="kit-count" style="opacity:.55"></span></h3>
+        <input type="search" id="kit-search" placeholder="搜索构件…" style="width:100%;margin-bottom:8px">
+        <div class="pill-row" id="cats" style="margin-bottom:8px"></div>
+        <div id="comp-list" class="kit-grid"></div>
       </div>
 
       <div class="sec">
@@ -122,10 +129,7 @@
         <div class="thinking-panel tp" id="terrain-thinking" style="display:none"></div>
       </div>
 
-      <div class="sec">
-        <h3>构件库（点选放置）</h3>
-        <div class="pill-row" id="cats" style="margin-bottom:8px"></div>
-        <div id="comp-list" style="max-height:200px;overflow-y:auto"></div>
+
       </div>
     </div>
   </aside>
@@ -322,6 +326,8 @@ window.PP_W=520;window.PP_H=380;window.PP_SCALE=11;window.PP_ORIGIN_X=0;window.P
 <script src="../kit/ref-props-small.js"></script>
 <script src="../kit/figures.js"></script>
 <script src="../kit/crowd.js"></script>
+<script src="../kit/behavior.js"></script>
+<script src="../kit/behavior-extra.js"></script>
 <script src="terrain.js"></script>
 <script src="terrain-common.js"></script>
 <script src="terrain-render.js"></script>
@@ -332,6 +338,7 @@ window.PP_W=520;window.PP_H=380;window.PP_SCALE=11;window.PP_ORIGIN_X=0;window.P
 <script src="editor-scene.js"></script>
 <script src="editor-render.js"></script>
 <script src="editor-light.js"></script>
+<script src="editor-kit.js"></script>
 <script src="editor.js"></script>
 <script src="editor-recon.js"></script>
 <script src="editor-start.js"></script>

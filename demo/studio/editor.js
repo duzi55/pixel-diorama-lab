@@ -89,56 +89,6 @@ function ED_buildMats() {
   }
 }
 
-/* 分类筛选 + 构件列表 */
-function ED_buildCats() {
-  const box = document.getElementById('cats');
-  const cats = [...new Set(KIT.list().map(c => c.category))];
-  let cur = '';
-  const list = document.getElementById('comp-list');
-
-  const renderList = () => {
-    list.innerHTML = '';
-    const comps = KIT.list().filter(c => !cur || c.category === cur);
-    if (!comps.length) {
-      list.innerHTML = '<div class="empty-note">这个分类还没有构件</div>';
-      return;
-    }
-    for (const c of comps) {
-      const it = document.createElement('div');
-      it.className = 'item' + (ED.placing === c.id ? ' on' : '');
-      it.innerHTML = `<span>${ED_esc(c.name)}</span><span class="cat">${ED_esc(c.id)}</span>`;
-      it.title = c.desc || c.id;
-      it.addEventListener('click', () => {
-        ED.placing = c.id;
-        ED_setTool('place');
-        renderList();
-        studioStatus(`放置「${c.name}」—— 点画布放置，滚轮旋转，Esc 取消`);
-      });
-      list.appendChild(it);
-    }
-  };
-
-  const renderCats = () => {
-    box.innerHTML = '';
-    const all = document.createElement('button');
-    all.className = 'pill' + (cur === '' ? ' on' : '');
-    all.textContent = '全部';
-    all.addEventListener('click', () => { cur = ''; renderCats(); renderList(); });
-    box.appendChild(all);
-    for (const c of cats) {
-      const b = document.createElement('button');
-      b.className = 'pill' + (cur === c ? ' on' : '');
-      b.textContent = KIT_CATEGORY[c] || c;
-      b.addEventListener('click', () => { cur = c; renderCats(); renderList(); });
-      box.appendChild(b);
-    }
-  };
-
-  renderCats();
-  renderList();
-  ED.refreshComponents = renderList;
-}
-
 function ED_setTool(t) {
   if (ED_toolLocked(t)) {
     studioStatus('底图模式下该工具不可用', 'err');
