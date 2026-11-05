@@ -169,6 +169,9 @@ for (const s of scripts) {
   }
 }
 
+/* 编辑器开屏不再自动播种：测试显式铺一个场景（覆盖渲染管线） */
+vm.runInContext('ED_seedDemo()', context);
+
 /* ---- 跑几帧 ---- */
 for (let i = 0; i < 3; i++) {
   const q = sandbox.__rafQueue.splice(0, sandbox.__rafQueue.length);

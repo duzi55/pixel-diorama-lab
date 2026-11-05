@@ -50,7 +50,7 @@ function ED_init() {
   ED_bindPanels();
 
   ED_initLightingUI();
-  ED_seedDemo();
+  /* 不再默认塞场景：空态由 editor-start.js 接管 */
   ED_setBg(ED.bg);
   ED_fit();
   addEventListener('resize', ED_fit);

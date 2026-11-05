@@ -337,28 +337,74 @@ window.PP_SCENE = {
 
 ### 4.0d 图片还原场景（图片 → 场景）
 
-编辑器左侧「从图片还原」→ 粘贴 / 拖入 / 选择一张等距场景截图 → AI 用**现有构件库**摆出场景。
+编辑器「从图片还原」→ 粘贴 / 拖入 / 选择一张等距场景截图 → AI 用**现有构件库**摆出场景。
 
 ```
-图片 → 压缩 1024px → POST /api/reconstruct（带 KIT.list() 清单 + 画布尺寸）
+图片 → 压缩 1024px → POST /api/ai/jobs（kind: reconstruct）
      → AI 读图，输出 { terrain, objects, missing }
      → terrain 走 TERRAIN_SHAPES.apply
      → objects 的 (u,v) 反投影成世界坐标，z 取 TERRAIN.heightAt
-     → 缺的素材列成 missing，可逐项「生成并入库」
+     → missing 逐项处理：选现有素材 / 生成新素材
 ```
 
-**坐标约定**：AI 不自己算世界坐标，只给画面相对坐标 `u/v ∈ [0,1]`；
-前端用 `unproject(u*W, v*H)` 反投影。这样换画布尺寸也不影响还原逻辑。
+**坐标约定**：AI 不算世界坐标，只给画面相对坐标 `u/v ∈ [0,1]`；
+前端用 `unproject(u*W, v*H)` 反投影。换画布尺寸不影响还原逻辑。
 
-**missing → 生成 → 入库**：每项调用 `/api/generate`（brief 当需求）→ `/api/save`
-（三道闸：语法 → 沙箱实画 → 合并语法）→ 当前页用 `new Function('KIT', code)` 动态注册，
-立即可用；刷新后从文件加载。已存在的 id 保存会失败并提示，不会覆盖。
+**missing 不是死路**：每项会排出**候选素材**（同分类 +8、关键词每命中 +2，
+中英文 2-gram），用户可以：
 
-**还原结果就是普通场景**：拖拽 / 缩放 / 旋转 / 碰撞体 / 保存全部可用。
-AI 选错的构件可以删掉手动换，位置不对可以拖——AI 只做第一版摆位。
+| 操作 | 行为 |
+|------|------|
+| 选一个候选 →「放到场景」 | 用该构件替换，位置沿用 AI 给的 `u/v/scale/rot` |
+| 「生成新素材」 | `/api/generate`（brief 当需求）→ `/api/save` 三道闸 → 动态注册 |
+| 不处理 | 忽略该项 |
 
 服务端校验（`normalizeRecon`）：`kind` 必须在当前构件库清单里，否则自动转进 missing；
-`params` 只保留该构件真实存在的键并夹到区间；`u/v` 夹到 `[0,1]`。
+`params` 只保留真实存在的键并夹到区间；`u/v` 夹到 `[0,1]`；
+missing 的 `category` 接受 `vehicle/structure` 等运行时分类。
+
+### 4.0e 空态与「一句话建场景」
+
+进入编辑器**不再默认塞一个村落**，而是一个起点：
+
+```
+        造一个小世界
+  [ 例：秋日山村，一条石板路穿过针叶林… ]  [生成]
+  [🖼 从图片还原] [载入已保存…] [空白开始]
+```
+
+- 输入框回车（或点「生成」）→ `POST /api/ai/jobs`（kind: `compose`）
+- AI 返回与图片还原同构的 `{ terrain, objects, missing }`
+- 结果直接落到画布，空态消失，进入普通编辑
+- `compose` 与 `reconstruct` 共用 `ai-recon.mjs` 的校验与落地逻辑，只是提示词不同
+
+空态期间左右浮动面板淡出（`body.ed-empty-mode`），把画面让给入口；
+「空白开始」后恢复。
+
+### 4.0f AI 任务表（关页面不丢结果）
+
+`demo/studio/jobs.mjs`。所有 AI 调用都是**后台任务**，SSE 只是订阅：
+
+```
+POST /api/ai/jobs            { kind, payload, dedupeKey? } → { jobId }
+GET  /api/ai/jobs/:id        → { status, progress, result, error }
+GET  /api/ai/jobs/:id/stream?since=N → SSE（回放历史 + 实时，终态自动 end）
+GET  /api/ai/jobs?dedupeKey= → { jobs: [...] }（响应丢失时找回）
+```
+
+关键行为：
+
+| 场景 | 行为 |
+|------|------|
+| 关页面 / 刷新 | 任务继续跑，结果留在内存表；回来凭 `jobId` 自动恢复 |
+| POST 响应丢失 | 前端提交前先写 `{ requestId }`，服务端按 `dedupeKey` 复用任务，不重复计费 |
+| 网络抖动 | 恢复失败只保留记录，下次再试（只有 HTTP 404 才清） |
+| 服务重启 | 内存表清空 → 404 → 前端提示重跑 |
+| 并发 | 最多 3 个 running，超出返回 429 |
+| 清理 | 终态保留 30 分钟，最多 20 条 |
+
+前端记录键按任务分开：`pd_job_recon`（图片还原）、`pd_job_compose`（一句话建场景），
+互不覆盖。轮询间隔 700ms；SSE 断线可带 `since=<seq>` 续传。
 
 ### 4.1 布局
 

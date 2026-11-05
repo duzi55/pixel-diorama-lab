@@ -15,6 +15,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { AI_FN_BY_KIND, createJob, getJob, findByDedupe, runningCount, startJob, snapshot, attachSSE, listJobs } from './jobs.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEMO_DIR = path.resolve(__dirname, '..');
@@ -256,6 +257,52 @@ const server = http.createServer(async (req, res) => {
      请求体经查询参数太长，改为：POST /api/generate-stream 先拿 taskId，
      再 GET /api/progress/<taskId> 收 SSE。简化实现：body 先读入，
      用 GET 式 SSE 不方便带 body —— 这里用单连接：POST 且 Accept: text/event-stream。 */
+  /* AI 任务：创建 / 查询 / SSE 订阅（关闭页面不丢结果） */
+  if (url.pathname === '/api/ai/jobs' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const fnName = AI_FN_BY_KIND[body.kind];
+      if (!fnName) return sendJSON(res, 400, { ok: false, error: '未知任务类型: ' + body.kind });
+
+      /* 幂等：同 kind 同 dedupeKey 的已有任务直接复用，避免重复计费 */
+      if (body.dedupeKey) {
+        const hit = findByDedupe(body.kind, body.dedupeKey);
+        if (hit) return sendJSON(res, 200, { ok: true, jobId: hit.id, status: hit.status, reused: true });
+      }
+
+      if (runningCount() >= 3) {
+        return sendJSON(res, 429, { ok: false, error: '同时进行的 AI 任务太多，等一个跑完再试' });
+      }
+
+      const job = createJob(body.kind, { dedupeKey: body.dedupeKey });
+      startJob(job, fnName, body.payload || {});
+      return sendJSON(res, 200, { ok: true, jobId: job.id, status: job.status });
+    } catch (e) {
+      return sendJSON(res, 500, { ok: false, error: String(e && e.message || e) });
+    }
+  }
+
+  if (url.pathname === '/api/ai/jobs' && req.method === 'GET') {
+    const q = new URL(req.url, 'http://x').searchParams;
+    return sendJSON(res, 200, {
+      ok: true,
+      jobs: listJobs({ kind: q.get('kind'), dedupeKey: q.get('dedupeKey') }),
+    });
+  }
+
+  if (url.pathname.startsWith('/api/ai/jobs/')) {
+    const rest = url.pathname.slice('/api/ai/jobs/'.length);
+    const isStream = rest.endsWith('/stream');
+    const id = isStream ? rest.slice(0, -'/stream'.length) : rest;
+    const job = getJob(id);
+    if (!job) return sendJSON(res, 404, { ok: false, error: '任务不存在或已过期（服务可能重启过）' });
+
+    if (!isStream) return sendJSON(res, 200, snapshot(job));
+
+    const since = Number(new URL(req.url, 'http://x').searchParams.get('since')) || 0;
+    return attachSSE(req, res, job, since);
+  }
+
   const AI_ROUTES = {
     '/api/generate': 'generate',
     '/api/generate-from-spec': 'generateFromSpec',

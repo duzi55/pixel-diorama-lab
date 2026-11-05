@@ -71,10 +71,12 @@ const RECON_SPEC = `
 小装饰（石头、花）不要列。每项：
 
 \`\`\`json
-{ "name": "风车", "category": "building", "brief": "一座带四片叶片的木制风车，高约 6 单位", "reason": "清单里没有风车" }
+{ "name": "风车", "category": "building", "brief": "一座带四片叶片的木制风车，高约 6 单位", "reason": "清单里没有风车",
+  "u": 0.62, "v": 0.35, "scale": 1, "rot": 0 }
 \`\`\`
 
 brief 要能直接作为"生成一个构件"的需求描述。
+**u/v/scale/rot 尽量给** —— 用户选中替代素材时，会直接放在这个位置。
 
 ## 输出
 
@@ -92,6 +94,15 @@ const RECON_SCHEMA = {
   required: ['objects', 'missing'],
 };
 
+function kitLinesOf(kit) {
+  return kit.map(c => {
+    const ps = c.params
+      ? Object.entries(c.params).map(([k, p]) => `${k}(${p.def}${p.max != null ? '~' + p.max : ''})`).join(', ')
+      : '';
+    return `- ${c.id}（${c.name}）[${c.category}] ${c.desc || ''}${ps ? ' · 参数: ' + ps : ''}`;
+  }).join('\n');
+}
+
 /**
  * 图片 → 场景。
  * @param {object} req { images: string[], W, H, kit: [{id,name,category,desc,params}] }
@@ -101,12 +112,6 @@ export async function reconstructScene(req, onProgress) {
     throw new Error('还原场景必须提供一张图片');
   }
   const kit = Array.isArray(req.kit) ? req.kit : [];
-  const kitLines = kit.map(c => {
-    const ps = c.params
-      ? Object.entries(c.params).map(([k, p]) => `${k}(${p.def}${p.max != null ? '~' + p.max : ''})`).join(', ')
-      : '';
-    return `- ${c.id}（${c.name}）[${c.category}] ${c.desc || ''}${ps ? ' · 参数: ' + ps : ''}`;
-  }).join('\n');
 
   const prompt = `${RECON_SPEC}
 
@@ -117,11 +122,92 @@ export async function reconstructScene(req, onProgress) {
 
 ## 现有构件库（${kit.length} 个）
 
-${kitLines || '（空）'}
+${kitLinesOf(kit) || '（空）'}
 
 请分析图片并输出场景 JSON。`;
 
   const raw = await runClaude(prompt, RECON_SCHEMA, onProgress, req.images);
+  return { ok: true, ...normalizeRecon(raw, kit) };
+}
+
+/* ---------------- 文本 → 场景（一句话建场景） ---------------- */
+
+const COMPOSE_SPEC = `
+你是一个等距像素微缩景观项目的**场景设计师**。
+
+## 任务
+
+根据用户的一句话描述，设计一个能直接渲染的场景 JSON：
+
+1. 地形用形状原语（草地/泥土/沙地/石板/水）
+2. 物体从「现有构件库」里挑 —— **kind 必须来自清单**，不能自造
+3. 清单覆盖不了的主体（风车、桥、特有建筑）放进 missing，不要硬凑
+4. 布局要合理：主体在中心，路径连通，物体不重叠
+
+## 坐标
+
+物体位置用画面相对坐标 u/v（0 = 左/上，1 = 右/下）。
+前端会反投影成世界坐标，z 由地形高度决定。
+**v 越大越靠前**（画家算法），近景物体 v 大、scale 大。
+
+## 地形原语（按数组顺序叠加）
+
+\`\`\`json
+{ "type": "island", "cx": 0, "cy": 0, "rx": 9, "ry": 7, "mat": "grass", "z": 0, "wobble": 0.14 }
+{ "type": "rect",   "x": -4, "y": 2, "w": 6, "d": 4, "mat": "stone", "z": 0 }
+{ "type": "path",   "mat": "stone", "width": 1.0, "points": [[-7,4],[-1,1],[3,-1],[7,-5]] }
+{ "type": "hill",   "cx": 1, "cy": -2, "r": 2.6, "h": 0.75, "falloff": 1.5 }
+\`\`\`
+
+- mat: \`grass|soil|sand|stone|water\`
+- 世界单位：1 ≈ 人高；常见场景岛 rx 8~14
+
+## 物体
+
+\`\`\`json
+{ "kind": "broadleaf", "u": 0.32, "v": 0.41, "scale": 1, "rot": 0, "params": {}, "reason": "左侧大树" }
+\`\`\`
+
+## missing
+
+\`\`\`json
+{ "name": "风车", "category": "building", "brief": "木制风车，高 6 单位", "reason": "清单里没有", "u": 0.62, "v": 0.35, "scale": 1 }
+\`\`\`
+
+## 设计原则
+
+- **留白**：不要摆满，画面边缘留空
+- **层次**：近景/中景/远景至少两档（靠 v 和 scale 区分）
+- **成组**：同类物体成组出现，不要均匀撒点
+- **克制**：主体 1~3 个，其余是陪衬
+`;
+
+/**
+ * 文本描述 → 场景。
+ * @param {object} req { prompt, W, H, kit }
+ */
+export async function composeScene(req, onProgress) {
+  const kit = Array.isArray(req.kit) ? req.kit : [];
+  const desc = String(req.prompt || '').trim();
+  if (!desc) throw new Error('请先描述你想要的场景');
+
+  const prompt = `${COMPOSE_SPEC}
+
+## 场景画布
+
+- 画布 ${req.W || 520}×${req.H || 380} 像素，等距投影
+
+## 现有构件库（${kit.length} 个）
+
+${kitLinesOf(kit) || '（空）'}
+
+## 用户描述
+
+${desc}
+
+请设计这个场景并输出 JSON。`;
+
+  const raw = await runClaude(prompt, RECON_SCHEMA, onProgress);
   return { ok: true, ...normalizeRecon(raw, kit) };
 }
 
@@ -165,7 +251,7 @@ function normalizeRecon(raw, kit) {
     .filter(t => t && ['island', 'rect', 'path', 'hill'].includes(t.type))
     .map(t => ({ ...t }));
 
-  const cats = ['tree', 'building', 'plant', 'prop', 'figure'];
+  const cats = ['tree', 'building', 'plant', 'prop', 'figure', 'vehicle', 'structure'];
   const miss = [
     ...missing,
     ...(raw.missing || []).map(m => ({
@@ -173,6 +259,11 @@ function normalizeRecon(raw, kit) {
       category: cats.includes(m.category) ? m.category : 'prop',
       brief: String(m.brief || m.name || ''),
       reason: String(m.reason || ''),
+      /* 可选位置：用户选替代素材时直接摆过去 */
+      u: m.u == null ? null : clampNum(m.u, 0, 1),
+      v: m.v == null ? null : clampNum(m.v, 0, 1),
+      scale: m.scale == null ? 1 : clampNum(m.scale, .3, 2.5),
+      rot: m.rot == null ? 0 : Math.round(clampNum(m.rot, 0, 359)),
     })),
   ];
 

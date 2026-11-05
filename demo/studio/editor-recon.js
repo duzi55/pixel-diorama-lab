@@ -20,8 +20,22 @@ const RECON = {
 };
 
 const RECON_MAX_EDGE = 1024;
+const RECON_JOB_KEY = 'pd_job_recon';   /* localStorage：图片还原任务的 { requestId, jobId } */
 
 const reconEl = id => document.getElementById(id);
+
+/** 当前构件库精简清单（发给 AI 挑素材；图片还原与一句话建场景共用） */
+function reconKitList() {
+  return KIT.list().map(c => ({
+    id: c.id,
+    name: c.name,
+    category: c.category,
+    desc: c.desc,
+    params: Object.fromEntries(
+      Object.entries(c.params || {}).map(([k, p]) => [k, { def: p.def, max: p.max }])
+    ),
+  }));
+}
 
 /* ---------------- 图片处理 ---------------- */
 
@@ -64,37 +78,6 @@ async function reconSetImage(file) {
   }
 }
 
-/* ---------------- SSE 读取 ---------------- */
-
-async function reconReadSSE(res, onEvent) {
-  const reader = res.body.getReader();
-  const dec = new TextDecoder();
-  let buf = '', result = null, error = null;
-
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    let i;
-    while ((i = buf.indexOf('\n\n')) >= 0) {
-      const chunk = buf.slice(0, i);
-      buf = buf.slice(i + 2);
-      let event = 'message', data = '';
-      for (const line of chunk.split('\n')) {
-        if (line.startsWith('event:')) event = line.slice(6).trim();
-        else if (line.startsWith('data:')) data += line.slice(5).trim();
-      }
-      if (!data) continue;
-      let payload;
-      try { payload = JSON.parse(data); } catch { continue; }
-      if (event === 'done') result = payload;
-      else if (event === 'error') error = payload.error || '未知错误';
-      else if (onEvent) onEvent(event, payload);
-    }
-  }
-  return { result, error };
-}
-
 /* ---------------- 还原 ---------------- */
 
 async function reconRun() {
@@ -105,55 +88,126 @@ async function reconRun() {
   const prog = reconEl('recon-progress');
   btn.disabled = true;
   btn.textContent = '识别中…';
-  prog.textContent = '正在分析图片…';
+  prog.textContent = '正在提交任务…';
   reconEl('recon-result').innerHTML = '';
 
+  /* 先落"提交意图"再发请求：响应丢了也能靠 dedupeKey 找回 */
+  const requestId = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2));
+  const saveRec = jobId => localStorage.setItem(RECON_JOB_KEY, JSON.stringify({
+    v: 1, requestId, jobId: jobId || null, at: Date.now(),
+  }));
+  saveRec(null);
+
   try {
-    /* 把当前构件库的 id/name/desc/参数带给 AI，让它只挑已有的 */
-    const kit = KIT.list().map(c => ({
-      id: c.id,
-      name: c.name,
-      category: c.category,
-      desc: c.desc,
-      params: Object.fromEntries(
-        Object.entries(c.params || {}).map(([k, p]) => [k, { def: p.def, max: p.max }])
-      ),
-    }));
-
-    const res = await fetch('/api/reconstruct', {
+    const kit = reconKitList();
+    const res = await fetch('/api/ai/jobs', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
-      body: JSON.stringify({ images: [RECON.image], W, H, kit }),
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        kind: 'reconstruct',
+        dedupeKey: requestId,
+        payload: { images: [RECON.image], W, H, kit },
+      }),
     });
-    if (!res.ok) {
-      const d = await res.json().catch(() => ({}));
-      throw new Error(d.error || `HTTP ${res.status}`);
-    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
-    let result;
-    if ((res.headers.get('content-type') || '').includes('text/event-stream')) {
-      const r = await reconReadSSE(res, (ev, p) => {
-        if (ev === 'progress') prog.textContent = p.message || '推理中…';
-      });
-      if (r.error) throw new Error(r.error);
-      result = r.result;
-    } else {
-      result = await res.json();
-    }
-    if (!result || !Array.isArray(result.objects)) throw new Error('没有收到场景数据');
+    saveRec(data.jobId);
+    prog.textContent = '任务已在后台运行 —— 可以关闭页面，稍后回来接着看';
+    studioStatus('AI 任务已提交（关闭页面也不会丢）', 'busy');
 
-    RECON.result = result;
-    reconApply(result);
-    prog.textContent = `已还原 ${result.objects.length} 个物体` +
-      (result.terrain && result.terrain.length ? `、${result.terrain.length} 段地形` : '');
-    reconRenderMissing(result.missing || []);
+    const result = await reconFollowJob(data.jobId);
+    reconFinish(result);
+    localStorage.removeItem(RECON_JOB_KEY);
   } catch (e) {
     prog.textContent = '';
     studioStatus('还原失败：' + e.message, 'err');
+    localStorage.removeItem(RECON_JOB_KEY);
   } finally {
     RECON.running = false;
     btn.disabled = false;
     btn.textContent = '重新识别';
+  }
+}
+
+/** 轮询 job 直到结束；onProgress 缺省时写模态框 */
+async function reconFollowJob(jobId, onProgress) {
+  const prog = reconEl('recon-progress');
+  for (;;) {
+    const r = await fetch('/api/ai/jobs/' + encodeURIComponent(jobId));
+    const s = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(s.error || '任务查询失败');
+    if (s.progress && s.progress.message) {
+      if (onProgress) onProgress(s.progress.message);
+      else if (prog) prog.textContent = s.progress.message;
+    }
+    if (s.status === 'done') return s.result;
+    if (s.status === 'error') throw new Error(s.error || '任务失败');
+    await new Promise(res => setTimeout(res, 700));
+  }
+}
+
+/** 结果 → 画布 + missing 列表 */
+function reconFinish(result) {
+  if (!result || !Array.isArray(result.objects)) throw new Error('任务结果为空');
+  RECON.result = result;
+  reconApply(result);
+  const prog = reconEl('recon-progress');
+  if (prog) {
+    prog.textContent = `已还原 ${result.objects.length} 个物体` +
+      (result.terrain && result.terrain.length ? `、${result.terrain.length} 段地形` : '');
+  }
+  reconRenderMissing(result.missing || []);
+  if (typeof ED_hideEmpty === 'function') ED_hideEmpty();
+  /* 记录由调用方清理（图片还原与一句话建场景各用自己的 key） */
+}
+
+/** 页面加载时恢复未完成的图片还原任务 */
+async function reconResume() {
+  let rec = null;
+  try { rec = JSON.parse(localStorage.getItem(RECON_JOB_KEY) || 'null'); } catch { rec = null; }
+  if (!rec || (!rec.jobId && !rec.requestId)) return;
+  if (Date.now() - (rec.at || 0) > 2 * 3600_000) { localStorage.removeItem(RECON_JOB_KEY); return; }
+
+  const prog = reconEl('recon-progress');
+  try {
+    /* 只有 jobId 丢了（响应没回来）时用 dedupeKey 找回 */
+    let s = null;
+    if (rec.jobId) {
+      const r = await fetch('/api/ai/jobs/' + encodeURIComponent(rec.jobId));
+      if (r.status === 404) { localStorage.removeItem(RECON_JOB_KEY); return; }   /* 服务重启/TTL：明确清掉 */
+      s = await r.json();
+    } else if (rec.requestId) {
+      const r = await fetch('/api/ai/jobs?dedupeKey=' + encodeURIComponent(rec.requestId));
+      if (r.status === 404) { localStorage.removeItem(RECON_JOB_KEY); return; }
+      const list = await r.json();
+      s = list && list.jobs && list.jobs[0];
+    }
+
+    if (!s || !s.ok) { localStorage.removeItem(RECON_JOB_KEY); return; }
+
+    if (s.status === 'error') {
+      studioStatus('上次的 AI 任务失败：' + s.error, 'err');
+      localStorage.removeItem(RECON_JOB_KEY);
+      return;
+    }
+
+    reconEl('recon-modal').hidden = false;
+    if (s.status === 'running') {
+      RECON.running = true;
+      prog.textContent = '恢复上次任务…（后台仍在运行）';
+      studioStatus('上次的 AI 任务仍在后台运行', 'busy');
+      const result = await reconFollowJob(s.jobId, msg => { prog.textContent = msg; });
+      RECON.running = false;
+      reconFinish(result);
+      localStorage.removeItem(RECON_JOB_KEY);
+    } else if (s.status === 'done' && s.result) {
+      reconFinish(s.result);
+      localStorage.removeItem(RECON_JOB_KEY);
+      studioStatus('上次的 AI 任务已完成，结果已应用', 'ok');
+    }
+  } catch {
+    /* 网络抖动：保留记录，下次打开再试（不要丢掉还在跑的任务） */
   }
 }
 
@@ -194,28 +248,129 @@ function reconApply(res) {
   ED_refreshSel();
   ED_fit();
   ED.dirty = true;
+  if (typeof ED_hideEmpty === 'function') ED_hideEmpty();   /* 有内容就离开空态 */
 }
 
 /* ---------------- 缺失素材 ---------------- */
 
+let MISSING_PICK = new Map();   /* missing 索引 → 用户选中的 kind */
+
+/** 中英文 2-gram / 词：用于候选匹配 */
+function reconBigrams(text) {
+  const t = String(text || '').toLowerCase();
+  const out = new Set();
+  for (const seg of t.match(/[一-龥]+|[a-z0-9]{3,}/g) || []) {
+    if (/^[一-龥]+$/.test(seg)) {
+      for (let i = 0; i < seg.length - 1; i++) out.add(seg.slice(i, i + 2));
+    } else out.add(seg);
+  }
+  return out;
+}
+
+/** 给一个 missing 项排候选：同分类 +8，关键词每命中 +2 */
+function reconCandidates(m, limit) {
+  const q = reconBigrams(m.name + ' ' + m.brief + ' ' + (m.reason || ''));
+  return KIT.list()
+    .map(c => {
+      const hay = (c.id + ' ' + c.name + ' ' + (c.desc || '')).toLowerCase();
+      let score = c.category === m.category ? 8 : 0;
+      for (const g of q) if (hay.includes(g)) score += 2;
+      return { comp: c, score };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit || 6)
+    .map(x => x.comp);
+}
+
+
 function reconRenderMissing(list) {
   const box = reconEl('recon-result');
+  MISSING_PICK = new Map();
   if (!list.length) {
     box.innerHTML = '<div class="hint">画面元素都在现有素材库里，没有缺的。</div>';
     return;
   }
-  box.innerHTML = `<div class="hint" style="margin-bottom:4px">素材库缺 ${list.length} 项，可逐项生成并入库：</div>`;
-  for (const m of list) {
+  box.innerHTML = `<div class="hint" style="margin-bottom:4px">
+    素材库缺 ${list.length} 项 —— 选一个现有素材放上去，或生成新素材：</div>`;
+
+  list.forEach((m, i) => {
     const row = document.createElement('div');
-    row.className = 'recon-item';
-    row.innerHTML = `<div class="nm"><b>${esc(m.name)}</b><br>
-      <span class="why">${esc(m.category)} · ${esc(m.reason || m.brief || '')}</span></div>`;
-    const btn = document.createElement('button');
-    btn.textContent = '生成并入库';
-    btn.addEventListener('click', () => reconGenerate(m, btn));
-    row.appendChild(btn);
+    row.className = 'recon-missing';
+
+    const head = document.createElement('div');
+    head.className = 'recon-missing-head';
+    head.innerHTML = `<b>${esc(m.name)}</b>
+      <span class="why">${esc(m.category)} · ${esc(m.reason || m.brief || '')}</span>`;
+    row.appendChild(head);
+
+    /* 候选：同分类优先 + 关键词重合（纯前端，无依赖） */
+    const cands = document.createElement('div');
+    cands.className = 'recon-cands';
+    for (const c of reconCandidates(m)) {
+      const b = document.createElement('button');
+      b.className = 'cand';
+      b.textContent = c.name;
+      b.title = `${c.id} · ${c.desc || ''}`;
+      b.addEventListener('click', () => {
+        for (const x of cands.children) x.classList.remove('on');
+        b.classList.add('on');
+        MISSING_PICK.set(i, c.id);
+      });
+      cands.appendChild(b);
+    }
+    row.appendChild(cands);
+
+    const actions = document.createElement('div');
+    actions.className = 'recon-actions';
+
+    const place = document.createElement('button');
+    place.className = 'primary';
+    place.textContent = '放到场景';
+    place.addEventListener('click', () => {
+      const kind = MISSING_PICK.get(i);
+      if (!kind) { studioStatus('先选一个候选素材', 'err'); return; }
+      reconPlace(m, kind);
+      place.textContent = '已放置 ✓';
+      place.disabled = true;
+    });
+    actions.appendChild(place);
+
+    const gen = document.createElement('button');
+    gen.textContent = '生成新素材';
+    gen.addEventListener('click', () => reconGenerate(m, gen));
+    actions.appendChild(gen);
+
+    row.appendChild(actions);
     box.appendChild(row);
-  }
+  });
+}
+
+/** 用候选素材替换缺失项：位置沿用 AI 给的 u/v（缺省放中心偏下） */
+function reconPlace(m, kind) {
+  const comp = KIT.get(kind);
+  if (!comp) { studioStatus('构件不存在: ' + kind, 'err'); return; }
+  const u = m.u == null ? .5 : m.u;
+  const v = m.v == null ? .58 : m.v;
+  const g = unproject(u * W, v * H);
+  const x = Math.round(g.x * 4) / 4, y = Math.round(g.y * 4) / 4;
+
+  const obj = {
+    id: 'o' + (ED.nextId++),
+    kind,
+    x, y,
+    z: TERRAIN.heightAt(x, y),
+    rot: m.rot || 0,
+    scale: m.scale || 1,
+    params: KIT.defaults(kind),
+    seed: Math.floor(hash(ED.nextId * 17, 91) * 100000) + 1,
+    collision: comp.collision ? { ...comp.collision } : null,
+  };
+  ED.objects.push(obj);
+  ED_collectLights();
+  ED_refreshObjects();
+  ED_select(obj);
+  ED.dirty = true;
+  studioStatus(`已用「${comp.name}」替代「${m.name}」`);
 }
 
 async function reconGenerate(item, btn) {
@@ -327,3 +482,4 @@ function reconInit() {
 }
 
 reconInit();
+reconResume();

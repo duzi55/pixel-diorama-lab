@@ -20,6 +20,24 @@
     <canvas id="c"></canvas>
   </div>
 
+  <!-- 空态：进入编辑器先给一个起点，而不是塞一个默认场景 -->
+  <div class="ed-empty" id="ed-empty" hidden>
+    <div class="ed-empty-card">
+      <div class="ed-empty-kicker">场景编辑器</div>
+      <h1>从一个想法开始</h1>
+      <div class="ed-empty-input">
+        <input id="ed-start-input" placeholder="例：秋日山村，一条石板路穿过针叶林，路边有木屋和路灯" autocomplete="off">
+        <button id="ed-start-go" class="primary">生成</button>
+      </div>
+      <div class="ed-empty-hint" id="ed-start-hint">按 Enter 生成 · 约 30~90 秒 · 任务在后台跑，关掉页面也不会丢</div>
+      <div class="ed-empty-alt">
+        <button id="ed-start-image" class="ghost">🖼 从图片还原</button>
+        <select id="ed-start-scenes"><option value="">载入已保存…</option></select>
+        <button id="ed-start-blank" class="ghost">空白开始</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 浮动：左侧工具箱 -->
   <aside class="float-panel fp-left" id="fp-left">
     <div class="fp-head">
@@ -305,6 +323,7 @@ window.PP_W=520;window.PP_H=380;window.PP_SCALE=11;window.PP_ORIGIN_X=0;window.P
 <script src="editor-light.js"></script>
 <script src="editor.js"></script>
 <script src="editor-recon.js"></script>
+<script src="editor-start.js"></script>
 <script src="thinking-panel.js"></script>
 <script src="terrain-ui.js"></script>
 <script src="scene-import.js"></script>
